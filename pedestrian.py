@@ -9,6 +9,9 @@ class Pedestrian:
         self.pos = np.array(loc)
         self.vel = np.array([0, 0])
         self.pref_speed = 0
+        self.ccw = True
+        self.color = (255,255,255)  # for visualization
+        self.trajectory = []
 
 
     # def step(self, dt=0.1):  # crowd sim alg

@@ -18,14 +18,15 @@ class ObjectTracker:
 
         self.kf.P *= 1000
         # process noise
-        self.kf.Q = [[dt ** 5 / 20, 0, dt ** 4 / 8, 0],
-                     [0, dt ** 5 / 20, 0, dt ** 4 / 8],
-                     [dt ** 4 / 8, 0, dt ** 3 / 3, 0],
-                     [0, dt ** 4 / 8, 0, dt ** 3 / 3]]
+        self.kf.Q = np.array([[dt ** 5 / 20, 0, dt ** 4 / 8, 0],
+                              [0, dt ** 5 / 20, 0, dt ** 4 / 8],
+                              [dt ** 4 / 8, 0, dt ** 3 / 3, 0],
+                              [0, dt ** 4 / 8, 0, dt ** 3 / 3]]) * 100
 
         # measurement noise
-        self.kf.R *= np.eye(2, dtype=float) * 1
+        self.kf.R *= np.eye(2, dtype=float) * 0.1
         self.tentative = True
+        self.recent_detections_bool = []
         self.recent_detections = []
         self.coasted = False  # decayed
 
@@ -34,13 +35,11 @@ class ObjectTracker:
         self.tentative = True
 
     def update_recent_detections(self, val):
-        self.recent_detections.append(val)
-        if len(self.recent_detections) > 10:
-            self.recent_detections.pop(0)
-            if sum(self.recent_detections) < 5:
+        self.recent_detections_bool.append(val)
+        if len(self.recent_detections_bool) > 10:
+            self.recent_detections_bool.pop(0)
+            if sum(self.recent_detections_bool) < 5:
                 self.coasted = True
-
-
 
     def predict(self):
         self.kf.predict()
@@ -59,7 +58,8 @@ class ObjectTracker:
 class MultiObjectTracking:
     def __init__(self, max_dist):
         self.max_dist = max_dist
-        self.threshold = 0.5
+        self.segmentation_threshold = 0.5
+        self.detection_matching_threshold = 1.5
         self.tracks = []
 
     def segment(self, scan, sensor_pos):
@@ -67,24 +67,39 @@ class MultiObjectTracking:
         last_x = np.array([1000, 1000])
         for x in scan:
             if np.linalg.norm(x - sensor_pos) < (self.max_dist - 1):
-                if np.linalg.norm(x - last_x) > self.threshold:
+                if np.linalg.norm(x - last_x) > self.segmentation_threshold:
                     segments.append([])
 
-                segments[-1].append(x)
+                if np.isnan(x[0]):
+                    dummy_test = 1
+                else:
+                    segments[-1].append(x)
             last_x = x
         return segments
 
     def detect(self, segments, sensor_pos):
         detections = []
+        walls = []
         for seg in segments:
             if len(seg) < 2: continue
+            seg_np = np.array(seg)
+
             p = (seg[0] + seg[-1]) * 0.5
             q = seg[0] - seg[-1]
             q_prepend = np.array([q[1], -q[0]])
+
+            if np.linalg.norm(q) > 1:
+                # TODO: check line by using polyfit
+                # z, res, _, _, _ = np.polyfit(seg_np[:, 0], seg_np[:, 1], deg=2, full=True)
+                # if res < 0.001:
+                #     walls.append(seg)
+                walls.append(seg)
+                continue
+
             if np.dot(q_prepend, p - sensor_pos) < 0:
                 q_prepend = -q_prepend
-            detections.append(p + q_prepend * (1/np.linalg.norm(q_prepend)) * 0.1)
-        return detections
+            detections.append(p + q_prepend * (1/(np.linalg.norm(q_prepend)+1e-7) * 0.1))
+        return detections, walls
 
     def track(self, detections):
         # TODO| from Mathworks: www.mathworks.com/help/driving/examples/multiple-object-tracking-tutorial.html
@@ -109,25 +124,24 @@ class MultiObjectTracking:
             dists = np.stack(unassigned_detections) - track_i.kf.x[:2]
             dists = np.linalg.norm(dists, axis=1)
             min_ind = np.argmin(dists, axis=0)
-            matched = dists[min_ind] < self.threshold
-            track_i.update_recent_detections(matched)
-            if matched:
-                # TODO: assign detection to track_i
+            detection_is_matched = dists[min_ind] < self.detection_matching_threshold
+            track_i.update_recent_detections(detection_is_matched)
+            if detection_is_matched:
+                # FIXME: assign detection to track_i
                 track_i.update(unassigned_detections[min_ind])
-                # print('after update = ', track_i.kf.x)
-                # print('measurement = ', unassigned_detections[min_ind], '\n******************')
 
-                if len(unassigned_detections) == len(detections):
-                    print('*** dist = ', np.linalg.norm(unassigned_detections[min_ind] - track_i.kf.x[:2]))
+                # if len(unassigned_detections) == len(detections):
+                #     print('*** dist = ', np.linalg.norm(unassigned_detections[min_ind] - track_i.kf.x[:2]))
                 del unassigned_detections[min_ind]
 
+            track_i.recent_detections.append(track_i.kf.x[:2])
 
         for ii, det in enumerate(unassigned_detections):
-            print('create new track')
-            track_i = ObjectTracker()
+            # print('create new track')
+            track_i = ObjectTracker(0.1)
             track_i.init(det)
             track_i.tentative = True
-            track_i.recent_detections.append(True)
+            track_i.recent_detections_bool.append(True)
             self.tracks.append(track_i)
 
         # for track_i in self.tracks:

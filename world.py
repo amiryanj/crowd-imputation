@@ -10,6 +10,10 @@ class World:
         self.n_robots = n_robots
         self.objects = []
         self.robots = []
+        self.walkable = []  # would be a constant-matrix that is determined by the scenario maker
+        self.mapping_to_grid = []
+        self.inertia_coeff = 0.8  # larger, more inertia, zero means no inertia
+
         for ii in range(n_robots):
             robot = FollowBot()
             robot.world = self
@@ -25,8 +29,8 @@ class World:
             ped_i.world = self  # set world ptr
             self.crowds.append(ped_i)
             ped_i.radius = 0.25
-            ped_i.pref_speed = 2.8
-            self.sim.setAgentRadius(ii, ped_i.radius)
+            ped_i.pref_speed = np.random.uniform(1.2, 1.7)
+            self.sim.setAgentRadius(ii, ped_i.radius * 2)
             self.sim.setAgentSpeed(ii, ped_i.pref_speed)
             self.sim.setAgentNeighborDist(ii, 3)
             self.sim.setAgentTimeHorizon(ii, 2)
@@ -42,6 +46,9 @@ class World:
     def set_ped_position(self, index, pos):
         self.crowds[index].pos = np.array(pos, dtype=np.float)
         self.sim.setPosition(index, pos[0], pos[1])
+        self.crowds[index].trajectory.append(pos)
+        if len(self.crowds[index].trajectory) > 150:
+            del self.crowds[index].trajectory[0]
 
     def set_ped_velocity(self, index, vel):
         self.crowds[index].vel = np.array(vel, dtype=np.float)
@@ -68,10 +75,13 @@ class World:
             try:
                 p = self.sim.getCenterNext(ii)
                 v = self.sim.getCenterVelocityNext(ii)
-                self.set_ped_position(ii, p)
-                self.set_ped_velocity(ii, v)
+                # apply inertia
+                v_new = np.array(v) * (1-self.inertia_coeff) + self.crowds[ii].vel * self.inertia_coeff
+                p_new = self.crowds[ii].pos + v_new * dt
+                self.set_ped_position(ii, p_new)
+                self.set_ped_velocity(ii, v_new)
             except:
-                pass
+                print('exception occurred in running crowd sim')
 
         for jj, robot in enumerate(self.robots):
             self.robots[jj].step(dt)
