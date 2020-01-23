@@ -1,0 +1,57 @@
+<launch>
+
+<!-- 
+	followbot_sim // will simulate and publish Lidar data
+	crowd_bag  # params => xml file  // so far embedded in followbot_sim
+	DROW // LiDAR detection
+	fusion // rwth
+	tracking // rwth
+	crowd_synthesizer // publish array of crowd config
+	trajec_predictor // publish TEOM
+	motion_planning // publish motion package
+-->
+
+
+    <node pkg="followbot" type="node.py" name="followbot_sim" output="screen" />
+
+
+    <node pkg="drow_ros" type="node.py" name="drow_ros_front" output="screen">
+        <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_ros.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/drow_ros/topics_front.yaml"/>
+    </node>
+
+    <!-- Fuse Detection -->
+    <node pkg="detection_fusion" type="node.py" name="detection_fusion" output="screen">
+        <rosparam command="load" file="$(find followbot)/config/detection_fusion/detection_fusion.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/detection_fusion/topics.yaml"/>
+    </node>
+
+
+    <!-- Ground Plane
+    <arg name="base_footprint" default="/odom" />
+    <arg name="world_frame" default="/odom" />
+    <arg name="ground_plane" default="/ground_plane" />
+    <include file="$(find rwth_ground_plane)/launch/ground_plane_tf_based_fixed.launch">
+        <arg name="base_footprint" value="$(arg base_footprint)" />
+        <arg name="camera_frame" value="$(arg world_frame)" />
+        <arg name="ground_plane" value="$(arg ground_plane)" />
+        <arg name="rate" value="10.0" />
+    </include>  -->
+
+    <!-- Pedestrian Tracking -->
+    <arg name="camera_namespace" default="/camera"/>
+    <arg name="fused_detections" default="/detected_persons_synchronized"/>
+    <arg name="tracked_persons" default="/rwth_tracker/tracked_persons" />
+    <arg name="ground_plane" default="/spencer/sensors/rgbd_front_top/ground_plane" />
+    <include file="$(find rwth_pedestrian_tracking)/launch/pedestrian_tracking.launch">
+        <arg name="camera_namespace" value="$(arg camera_namespace)" />
+        <arg name="ground_plane" value="$(arg ground_plane)" />
+        <arg name="detections" value="$(arg fused_detections)" />
+        <arg name="pedestrian_array" value="/rwth_tracker/pedestrian_array" />
+        <arg name="pedestrian_image" value="/rwth_tracker/image" />
+        <arg name="tracked_persons" value="$(arg tracked_persons)" />
+        <arg name="queue_size" value="10" />
+    </include>
+
+
+</launch>
