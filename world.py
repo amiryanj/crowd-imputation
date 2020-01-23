@@ -1,11 +1,13 @@
-from pedestrian import Pedestrian
-from robot import FollowBot
-import crowdsim.crowdsim as crowdsim
 import numpy as np
+
+from followbot.pedestrian import Pedestrian
+from followbot.robot import FollowBot
+import followbot.crowdsim.crowdsim as crowdsim
 
 
 class World:
     def __init__(self, n_peds, n_robots, sim_model="helbing"):
+        self.pause = False
         self.n_peds = n_peds
         self.n_robots = n_robots
         self.objects = []

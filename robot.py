@@ -1,12 +1,14 @@
 import time
-from math import cos, sin, tan, tanh, acos
 import numpy as np
-from basics_2d import Circle
-from tracking import MultiObjectTracking
+from math import cos, sin, tan, tanh, acos
+
+from followbot.basics_2d import Circle
+from followbot.tracking import MultiObjectTracking
 
 
 class Robot:
     def __init__(self):
+        self.world = []  # pointer to world
         self.lidar = Lidar1d(self)
         self.tracker = MultiObjectTracking(self.lidar.max_dist)
         self.pos = [0, 0]
@@ -14,8 +16,8 @@ class Robot:
         self.vel = [0, 0]
         self.angular_vel = 0
         self.radius = 0.4
+
         self.leader_ped = []
-        self.world = []
         self.range_data = []
         self.occupancy_grid = np.empty(1)
         self.lidar_segments = []
@@ -134,3 +136,4 @@ class Lidar1d:
                 grid[u, v] = 0
 
         return scan, grid
+

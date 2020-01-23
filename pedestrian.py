@@ -1,4 +1,3 @@
-# import world
 import numpy as np
 
 

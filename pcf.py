@@ -1,8 +1,9 @@
+import os
 import numpy as np
 from math import sqrt
 from sklearn.metrics.pairwise import euclidean_distances
-from temp.parser_eth import ParserETH
-import os
+
+from followbot.temp.parser_eth import ParserETH
 
 
 def pcf(points, rng=np.arange(0.2, 10, 0.05), sigma=0.3):

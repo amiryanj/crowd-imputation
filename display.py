@@ -1,8 +1,10 @@
-import math, os
-from world import World
+import os
+import math
 import pygame
 import numpy as np
-import cv2
+
+from followbot.cv_importer import *
+from followbot.world import World
 
 BLACK_COLOR = (0, 0, 0)
 RED_COLOR = (255, 0, 0)
