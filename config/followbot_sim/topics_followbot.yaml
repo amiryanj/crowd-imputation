@@ -1,0 +1,10 @@
+publisher:
+    scan:
+        topic: /laser_front/scan
+        queue_size: 1
+        latch: false
+
+subscriber:
+    cmd:
+        topic: /robot/xxxx
+        queue_size: 1

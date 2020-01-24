@@ -19,7 +19,7 @@ class Robot:
 
         self.leader_ped = []
         self.range_data = []
-        self.occupancy_grid = np.empty(1)
+        self.occupancy_gridmap = np.empty(1)
         self.lidar_segments = []
         self.detections = []
         self.tracks = []
@@ -42,13 +42,18 @@ class Robot:
         else:
             self.angular_vel *= 0.5
 
+    # TODO: should be refactored, and moved to work with ROS
     def step(self, dt):
         t0 = time.time()
-        self.range_data, self.occupancy_grid = self.lidar.get_scan(self.world)
+        detected_points, self.occupancy_gridmap = self.lidar.get_scan(self.world)
+
+        self.range_data = np.sqrt(np.power(detected_points[:, 0] - self.pos[0], 2)
+                        + np.power(detected_points[:, 1] - self.pos[1], 2))
+
         t1 = time.time()
         # print("scan time = {}".format(t1-t0))
 
-        self.lidar_segments = self.tracker.segment(self.range_data, self.pos)
+        self.lidar_segments = self.tracker.segment(detected_points, self.pos)
         self.detections, walls = self.tracker.detect(self.lidar_segments, self.pos)
 
         self.tracks = self.tracker.track(self.detections)
@@ -56,8 +61,8 @@ class Robot:
             if track.coasted: continue
             px, py = track.position()
             u, v = self.world.mapping_to_grid(px, py)
-            if u < self.occupancy_grid.shape[0] and v < self.occupancy_grid.shape[1]:
-                self.occupancy_grid[u-2:u+2, v-2:v+2] = 1
+            if u < self.occupancy_gridmap.shape[0] and v < self.occupancy_gridmap.shape[1]:
+                self.occupancy_gridmap[u - 2:u + 2, v - 2:v + 2] = 1
 
         self.follow(self.leader_ped)
         self.pos += self.vel * dt
@@ -120,20 +125,20 @@ class Lidar1d:
         dists = all_intersects - cur_rays[0, 0]
         dists = np.linalg.norm(dists, axis=2)
         min_ind = np.argmin(dists, axis=0)
-        scan = np.stack([all_intersects[ind, ii] for ii, ind in enumerate(min_ind)])
+        scan_pnts = np.stack([all_intersects[ind, ii] for ii, ind in enumerate(min_ind)])
 
         # Occupancy Grid Map
-        grid = np.ones_like(world.walkable, dtype=np.float) * 0.5
+        occup_gridmap = np.ones_like(world.walkable, dtype=np.float) * 0.5
         for ii in range(len(cur_rays)):
             ray_i = cur_rays[ii]
-            scan_i = scan[ii]
+            scan_i = scan_pnts[ii]
             white_line = [self.robot_ptr.pos, scan_i]
             line_len = np.linalg.norm(white_line[1] - white_line[0])
 
             for z in np.arange(0, line_len/self.max_dist, 0.002):
                 px, py = z * ray_i[1] + (1-z) * ray_i[0]
                 u, v = world.mapping_to_grid(px, py)
-                grid[u, v] = 0
+                occup_gridmap[u, v] = 0
 
-        return scan, grid
+        return scan_pnts, occup_gridmap
 

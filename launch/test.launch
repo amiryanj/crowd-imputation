@@ -53,5 +53,7 @@
         <arg name="queue_size" value="10" />
     </include>
 
+  <node pkg="trajec_prediction" type="prediction_server.py" name="trajec_prediction" output="screen" />
+
 
 </launch>

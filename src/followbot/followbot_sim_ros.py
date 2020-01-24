@@ -20,14 +20,12 @@ def run_sim():
         counter += 1
         scenario.step(save=False)
 
-        scan = scenario.world.robots[0].range_data
         msg = LaserScan()
         print(msg)
         print('**********************')
 
         msg_time = rospy.get_rostime()
         print(msg_time)
-
 
         # FIXME: values just copy pasted from crowdbot_sim
         msg.header.stamp = Clock()
@@ -41,7 +39,7 @@ def run_sim():
         msg.scan_time = 0.0
         msg.range_min = 0.20000000298
         msg.range_max = 20.0
-        msg.ranges = []
+        msg.ranges = scenario.world.robots[0].range_data
         msg.intensities = []
 
         print(msg)
