@@ -11,5 +11,5 @@ publisher:
 
 subscriber:
     scan:
-        topic: /laser_front/scan
+        topic: /followbot/scan_front
         queue_size: 1

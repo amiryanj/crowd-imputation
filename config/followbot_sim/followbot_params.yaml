@@ -1,0 +1,7 @@
+simulation:
+    sim_model: 'powerlaw'
+    flow_2d: True
+    n_pedestrians: 40
+
+robot:
+    distance_to_leader: 1.0 # meter

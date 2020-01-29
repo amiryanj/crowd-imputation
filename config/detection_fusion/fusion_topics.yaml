@@ -5,7 +5,7 @@ publisher:
         latch: false
 
     detection_votes_image:
-        topic: /detection_votes_image
+        topic: /fusion/detection_votes_image
         queue_size: 1
         latch: false
 

@@ -13,7 +13,7 @@ class RobotNode:
     def __init__(self):
         self.nav_pub = rospy.Publisher('/navigation', Twist, queue_size=1)
         self.scan_subscriber = rospy.Subscriber('/laser_front/scan', LaserScan, self.callback_scan)
-        self.detection_subscriber = rospy.Subscriber('/detected_persons', DetectedPersons, self.callback_drow)
+        self.detection_subscriber = rospy.Subscriber('/drow/detected_persons_front', DetectedPersons, self.callback_drow)
         self.tracking_subscriber = []  # FIXME
 
     def callback_scan(self, data):

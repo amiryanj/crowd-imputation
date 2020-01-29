@@ -14,27 +14,25 @@
 
 
     <node pkg="followbot" type="simulator_node.py" name="followbot_sim" output="screen">
-        <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_ros.yaml"/>
-        <rosparam command="load" file="$(find followbot)/config/drow_ros/topics_front.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/followbot_sim/followbot_params.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/followbot_sim/followbot_topics.yaml"/>
     </node>
 
     <node pkg="followbot" type="robot_node.py" name="follow_bot" output="screen">
     </node>
 
     <node pkg="drow_ros" type="node.py" name="drow_ros_front" output="screen">
-        <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_ros.yaml"/>
-        <rosparam command="load" file="$(find followbot)/config/drow_ros/topics_front.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_params.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_topics.yaml"/>
     </node>
 
-    <!-- Fuse Detection -->
-    <!--
+    <!-- Fuse Detection
     <node pkg="detection_fusion" type="node.py" name="detection_fusion" output="screen">
-        <rosparam command="load" file="$(find followbot)/config/detection_fusion/detection_fusion.yaml"/>
-        <rosparam command="load" file="$(find followbot)/config/detection_fusion/topics.yaml"/>
-    </node>
-    -->
+        <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_params.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_topics.yaml"/>
+    </node> -->
 
-    <!-- Ground Plane
+    <!-- Ground Plane -->
     <arg name="base_footprint" default="/odom" />
     <arg name="world_frame" default="/odom" />
     <arg name="ground_plane" default="/ground_plane" />
@@ -43,14 +41,14 @@
         <arg name="camera_frame" value="$(arg world_frame)" />
         <arg name="ground_plane" value="$(arg ground_plane)" />
         <arg name="rate" value="10.0" />
-    </include>  -->
+    </include>
+
 
     <!-- Pedestrian Tracking -->
-    <!--
     <arg name="camera_namespace" default="/camera"/>
-    <arg name="fused_detections" default="/detected_persons_synchronized"/>
+    <!-- <arg name="fused_detections" default="/fusion/detected_persons_synchronized"/> -->
+    <arg name="fused_detections" default="/drow/detected_persons_front"/>
     <arg name="tracked_persons" default="/rwth_tracker/tracked_persons" />
-    <arg name="ground_plane" default="/spencer/sensors/rgbd_front_top/ground_plane" />
     <include file="$(find rwth_pedestrian_tracking)/launch/pedestrian_tracking.launch">
         <arg name="camera_namespace" value="$(arg camera_namespace)" />
         <arg name="ground_plane" value="$(arg ground_plane)" />
@@ -59,7 +57,7 @@
         <arg name="pedestrian_image" value="/rwth_tracker/image" />
         <arg name="tracked_persons" value="$(arg tracked_persons)" />
         <arg name="queue_size" value="10" />
-    </include>  -->
+    </include>
 
     <!--
     <node pkg="trajec_prediction" type="trajec_prediction_server.py" name="trajec_prediction" output="screen" />
