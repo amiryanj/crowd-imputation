@@ -1,7 +1,7 @@
 import numpy as np
 import time
 
-from followbot.basics_2d import Line, Circle
+from followbot.basics_geometry import Line, Circle
 from followbot.world import World
 from followbot.display import *
 
@@ -87,7 +87,6 @@ class RoundTrip:
 
         # set the Robot position just behind first ped
         ped0_pos = self.world.crowds[0].pos
-        print(ped0_pos)
         self.world.set_robot_position(0, [ped0_pos[0] - 1.5, ped0_pos[1]])
         self.world.set_robot_leader(0, 0)
         self.world.sim.setTime(0)

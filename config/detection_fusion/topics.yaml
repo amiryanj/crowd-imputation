@@ -1,6 +1,6 @@
 publisher:
     detections:
-        topic: /detected_persons_synchronized
+        topic: /fusion/detected_persons_synchronized
         queue_size: 1
         latch: false
 
@@ -11,7 +11,7 @@ publisher:
 
 subscriber:
     detections0:
-        topic: /detected_persons_front
+        topic: /drow/detected_persons_front
         queue_size: 1
 
 #    detections1:

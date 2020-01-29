@@ -5,7 +5,7 @@ print(os.getcwd())
 
 from followbot.display import *
 from followbot.world import World
-from followbot.basics_2d import Line, Circle
+from followbot.basics_geometry import Line, Circle
 from followbot.pedestrian import Pedestrian
 from followbot.roundtrip import RoundTrip
 

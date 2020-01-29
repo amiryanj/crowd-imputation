@@ -1,6 +1,6 @@
 import numpy as np
 from math import cos, sin, tan, tanh, acos
-from followbot.basics_2d import Circle
+from followbot.basics_geometry import Circle
 
 
 class LiDAR2D:
@@ -10,10 +10,10 @@ class LiDAR2D:
         self.range_max = 8      # meter (actually this is the range typical of the sensor)
         # self.range_max = 25   #
 
-        self.fov = 270          # in degree
-        self.resolution = 3     # per degree
-        self.min_angle_radian = lambda: - self.fov / 2 * np.pi / 180.
-        self.max_angle_radian = lambda: + self.fov / 2 * np.pi / 180.
+        self.fov = 340          # in degree
+        self.resolution = 1     # per degree
+        self.angle_min_radian = lambda: - self.fov / 2 * np.pi / 180.
+        self.angle_max_radian = lambda: + self.fov / 2 * np.pi / 180.
         self.angle_increment_radian = lambda: (1 / self.resolution) * np.pi / 180
 
         self.scanning_freq = 15.  # Hz
@@ -37,6 +37,7 @@ class LiDAR2D:
         # scan results
         self.last_range_pnts = []
         self.last_range_data = []
+        self.last_intensities = []
         self.last_occupancy_gridmap = []
 
     def scan(self, world, update_gridmap=False, walkable_area=[]):
@@ -56,11 +57,14 @@ class LiDAR2D:
             intersect_pts = np.stack([res * intersect_pts_[ii] + (1-res) * self.range_max for ii, res in enumerate(results)])
             all_intersects.append(intersect_pts)
 
-        for ped in world.crowds:
-            dist = np.linalg.norm(ped.pos - self.robot_ptr.pos) - ped.radius
+        for kk, ped in enumerate(world.crowds):
+            dist = np.linalg.norm(ped.pos - self.robot_ptr.pos) - ped.radius - self.robot_ptr.radius
             if dist > self.range_max:
                 continue
-            results, intersect_pts_ = Circle(ped.pos, ped.radius).intersect_many(cur_rays)
+            ped_geometry = ped.geometry()
+            results, intersect_pts_ = ped_geometry.intersect_many(cur_rays)
+            # if kk == 0:
+            #     print(intersect_pts_)
             is_not_nan = 1 - np.any(np.isnan(intersect_pts_), axis=1)
             results = np.bitwise_and(results, is_not_nan)
             intersect_pts = np.stack([intersect_pts_[ii] * r + 100000 * (1 - r) for ii, r in enumerate(results)])
@@ -73,6 +77,8 @@ class LiDAR2D:
         self.last_range_pnts = np.stack([all_intersects[ind, ii] for ii, ind in enumerate(min_ind)])
         self.last_range_data = np.sqrt(np.power(self.last_range_pnts[:, 0] - self.robot_ptr.pos[0], 2)
                                      + np.power(self.last_range_pnts[:, 1] - self.robot_ptr.pos[1], 2))
+
+        self.last_intensities = np.zeros_like(self.last_range_data)
 
         if update_gridmap:
             self.last_occupancy_gridmap = np.ones_like(walkable_area, dtype=np.float) * 0.5

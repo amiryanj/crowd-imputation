@@ -104,7 +104,7 @@ class Display:
                     self.lines(track.recent_detections, ORANGE_COLOR, 1)
 
             if len(robot.lidar.last_occupancy_gridmap) > 1:
-                self.grid_map = np.rot90(robot.occupancy_gridmap.copy().astype(float))  # + self.world.walkable * 0.5)
+                self.grid_map = np.rot90(robot.lidar.last_occupancy_gridmap.copy().astype(float))  # + self.world.walkable * 0.5)
                 cv2.namedWindow('grid', cv2.WINDOW_NORMAL)
                 cv2.imshow('grid', self.grid_map)
                 cv2.waitKey(2)

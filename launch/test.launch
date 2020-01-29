@@ -13,17 +13,18 @@
 -->
 
 
-    <node pkg="followbot" type="simulator_node.py" name="followbot_sim" output="screen" />
+    <node pkg="followbot" type="simulator_node.py" name="followbot_sim" output="screen">
+        <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_ros.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/drow_ros/topics_front.yaml"/>
+    </node>
 
-    <node pkg="followbot" type="robot_node.py" name="follow_bot" output="screen" />
+    <node pkg="followbot" type="robot_node.py" name="follow_bot" output="screen">
+    </node>
 
-    <!--
     <node pkg="drow_ros" type="node.py" name="drow_ros_front" output="screen">
         <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_ros.yaml"/>
         <rosparam command="load" file="$(find followbot)/config/drow_ros/topics_front.yaml"/>
     </node>
-    -->
-
 
     <!-- Fuse Detection -->
     <!--

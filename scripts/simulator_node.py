@@ -21,11 +21,8 @@ def run_sim():
         scenario.step(save=False)
 
         msg = LaserScan()
-        print(msg)
-        print('**********************')
-
-        msg_time = rospy.get_rostime()
-        print(msg_time)
+        # msg_time = rospy.get_rostime()
+        # print(msg_time)
 
         # FIXME: values just copy pasted from crowdbot_sim
         robot = scenario.world.robots[0]
@@ -35,17 +32,18 @@ def run_sim():
         msg.header.seq = counter
         msg.header.frame_id = "frontLaser"
 
-        msg.range_min = robot.lidar.range_max  # 0.05m
+        msg.range_min = robot.lidar.range_min  # 0.05m
         msg.range_max = robot.lidar.range_max  # 8m => SICK TiM571
-        msg.angle_min = robot.lidar.min_angle_radian
-        msg.angle_max = robot.lidar.max_angle_radian
-        msg.angle_increment = robot.lidar.angle_increment_radian
-        msg.time_increment = 2.31481481023e-05
-        msg.scan_time = 0.0
-        msg.ranges = robot.range_data
-        msg.intensities = []
+        msg.angle_min = robot.lidar.angle_min_radian()
+        msg.angle_max = robot.lidar.angle_max_radian()
+        msg.angle_increment = robot.lidar.angle_increment_radian()
+        msg.time_increment = robot.lidar.time_increment()
 
-        print(msg)
+        msg.scan_time = 0.0
+        msg.ranges = robot.lidar.last_range_data
+        msg.intensities = robot.lidar.last_intensities
+
+        # print(msg)
         print('**********************')
         # exit(1)
 

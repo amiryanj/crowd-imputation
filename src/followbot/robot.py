@@ -2,7 +2,7 @@ import time
 import numpy as np
 from math import cos, sin, tan, tanh, acos
 
-from followbot.basics_2d import Circle
+# from followbot.basics_geometry import Circle
 from followbot.tracking import MultiObjectTracking
 from followbot.lidar2d import LiDAR2D
 
@@ -33,7 +33,7 @@ class MyRobot:
             self.vel = vec_to_robot * (np.linalg.norm(ped.vel) / dist)
 
         delta_orien = np.arctan2(vec_to_robot[1], vec_to_robot[0]) - self.orien
-        print(delta_orien / np.pi)
+        # print(delta_orien / np.pi)
         if delta_orien >  np.pi: delta_orien -= 2 * np.pi
         if delta_orien < -np.pi: delta_orien += 2 * np.pi
 
@@ -45,7 +45,7 @@ class MyRobot:
     # TODO: should be refactored, and moved to work with ROS
     def step(self, dt):
         # t0 = time.time()
-        self.lidar.scan(self.world)
+        self.lidar.scan(self.world, False, walkable_area=self.world.walkable)
         # self.detected_points, self.occupancy_gridmap = []
         # self.lidar.last_range_pnts , self.lidar.last_range_data, self.lidar.last_occupancy_gridmap
 

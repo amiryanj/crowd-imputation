@@ -1,6 +1,14 @@
 import numpy as np
 
 
+def rotate(p, angle, origin=(0, 0)):
+    R = np.array([[np.cos(angle), -np.sin(angle)],
+                  [np.sin(angle),  np.cos(angle)]])
+    o = np.atleast_2d(origin)
+    p = np.atleast_2d(p)
+    return np.squeeze((R @ (p.T-o.T) + o.T).T)
+
+
 def intersect_lineseg_lineseg(line1, line2):
     p0_x = line1[0, 0]
     p0_y = line1[0, 1]
@@ -91,9 +99,9 @@ def intersect_line_lines(line1, lines):
     return results, np.stack([X, Y])
 
 
-def intersect_circle_line(circle, line):
-    Q = circle.center  # Centre of circle
-    r = circle.radius  # Radius of circle
+def intersect_circle_line(circle_center, circle_radius, line):
+    Q = circle_center  # Centre of circle
+    r = circle_radius  # Radius of circle
     P1 = line[0]  # Start of line segment
     V = line[1] - P1  # Vector along line segment
 
@@ -116,9 +124,9 @@ def intersect_circle_line(circle, line):
     return True, P1 + t * V
 
 
-def intersect_circle_lines(circle, lines):
-    Q = circle.center  # Centre of circle
-    r = circle.radius  # Radius of circle
+def intersect_circle_lines(circle_center, circle_radius, lines):
+    Q = circle_center  # Centre of circle
+    r = circle_radius  # Radius of circle
     P1 = lines[:, 0, :]  # Start of line segment
     V = lines[:, 1, :] - P1  # Vector along line segment
 
@@ -154,8 +162,47 @@ class Circle:
         self.center = center
         self.radius = radius
 
+    def translate(self, d):
+        self.center = self.center + d
+
     def intersect(self, line):
-        return intersect_circle_line(self, line)
+        return intersect_circle_line(self.center, self.radius, line)
 
     def intersect_many(self, lines):
-        return intersect_circle_lines(self, lines)
+        return intersect_circle_lines(self.center, self.radius, lines)
+
+
+class DoubleCircle:  # to represent two legs of a pedestrian
+    def __init__(self, center1, center2, radius):
+        self.center1 = center1
+        self.center2 = center2
+        self.radius = radius
+
+    def translate(self, d):
+        self.center1 = self.center1 + d
+        self.center2 = self.center2 + d
+
+    def intersect(self, line):
+        circle1_res, circle1_intpnt = intersect_circle_line(self.center1, self.radius, line)
+        circle2_res, circle2_intpnt = intersect_circle_line(self.center2, self.radius, line)
+        if circle1_res and np.linalg.norm(circle1_intpnt - line[0]) < np.linalg.norm(circle2_intpnt - line[0]):
+            return True, circle1_intpnt
+        else:
+            return circle2_res, circle2_intpnt
+
+    def intersect_many(self, lines):
+        circle1_ress, circle1_intpnts = intersect_circle_lines(self.center1, self.radius, lines)
+        circle2_ress, circle2_intpnts = intersect_circle_lines(self.center2, self.radius, lines)
+
+        final_ress, final_intpnts = circle2_ress.copy(), circle2_intpnts.copy()
+        line_0 = np.array(lines[0][0])
+        for ii in range(len(lines)):
+            if circle1_ress[ii] and ((not circle2_ress[ii]) or (circle2_ress[ii] and
+                                                                (np.linalg.norm(circle1_intpnts[ii] - line_0) < np.linalg.norm(circle2_intpnts[ii] - line_0)))):
+                final_ress[ii] = True
+                final_intpnts[ii] = circle1_intpnts[ii]
+        return final_ress, final_intpnts
+
+
+
+
