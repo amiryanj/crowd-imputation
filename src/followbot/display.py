@@ -84,7 +84,7 @@ class Display:
             u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
             self.line(robot.pos, robot.pos + [u, v], GREEN_COLOR, 3)
             # draw Lidar output
-            for pnt in robot.range_data:
+            for pnt in robot.lidar.last_range_pnts:
                 if math.isnan(pnt[0]) or math.isnan(pnt[1]):
                     print('Nan Value in Lidar')
                     exit(1)
@@ -94,8 +94,8 @@ class Display:
             for seg in robot.lidar_segments:
                 self.line(seg[0], seg[-1], BLUE_LIGHT, 3)
 
-            for pos in robot.detections:
-                self.circle(pos, 6, GREEN_COLOR, 2)
+            for pos in robot.lidar.last_range_pnts:
+                self.circle(pos, 2, GREEN_COLOR, 2)
 
             for track in robot.tracks:
                 if track.coasted: continue
@@ -103,8 +103,8 @@ class Display:
                 if len(track.recent_detections) >= 2:
                     self.lines(track.recent_detections, ORANGE_COLOR, 1)
 
-            if len(robot.occupancy_grid) > 1:
-                self.grid_map = np.rot90(robot.occupancy_grid.copy().astype(float))  # + self.world.walkable * 0.5)
+            if len(robot.lidar.last_occupancy_gridmap) > 1:
+                self.grid_map = np.rot90(robot.occupancy_gridmap.copy().astype(float))  # + self.world.walkable * 0.5)
                 cv2.namedWindow('grid', cv2.WINDOW_NORMAL)
                 cv2.imshow('grid', self.grid_map)
                 cv2.waitKey(2)

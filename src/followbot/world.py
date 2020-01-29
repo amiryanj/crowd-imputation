@@ -1,7 +1,7 @@
 import numpy as np
 
 from followbot.pedestrian import Pedestrian
-from followbot.robot import FollowBot
+from followbot.robot import MyRobot
 import followbot.crowdsim.crowdsim as crowdsim
 
 
@@ -17,7 +17,7 @@ class World:
         self.inertia_coeff = 0.8  # larger, more inertia, zero means no inertia
 
         for ii in range(n_robots):
-            robot = FollowBot()
+            robot = MyRobot()
             robot.world = self
             self.robots.append(robot)
 

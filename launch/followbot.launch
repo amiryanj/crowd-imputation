@@ -44,32 +44,43 @@
     <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/yolo_to_3d/topics.yaml"/>
   </node>  -->
 
-  <!-- Lidar Detection -->
+  <!-- Lidar Detection
   <node pkg="drow_ros" type="node.py" name="drow_ros_front" output="screen">
     <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/drow_ros/drow_ros.yaml"/>
     <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/drow_ros/topics_front.yaml"/>
   </node>
+    -->
 
-  <!-- Fuse Detection -->
+  <!-- Fuse Detection
   <node pkg="detection_fusion" type="node.py" name="detection_fusion" output="screen">
     <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/detection_fusion/detection_fusion.yaml"/>
     <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/detection_fusion/topics.yaml"/>
   </node>
+    -->
 
-  <!-- Pedestrian Tracking -->
-  <arg name="camera_namespace" default="/camera"/>
-  <arg name="fused_detections" default="/detected_persons_synchronized"/>
-  <arg name="tracked_persons" default="/rwth_tracker/tracked_persons" />
-  <include file="$(find rwth_pedestrian_tracking)/launch/pedestrian_tracking.launch">
-    <arg name="camera_namespace" value="$(arg camera_namespace)" />
-    <arg name="ground_plane" value="$(arg ground_plane)" />
-    <arg name="detections" value="$(arg fused_detections)" />
-    <arg name="pedestrian_array" value="/rwth_tracker/pedestrian_array" />
-    <arg name="pedestrian_image" value="/rwth_tracker/image" />
-    <arg name="tracked_persons" value="$(arg tracked_persons)" />
-    <arg name="queue_size" value="10" />
-  </include>
+  <!-- Pedestrian Tracking
+  <arg name="config_file" default="$(find rwth_pedestrian_tracking)/config/config_Asus.inp" />
+    <arg name="queue_size" default="10" />
+    <arg name="camera_namespace" default="/spencer/sensors/rgbd_front_top" />
+    <arg name="ground_plane" default="/spencer/sensors/rgbd_front_top/ground_plane" />
+    <arg name="detections" default="/spencer/perception_internal/people_detection/rgbd_front_top/upper_body_detector/detections" />
+    <arg name="visual_odometry" default="/spencer/sensors/rgbd_front_top/visual_odometry/motion_matrix" />
+    <arg name="pedestrian_array" default="/spencer/perception_internal/people_tracking/rgbd_front_top/rwth/pedestrian_array" />
+    <arg name="pedestrian_image" default="/spencer/perception_internal/people_tracking/rgbd_front_top/rwth/image" />
+    <arg name="tracked_persons" default="/spencer/perception_internal/people_tracking/rgbd_front_top/tracked_persons" />
 
+    <node pkg="rwth_pedestrian_tracking" type="pedestrian_tracking" name="pedestrian_tracking" output="screen">
+        <param name="config_file" value="$(arg config_file)" type="string"/>
+        <param name="queue_size" value="$(arg queue_size)" type="int"/>
+        <param name="camera_namespace" value="$(arg camera_namespace)" type="string"/>
+        <param name="ground_plane" value="$(arg ground_plane)" type="string"/>
+        <param name="visual_odometry" value="$(arg visual_odometry)" type="string"/>
+        <param name="detections" value="$(arg detections)" type="string"/>
+        <param name="pedestrian_array" value="$(arg pedestrian_array)" type="string"/>
+        <param name="pedestrian_image" value="$(arg pedestrian_image)" type="string"/>
+        <param name="tracked_persons" value="$(arg tracked_persons)" type="string"/>
+    </node>
+-->
 
 
   <!-- Person Trajectories -->

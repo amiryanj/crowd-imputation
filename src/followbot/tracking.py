@@ -55,8 +55,8 @@ class ObjectTracker:
 
 
 class MultiObjectTracking:
-    def __init__(self, max_dist):
-        self.max_dist = max_dist
+    def __init__(self, range_max_):
+        self.range_max = range_max_
         self.segmentation_threshold = 0.5
         self.detection_matching_threshold = 1.5
         self.tracks = []
@@ -65,7 +65,7 @@ class MultiObjectTracking:
         segments = []
         last_x = np.array([1000, 1000])
         for x in scan:
-            if np.linalg.norm(x - sensor_pos) < (self.max_dist - 1):
+            if np.linalg.norm(x - sensor_pos) < (self.range_max - 1):
                 if np.linalg.norm(x - last_x) > self.segmentation_threshold:
                     segments.append([])
 

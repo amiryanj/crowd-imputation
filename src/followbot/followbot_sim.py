@@ -1,10 +1,11 @@
 import time
 import numpy as np
+import os
+print(os.getcwd())
 
 from followbot.display import *
 from followbot.world import World
 from followbot.basics_2d import Line, Circle
-from followbot.robot import FollowBot
 from followbot.pedestrian import Pedestrian
 from followbot.roundtrip import RoundTrip
 

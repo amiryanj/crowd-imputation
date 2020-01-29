@@ -28,18 +28,21 @@ def run_sim():
         print(msg_time)
 
         # FIXME: values just copy pasted from crowdbot_sim
+        robot = scenario.world.robots[0]
+
         msg.header.stamp = Clock()
         msg.header.stamp = rospy.Time(0, 0)
         msg.header.seq = counter
         msg.header.frame_id = "frontLaser"
-        msg.angle_min = -2.35619449615
-        msg.angle_max =  2.35619449615
-        msg.angle_increment = 0.00436332309619
+
+        msg.range_min = robot.lidar.range_max  # 0.05m
+        msg.range_max = robot.lidar.range_max  # 8m => SICK TiM571
+        msg.angle_min = robot.lidar.min_angle_radian
+        msg.angle_max = robot.lidar.max_angle_radian
+        msg.angle_increment = robot.lidar.angle_increment_radian
         msg.time_increment = 2.31481481023e-05
         msg.scan_time = 0.0
-        msg.range_min = 0.20000000298
-        msg.range_max = 20.0
-        msg.ranges = scenario.world.robots[0].range_data
+        msg.ranges = robot.range_data
         msg.intensities = []
 
         print(msg)
@@ -59,7 +62,11 @@ def clock_callback():
 
 
 if __name__ == '__main__':
+    rospy.init_node('followbot_sim')
+    print('followbot simulator node is running ...')
     try:
         run_sim()
     except rospy.ROSInterruptException:
         pass
+    rospy.spin()
+

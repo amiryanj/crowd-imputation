@@ -2,6 +2,7 @@
 
 <!-- 
 	followbot_sim // will simulate and publish Lidar data
+	followbot
 	crowd_bag  # params => xml file  // so far embedded in followbot_sim
 	DROW // LiDAR detection
 	fusion // rwth
@@ -12,20 +13,25 @@
 -->
 
 
-    <node pkg="followbot" type="node.py" name="followbot_sim" output="screen" />
+    <node pkg="followbot" type="simulator_node.py" name="followbot_sim" output="screen" />
 
+    <node pkg="followbot" type="robot_node.py" name="follow_bot" output="screen" />
 
+    <!--
     <node pkg="drow_ros" type="node.py" name="drow_ros_front" output="screen">
         <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_ros.yaml"/>
         <rosparam command="load" file="$(find followbot)/config/drow_ros/topics_front.yaml"/>
     </node>
+    -->
+
 
     <!-- Fuse Detection -->
+    <!--
     <node pkg="detection_fusion" type="node.py" name="detection_fusion" output="screen">
         <rosparam command="load" file="$(find followbot)/config/detection_fusion/detection_fusion.yaml"/>
         <rosparam command="load" file="$(find followbot)/config/detection_fusion/topics.yaml"/>
     </node>
-
+    -->
 
     <!-- Ground Plane
     <arg name="base_footprint" default="/odom" />
@@ -39,6 +45,7 @@
     </include>  -->
 
     <!-- Pedestrian Tracking -->
+    <!--
     <arg name="camera_namespace" default="/camera"/>
     <arg name="fused_detections" default="/detected_persons_synchronized"/>
     <arg name="tracked_persons" default="/rwth_tracker/tracked_persons" />
@@ -51,9 +58,13 @@
         <arg name="pedestrian_image" value="/rwth_tracker/image" />
         <arg name="tracked_persons" value="$(arg tracked_persons)" />
         <arg name="queue_size" value="10" />
-    </include>
+    </include>  -->
 
-  <node pkg="trajec_prediction" type="prediction_server.py" name="trajec_prediction" output="screen" />
+    <!--
+    <node pkg="trajec_prediction" type="trajec_prediction_server.py" name="trajec_prediction" output="screen" />
+    <node pkg="trajec_prediction" type="crowd_synthesis_server.py" name="crowd_synthesis" output="screen" />
+    -->
+
 
 
 </launch>
