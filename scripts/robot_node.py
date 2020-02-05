@@ -2,7 +2,7 @@
 
 import rospy
 from sensor_msgs.msg import LaserScan
-from frame_msgs.msg import DetectedPerson, DetectedPersons
+from frame_msgs.msg import DetectedPerson, DetectedPersons, TrackedPersons
 from geometry_msgs.msg import Twist
 from rosgraph_msgs.msg import Clock
 from crowd_prediction.srv \
@@ -14,7 +14,11 @@ class RobotNode:
         self.nav_pub = rospy.Publisher('/navigation', Twist, queue_size=1)
         self.scan_subscriber = rospy.Subscriber('/laser_front/scan', LaserScan, self.callback_scan)
         self.detection_subscriber = rospy.Subscriber('/drow/detected_persons_front', DetectedPersons, self.callback_drow)
-        self.tracking_subscriber = []  # FIXME
+        self.tracking_subscriber = rospy.Subscriber('/rwth_tracker/tracked_persons', TrackedPersons, self.callback_tracking)
+        # /rwth_tracker/pedestrian_array [rwth_perception_people_msgs/PedestrianTrackingArray]
+        # /rwth_tracker/tracked_persons [frame_msgs/TrackedPersons]
+
+        self.tracks = dict()
 
     def callback_scan(self, data):
         print('received scan data')
@@ -23,7 +27,12 @@ class RobotNode:
         print('received drow data')
 
     def callback_tracking(self, track_msg):
-        print('received tracking data')
+        for track in track_msg.tracks:
+            if not track.track_id in self.tracks:
+                self.tracks[track.track_id] = []
+            self.tracks[track.track_id].append([track.pose.pose.position.x, track.pos.position.y])
+            print(self.tracks)
+            return
 
         try:
             # TODO: call crowd_synthesis()

@@ -1,109 +1,69 @@
 <launch>
-  <arg name="trt" default="false" />
 
-  <!-- Ground Plane 
-  <arg name="base_footprint" default="/odom" />
-  <arg name="world_frame" default="/odom" />
-  <arg name="ground_plane" default="/ground_plane" />
-  <include file="$(find rwth_ground_plane)/launch/ground_plane_tf_based_fixed.launch">
-    <arg name="base_footprint" value="$(arg base_footprint)" />
-    <arg name="camera_frame" value="$(arg world_frame)" />
-    <arg name="ground_plane" value="$(arg ground_plane)" />
-    <arg name="rate" value="10.0" />
-  </include> -->
-
-  <!-- YOLO (with TensorRT) 
-  <group if="$(arg trt)">
-    <node pkg="trtyolo" type="tensorrt_yolo" name= "trt_yolo_kinect" output="screen">
-        <param name="engine_path" value="$(find trtyolo)/tensorRT_yolo/yolov3_fp16.engine" type="string"/>
-        <param name="detect_threshold" value="0.7"/>
-        <param name="nms_threshold" value="0.45"/>
-        <param name="bounding_boxes" value="/darknet_ros/bounding_boxes" type="string"/>
-        <param name="image" value="/camera/color/image_raw" type="string"/>
-        <param name="tensorRT_yolo_out_image" value="/darknet_ros/detection_image" type="string"/>
-    </node>
-  </group>  -->
-
-  <!-- YOLO (without TensorRT) 
-  <group unless="$(arg trt)">
-    <arg name="yolo_version" default="v3"/>
-    <arg name="yolo_weights_path" default="$(find darknet_ros)/yolo_network_config/weights"/>
-    <arg name="yolo_config_path" default="$(find darknet_ros)/yolo_network_config/cfg"/>
-    <node pkg="darknet_ros" type="darknet_ros" name="darknet_ros" output="screen" launch-prefix="" respawn="true">
-      <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/darknet_ros/darknet_ros.yaml"/>
-      <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/darknet_ros/topics.yaml"/>
-      <rosparam command="load" file="$(find darknet_ros)/config/yolo$(arg yolo_version).yaml"/>
-      <param name="weights_path"          value="$(arg yolo_weights_path)" />
-      <param name="config_path"           value="$(arg yolo_config_path)" />
-    </node>
-  </group>  -->
-
-  <!-- Camera Detection 
-  <node pkg="yolo_to_3d" type="node.py" name="yolo_to_3d" output="screen">
-    <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/yolo_to_3d/yolo_to_3d.yaml"/>
-    <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/yolo_to_3d/topics.yaml"/>
-  </node>  -->
-
-  <!-- Lidar Detection
-  <node pkg="drow_ros" type="node.py" name="drow_ros_front" output="screen">
-    <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/drow_ros/drow_ros.yaml"/>
-    <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/drow_ros/topics_front.yaml"/>
-  </node>
-    -->
-
-  <!-- Fuse Detection
-  <node pkg="detection_fusion" type="node.py" name="detection_fusion" output="screen">
-    <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/detection_fusion/detection_fusion.yaml"/>
-    <rosparam command="load" file="$(find rwth_crowdbot_launch)/config/detection_fusion/topics.yaml"/>
-  </node>
-    -->
-
-  <!-- Pedestrian Tracking
-  <arg name="config_file" default="$(find rwth_pedestrian_tracking)/config/config_Asus.inp" />
-    <arg name="queue_size" default="10" />
-    <arg name="camera_namespace" default="/spencer/sensors/rgbd_front_top" />
-    <arg name="ground_plane" default="/spencer/sensors/rgbd_front_top/ground_plane" />
-    <arg name="detections" default="/spencer/perception_internal/people_detection/rgbd_front_top/upper_body_detector/detections" />
-    <arg name="visual_odometry" default="/spencer/sensors/rgbd_front_top/visual_odometry/motion_matrix" />
-    <arg name="pedestrian_array" default="/spencer/perception_internal/people_tracking/rgbd_front_top/rwth/pedestrian_array" />
-    <arg name="pedestrian_image" default="/spencer/perception_internal/people_tracking/rgbd_front_top/rwth/image" />
-    <arg name="tracked_persons" default="/spencer/perception_internal/people_tracking/rgbd_front_top/tracked_persons" />
-
-    <node pkg="rwth_pedestrian_tracking" type="pedestrian_tracking" name="pedestrian_tracking" output="screen">
-        <param name="config_file" value="$(arg config_file)" type="string"/>
-        <param name="queue_size" value="$(arg queue_size)" type="int"/>
-        <param name="camera_namespace" value="$(arg camera_namespace)" type="string"/>
-        <param name="ground_plane" value="$(arg ground_plane)" type="string"/>
-        <param name="visual_odometry" value="$(arg visual_odometry)" type="string"/>
-        <param name="detections" value="$(arg detections)" type="string"/>
-        <param name="pedestrian_array" value="$(arg pedestrian_array)" type="string"/>
-        <param name="pedestrian_image" value="$(arg pedestrian_image)" type="string"/>
-        <param name="tracked_persons" value="$(arg tracked_persons)" type="string"/>
-    </node>
+<!-- 
+	followbot_sim // will simulate and publish Lidar data
+	followbot
+	crowd_bag  # params => xml file  // so far embedded in followbot_sim
+	DROW // LiDAR detection
+	fusion // rwth
+	tracking // rwth
+	crowd_synthesizer // publish array of crowd config
+	trajec_predictor // publish TEOM
+	motion_planning // publish motion package
 -->
 
 
-  <!-- Person Trajectories -->
-<!--
-  <arg name="person_trajectories" default="/rwth_tracker/person_trajectories" />
-  <arg name="camera_frame" default="/camera_color_optical_frame" />
-  <include file="$(find rwth_pedestrian_trajectories)/launch/pedestrian_trajectories.launch">
-    <arg name="tracked_persons" value="$(arg tracked_persons)" />
-    <arg name="person_trajectories" value="$(arg person_trajectories)" />
-    <arg name="queue_size" value="10" />
-    <arg name="camera_frame" value="$(arg camera_frame)" />
-  </include>
- -->
+    <node pkg="followbot" type="simulator_node.py" name="followbot_sim" output="screen">
+        <rosparam command="load" file="$(find followbot)/config/followbot_sim/followbot_params.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/followbot_sim/followbot_topics.yaml"/>
+    </node>
 
-  <!-- Back projection -->
-<!--   <arg name="max_frame" default="20" />
-  <arg name="backproject_visual_image" default="/backproject_visual_image" />
-  <node pkg="yoloconvertor" type="backprojection_pinhole" name= "backproject_pinhole" output="screen">
-    <param name="tracked_persons" value="$(arg tracked_persons)" type="string"/>
-    <param name="world_frame" value="$(arg world_frame)" type="string"/>
-    <param name="backproject_visual_image" value="$(arg backproject_visual_image)" type="string"/>
-    <param name="person_trajectories" value="$(arg person_trajectories)" />
-    <param name="max_frame" value="$(arg max_frame)" type="int"/>
-  </node>
- -->
+    <node pkg="followbot" type="robot_node.py" name="follow_bot" output="screen">
+    </node>
+
+    <node pkg="drow_ros" type="node.py" name="drow_ros_front" output="screen">
+        <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_params.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_topics.yaml"/>
+    </node>
+
+    <!-- Fuse Detection
+    <node pkg="detection_fusion" type="node.py" name="detection_fusion" output="screen">
+        <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_params.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_topics.yaml"/>
+    </node> -->
+
+    <!-- Ground Plane -->
+    <arg name="base_footprint" default="/odom" />
+    <arg name="world_frame" default="/odom" />
+    <arg name="ground_plane" default="/ground_plane" />
+    <include file="$(find rwth_ground_plane)/launch/ground_plane_tf_based_fixed.launch">
+        <arg name="base_footprint" value="$(arg base_footprint)" />
+        <arg name="camera_frame" value="$(arg world_frame)" />
+        <arg name="ground_plane" value="$(arg ground_plane)" />
+        <arg name="rate" value="10.0" />
+    </include>
+
+
+    <!-- Pedestrian Tracking -->
+    <arg name="camera_namespace" default="/camera"/>
+    <!-- <arg name="fused_detections" default="/fusion/detected_persons_synchronized"/> -->
+    <arg name="fused_detections" default="/drow/detected_persons_front"/>
+    <arg name="tracked_persons" default="/rwth_tracker/tracked_persons" />
+    <include file="$(find rwth_pedestrian_tracking)/launch/pedestrian_tracking.launch">
+        <arg name="camera_namespace" value="$(arg camera_namespace)" />
+        <arg name="ground_plane" value="$(arg ground_plane)" />
+        <arg name="detections" value="$(arg fused_detections)" />
+        <arg name="pedestrian_array" value="/rwth_tracker/pedestrian_array" />
+        <arg name="pedestrian_image" value="/rwth_tracker/image" />
+        <arg name="tracked_persons" value="$(arg tracked_persons)" />
+        <arg name="queue_size" value="10" />
+    </include>
+
+    <!--
+    <node pkg="trajec_prediction" type="trajec_prediction_server.py" name="trajec_prediction" output="screen" />
+    <node pkg="trajec_prediction" type="crowd_synthesis_server.py" name="crowd_synthesis" output="screen" />
+    -->
+
+
+
 </launch>
