@@ -26,6 +26,12 @@ WHITE_COLOR = (255, 255, 255)
 
 class Display:
     def __init__(self, world, world_dim, win_size=(960, 960), caption='followbot'):
+        '''
+        :param world:  pointer to world object
+        :param world_dim:  [[x0, x1], [y0, y1]]
+        :param win_size:
+        :param caption:
+        '''
         pygame.init()
         self.world = world
         self.win = pygame.display.set_mode(win_size)
@@ -40,7 +46,7 @@ class Display:
         sy = -float(win_size[1]) / (world_h * (1 + 2 * margin))
         self.scale = np.array([[sx, 0], [0, sy]])
         self.trans = np.array([margin * win_size[0] - world_dim[0][0] * sx,
-                               margin * win_size[1] + world_dim[1][0] * sy], dtype=np.float)
+                               margin * win_size[1] - world_dim[1][1] * sy], dtype=np.float)
         self.local_time = 0
         self.grid_map = []
 

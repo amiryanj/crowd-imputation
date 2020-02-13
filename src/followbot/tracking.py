@@ -61,7 +61,7 @@ class MultiObjectTracking:
         self.detection_matching_threshold = 1.5
         self.tracks = []
 
-    def segment(self, scan, sensor_pos):
+    def segment_points(self, scan, sensor_pos):
         segments = []
         last_x = np.array([1000, 1000])
         for x in scan:
@@ -69,7 +69,20 @@ class MultiObjectTracking:
                 if np.linalg.norm(x - last_x) > self.segmentation_threshold:
                     segments.append([])
 
-                if np.isnan(x[0]):
+                if not np.isnan(x[0]):
+                    segments[-1].append(x)
+                last_x = x
+        return segments
+
+    def segment_range(self, scan):
+        segments = []
+        last_x = np.array(1)
+        for x in scan:
+            if x < (self.range_max - 1):
+                if abs(x - last_x) > self.segmentation_threshold:
+                    segments.append([])
+
+                if np.isnan(x):
                     dummy_test = 1
                 else:
                     segments[-1].append(x)

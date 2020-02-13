@@ -1,6 +1,6 @@
 import numpy as np
 from math import cos, sin, tan, tanh, acos
-from followbot.basics_geometry import Circle
+from followbot.basic_geometry import Circle
 
 
 class LiDAR2D:

@@ -1,7 +1,7 @@
 import numpy as np
 import time
 
-from followbot.basics_geometry import Line, Circle
+from followbot.basic_geometry import Line, Circle
 from followbot.world import World
 from followbot.display import *
 
@@ -128,7 +128,9 @@ class RoundTrip:
 
     def step(self, save=False):
         if not self.world.pause:
-            self.world.step(0.02)
+            dt = 0.02
+            self.world.step_crowd(dt)
+            self.world.step_robot(dt)
 
             for ii, ped in enumerate(self.world.crowds):
                 if np.linalg.norm(ped.pos - ped.goal) > 2.5: continue

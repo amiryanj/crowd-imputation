@@ -1,7 +1,7 @@
 import sys
 import math
 import numpy as np
-from followbot.basics_geometry import Circle, DoubleCircle, rotate
+from followbot.basic_geometry import Circle, DoubleCircle, rotate
 eps = sys.float_info.epsilon
 
 class Pedestrian:

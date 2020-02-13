@@ -71,7 +71,7 @@ class World:
     def set_robot_leader(self, index_robot, index_ped):
         self.robots[index_robot].leader_ped = self.crowds[index_ped]
 
-    def step(self, dt):
+    def step_crowd(self, dt):
         self.sim.doStep(dt)
         for ii in range(self.n_peds):
             try:
@@ -85,6 +85,7 @@ class World:
             except:
                 print('exception occurred in running crowd sim')
 
+    def step_robot(self, dt):
         for jj, robot in enumerate(self.robots):
             self.robots[jj].step(dt)
             self.sim.setPosition(self.n_peds + jj, robot.pos[0], robot.pos[1])

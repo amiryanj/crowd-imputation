@@ -1,11 +1,14 @@
 import time
 import numpy as np
 import os
+
+from followbot.scenario_real import RealScenario
+
 print(os.getcwd())
 
 from followbot.display import *
 from followbot.world import World
-from followbot.basics_geometry import Line, Circle
+from followbot.basic_geometry import Line, Circle
 from followbot.pedestrian import Pedestrian
 from followbot.roundtrip import RoundTrip
 
@@ -23,6 +26,7 @@ def init_world(world_dim, model=default_model, title='followBot'):
 
 def setup_linear_peds():
     # FIXME: init objects
+    world, dispay = init_world(world_dim=[[0, 8], [-5, 5]], title='linear')
     line_objects = [Line([5, 0], [5, 8]), Line([6, 0], [6, 9])]
     for l_obj in line_objects:
         world.add_object(l_obj)
@@ -40,7 +44,7 @@ def setup_linear_peds():
 
 
 def setup_circle():
-    init_world(world_dim=[[-5, 5], [-5, 5]], title='circle')
+    world, display = init_world(world_dim=[[-5, 5], [-5, 5]], title='circle')
     for ii in range(N_ped):
         theta = ii / N_ped * 2 * np.pi
         world.set_ped_position(ii, np.array([np.cos(theta), np.sin(theta)]) * 5 + np.random.randn(1) * 0.01)
@@ -79,7 +83,7 @@ def setup_corridor():
 
 def update_default(save=False):
     if not world.pause:
-        world.step(0.02)
+        world.step_crowd(0.02)
 
     toggle_pause = display.update()
     if toggle_pause: world.pause = not world.pause
@@ -90,10 +94,14 @@ def update_default(save=False):
 
 
 if __name__ == '__main__':
-    scenario = RoundTrip()
-    # setup_corridor()
-    # setup_circle()
-    scenario.setup('powerlaw', flow_2d=True)
+    # scenario = setup_corridor()
+    # scenario = setup_circle()
+
+    # scenario = RoundTrip()
+    # scenario.setup('powerlaw', flow_2d=True)
+
+    scenario = RealScenario()
+    scenario.setup()
 
     while True:
         scenario.step(save=False)

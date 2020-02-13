@@ -23,6 +23,7 @@ class MyRobot:
         self.lidar_segments = []
         self.detected_peds = []
         self.tracks = []
+        self.pom = []
 
     def follow(self, ped):
         vec_to_robot = np.array(ped.pos - self.pos)
@@ -45,23 +46,27 @@ class MyRobot:
     # TODO: should be refactored, and moved to work with ROS
     def step(self, dt):
         # t0 = time.time()
-        self.lidar.scan(self.world, False, walkable_area=self.world.walkable)
+        update_pom = False
+        self.lidar.scan(self.world, update_pom, walkable_area=self.world.walkable)
         # self.detected_points, self.occupancy_gridmap = []
         # self.lidar.last_range_pnts , self.lidar.last_range_data, self.lidar.last_occupancy_gridmap
 
         # t1 = time.time()
         # print("scan time = {}".format(t1-t0))
 
-        self.lidar_segments = self.tracker.segment(self.lidar.last_range_data, self.pos)
+        self.lidar_segments = self.tracker.segment_points(self.lidar.last_range_pnts, self.pos)
+        # self.lidar_segments = self.tracker.segment_range(self.lidar.last_range_data, self.pos)
         self.detected_peds, walls = self.tracker.detect(self.lidar_segments, self.pos)
-
         self.tracks = self.tracker.track(self.detected_peds)
-        for track in self.tracks:
-            if track.coasted: continue
-            px, py = track.position()
-            u, v = self.world.mapping_to_grid(px, py)
-            if u < self.occupancy_gridmap.shape[0] and v < self.occupancy_gridmap.shape[1]:
-                self.occupancy_gridmap[u - 2:u + 2, v - 2:v + 2] = 1
+
+        if update_pom:
+            self.pom = self.lidar.last_occupancy_gridmap.copy()
+            for track in self.tracks:
+                if track.coasted: continue
+                px, py = track.position()
+                u, v = self.world.mapping_to_grid(px, py)
+                if u < self.pom.shape[0] and v < self.pom.shape[1]:
+                    self.pom[u - 2:u + 2, v - 2:v + 2] = 1
 
         self.follow(self.leader_ped)
         self.pos += self.vel * dt
