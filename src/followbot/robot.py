@@ -17,6 +17,7 @@ class MyRobot:
         self.vel = [0, 0]
         self.angular_vel = 0
         self.radius = 0.4
+        self.max_speed = 1.8
 
         self.leader_ped = []
 
@@ -39,7 +40,7 @@ class MyRobot:
         if delta_orien < -np.pi: delta_orien += 2 * np.pi
 
         if abs(delta_orien) > np.pi / 15:
-            self.angular_vel = np.sign(delta_orien) * 1.2  # rad/sec
+            self.angular_vel = np.sign(delta_orien) * self.max_speed  # rad/sec
         else:
             self.angular_vel *= 0.5
 

@@ -2,15 +2,12 @@ import time
 import numpy as np
 import os
 
-from followbot.scenario_real import RealScenario
-
-print(os.getcwd())
-
 from followbot.display import *
 from followbot.world import World
 from followbot.basic_geometry import Line, Circle
 from followbot.pedestrian import Pedestrian
 from followbot.roundtrip import RoundTrip
+from followbot.scenario_real import RealScenario
 
 
 default_model = 'powerlaw'

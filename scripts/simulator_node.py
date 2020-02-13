@@ -4,7 +4,7 @@ import rospy
 from std_msgs.msg import String
 from sensor_msgs.msg import LaserScan
 from rosgraph_msgs.msg import Clock
-from followbot.followbot_sim import RoundTrip
+from followbot.followbot_sim import RoundTrip, RealScenario
 
 
 def run_sim():
@@ -13,8 +13,11 @@ def run_sim():
     flow_2d = rospy.get_param("~simulation/flow_2d")
     n_pedestrians = rospy.get_param("~simulation/n_pedestrians")
 
-    scenario = RoundTrip(n_pedestrians)
-    scenario.setup(sim_model, flow_2d=flow_2d)
+    # scenario = RoundTrip(n_pedestrians)
+    # scenario.setup(sim_model, flow_2d=flow_2d)
+
+    scenario = RealScenario()
+    scenario.setup()
 
     pub = rospy.Publisher(scan_topic, LaserScan, queue_size=1)
     rate = rospy.Rate(10)  # Hz

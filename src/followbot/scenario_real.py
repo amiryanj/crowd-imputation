@@ -10,7 +10,7 @@ from OpenTraj.tools.parser.parser_eth import ParserETH
 from followbot.basic_geometry import Line, Circle
 from followbot.display import Display
 from followbot.world import World
-from followbot.display import RED_COLOR
+from followbot.display import RED_COLOR, BLUE_COLOR
 
 
 class RealScenario:
@@ -102,7 +102,7 @@ class RealScenario:
             self.world.set_ped_position(ped_ind, self.ped_poss[0, ped_ind])
             self.world.set_ped_goal(ped_ind, self.ped_poss[0, ped_ind])
             self.world.set_ped_velocity(ped_ind, [0, 0])
-            self.world.crowds[ped_ind].color = RED_COLOR
+            self.world.crowds[ped_ind].color = BLUE_COLOR
 
         if os.path.exists(map_file):
             map_doc = xmldom.parse(map_file)
@@ -114,6 +114,7 @@ class RealScenario:
                 y2 = line_elem.getAttribute('y2')
                 line_obj = Line([x1, y1], [x2, y2])
                 self.line_objects.append(line_obj)
+                self.world.add_object(self.line_objects[-1])
 
             # TODO: modify the XML file
             circle_elems = map_doc.getElementsByTagName('Circle')
@@ -122,6 +123,7 @@ class RealScenario:
                 y = circle_elem.getAttribute('y')
                 rad = circle_elem.getAttribute('radius')
                 self.circle_objects.append(Circle([x, y], rad))
+                self.world.add_object(self.circle_objects[-1])
 
     # TODO: to interpolate dataset points (not enough for tracking)
     def interpolate(self, dataset, id, frame):
