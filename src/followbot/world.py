@@ -48,7 +48,9 @@ class World:
     def set_ped_position(self, index, pos):
         self.crowds[index].pos = np.array(pos, dtype=np.float)
         self.sim.setPosition(index, pos[0], pos[1])
-        self.crowds[index].trajectory.append(pos)
+        u, v = self.mapping_to_grid(pos[0], pos[1])
+        if 0 <= u <= self.walkable.shape[0] and 0 <= v <= self.walkable.shape[1]:
+            self.crowds[index].trajectory.append(pos)
         if len(self.crowds[index].trajectory) > 150:
             del self.crowds[index].trajectory[0]
 
