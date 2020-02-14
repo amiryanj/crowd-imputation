@@ -26,6 +26,11 @@
         <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_topics.yaml"/>
     </node>
 
+    <node pkg="followbot" type="fusion_nose.py" name="simple_fusion" output="screen">
+        <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_params.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_topics.yaml"/>
+    </node>
+
     <!-- Fuse Detection
     <node pkg="detection_fusion" type="node.py" name="detection_fusion" output="screen">
         <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_params.yaml"/>

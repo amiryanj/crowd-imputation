@@ -14,6 +14,10 @@ subscriber:
         topic: /drow/detected_persons_front
         queue_size: 1
 
+    transform:
+        topic: /transform/robot
+        queue_size: 1
+
 #    detections1:
 #        topic: /drow_detected_persons_rear
 #        queue_size: 1

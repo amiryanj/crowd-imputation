@@ -12,6 +12,7 @@ from crowd_prediction.srv \
 class RobotNode:
     def __init__(self):
         self.nav_pub = rospy.Publisher('/navigation', Twist, queue_size=1)
+
         self.scan_subscriber = rospy.Subscriber('/laser_front/scan', LaserScan, self.callback_scan)
         self.detection_subscriber = rospy.Subscriber('/drow/detected_persons_front', DetectedPersons, self.callback_drow)
         self.tracking_subscriber = rospy.Subscriber('/rwth_tracker/tracked_persons', TrackedPersons, self.callback_tracking)
@@ -19,6 +20,10 @@ class RobotNode:
         # /rwth_tracker/tracked_persons [frame_msgs/TrackedPersons]
 
         self.tracks = dict()
+
+        while not rospy.is_shutdown():
+            rate.sleep()
+
 
     def callback_scan(self, data):
         print('received scan data')
