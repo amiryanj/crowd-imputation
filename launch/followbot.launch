@@ -26,7 +26,7 @@
         <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_topics.yaml"/>
     </node>
 
-    <node pkg="followbot" type="fusion_nose.py" name="simple_fusion" output="screen">
+    <node pkg="followbot" type="fusion_node.py" name="simple_fusion" output="screen">
         <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_params.yaml"/>
         <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_topics.yaml"/>
     </node>
@@ -51,8 +51,8 @@
 
     <!-- Pedestrian Tracking -->
     <arg name="camera_namespace" default="/camera"/>
-    <!-- <arg name="fused_detections" default="/fusion/detected_persons_synchronized"/> -->
-    <arg name="fused_detections" default="/drow/detected_persons_front"/>
+    <arg name="fused_detections" default="/fusion/detected_persons_synchronized"/>
+    <!-- <arg name="fused_detections" default="/drow/detected_persons_front"/> -->
     <arg name="tracked_persons" default="/rwth_tracker/tracked_persons" />
     <include file="$(find rwth_pedestrian_tracking)/launch/pedestrian_tracking.launch">
         <arg name="camera_namespace" value="$(arg camera_namespace)" />

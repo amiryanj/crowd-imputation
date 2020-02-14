@@ -12,10 +12,11 @@ from crowd_prediction.srv \
 class RobotNode:
     def __init__(self):
         self.nav_pub = rospy.Publisher('/navigation', Twist, queue_size=1)
+        rate = rospy.Rate(10)
 
-        self.scan_subscriber = rospy.Subscriber('/laser_front/scan', LaserScan, self.callback_scan)
-        self.detection_subscriber = rospy.Subscriber('/drow/detected_persons_front', DetectedPersons, self.callback_drow)
-        self.tracking_subscriber = rospy.Subscriber('/rwth_tracker/tracked_persons', TrackedPersons, self.callback_tracking)
+        self.scan_subscriber = rospy.Subscriber('/followbot/scan_front', LaserScan, self.callback_scan)
+        self.detection_subscriber = rospy.Subscriber('/rwth_tracker/tracked_persons', TrackedPersons, self.callback_tracking)
+        # self.tracking_subscriber = rospy.Subscriber('/rwth_tracker/tracked_persons', TrackedPersons, self.callback_tracking)
         # /rwth_tracker/pedestrian_array [rwth_perception_people_msgs/PedestrianTrackingArray]
         # /rwth_tracker/tracked_persons [frame_msgs/TrackedPersons]
 
@@ -37,7 +38,7 @@ class RobotNode:
                 self.tracks[track.track_id] = []
             self.tracks[track.track_id].append([track.pose.pose.position.x, track.pos.position.y])
             print(self.tracks)
-            return
+        return
 
         try:
             # TODO: call crowd_synthesis()

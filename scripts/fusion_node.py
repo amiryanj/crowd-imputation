@@ -16,10 +16,16 @@ class Transform:
 class SimpleFusion:
     def __init__(self):
         detection_topic = rospy.get_param("~subscriber/detections0/topic")
-        transform_topic = rospy.get_param("~subscriber/transform")
+        transform_topic = rospy.get_param("~subscriber/transform/topic")
         fusion_topic = rospy.get_param("~publisher/detections/topic")
+        print(fusion_topic)
+        print('****************/////////////////////////////////////////////')
+
         queue_size = rospy.get_param("~publisher/detections/queue_size")
         latch = rospy.get_param("~publisher/detections/latch")
+        rate = rospy.Rate(10)
+
+        print('fusion_topic')
 
         self.detection_sub = rospy.Subscriber(detection_topic, DetectedPersons, self.callback_detection)
         self.transform_sub = rospy.Subscriber(transform_topic, TransformStamped, self.callback_transform)
@@ -27,7 +33,12 @@ class SimpleFusion:
 
         self.tf = Transform()
 
+        while not rospy.is_shutdown():
+            print('++++++++++++++++++++ fusion is running ++++++++++++++')
+            rate.sleep()
+
     def callback_detection(self, msg):
+        print('fusion node received detection msg')
         fusion_msg = DetectedPersons()
         fusion_msg.header = msg.header
         for det in msg.detections:
@@ -42,34 +53,45 @@ class SimpleFusion:
             out_det.modality = det.modality
             out_det.embed_vector = det.embed_vector
 
-            det_orien = det.pos.pos.orientation
+            det_orien = det.pose.pose.orientation
             det_orien = Rotation.from_quat([det_orien.x, det_orien.y, det_orien.z, det_orien.w])
-            det_trans = det.pos.pos.position
+            det_trans = det.pose.pose.position
             det_trans = np.array([det_trans.x, det_trans.y, det_trans.z])
 
             out_orien = det_orien.__mul__(self.tf.rotation).as_quat()
             out_trans = self.tf.translation + self.tf.rotation.apply(det_trans)
 
-            out_det.pos.pos.orientation.x = out_orien[0]
-            out_det.pos.pos.orientation.y = out_orien[1]
-            out_det.pos.pos.orientation.z = out_orien[2]
-            out_det.pos.pos.orientation.w = out_orien[3]
-            out_det.pos.pos.position.x = out_trans[0]
-            out_det.pos.pos.position.y = out_trans[1]
-            out_det.pos.pos.position.z = out_trans[2]
+            out_det.pose.pose.orientation.x = out_orien[0]
+            out_det.pose.pose.orientation.y = out_orien[1]
+            out_det.pose.pose.orientation.z = out_orien[2]
+            out_det.pose.pose.orientation.w = out_orien[3]
+            out_det.pose.pose.position.x = out_trans[0]
+            out_det.pose.pose.position.y = out_trans[1]
+            out_det.pose.pose.position.z = out_trans[2]
 
-            out_det.pos.covariance = det.pos.covariance
+            out_det.pose.covariance = det.pose.covariance
             fusion_msg.detections.append(out_det)
+        self.fusion_pub.publish(fusion_msg)
+        print('fusion is publishing a message ***********************')
 
-
-def callback_transform(self, msg):
+    def callback_transform(self, msg):
+        print('fusion node received transform msg')
         self.tf.translation = np.array([msg.transform.translation.x,
                                         msg.transform.translation.y,
                                         msg.transform.translation.z])
 
         self.tf.rotation = Rotation.from_quat([msg.transform.rotation.x,
                                                msg.transform.rotation.y,
-                                               msg.transform.rotation.z,
-                                               msg.transform.rotation.w])
+                                                   msg.transform.rotation.z,
+                                                   msg.transform.rotation.w])
 
 
+
+if __name__ == '__main__':
+    rospy.init_node('simple_fusion')
+    print('******************* fusion node started ...')
+    try:
+        SimpleFusion()
+    except rospy.ROSInterruptException:
+        pass
+    rospy.spin()
