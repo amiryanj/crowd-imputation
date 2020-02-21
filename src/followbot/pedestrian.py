@@ -17,8 +17,8 @@ class Pedestrian:
 
         # self.geometry = lambda: Circle(self.pos, self.radius)
 
-        self.leg_radius = 0.10
-        self.leg_dist   = 0.20
+        self.leg_radius = 0.07
+        self.leg_dist   = 0.30
         self.geometry = lambda: DoubleCircle(self.pos + self.lateral_unitvec() * self.leg_dist,
                                              self.pos - self.lateral_unitvec() * self.leg_dist,
                                              self.leg_radius)

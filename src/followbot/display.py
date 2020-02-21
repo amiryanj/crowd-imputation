@@ -73,22 +73,23 @@ class Display:
         self.win.fill(WHITE_COLOR)  # ms
         self.circle([0, 0], 2, WHITE_COLOR)  # DEBUG
 
+        # Objects
+        for obj in self.world.objects:
+            self.line(obj.line[0], obj.line[1], RED_COLOR, 3)
+
         # Pedestrians
         for ii in range(len(self.world.crowds)):
             self.circle(self.world.crowds[ii].pos, 10, self.world.crowds[ii].color)
             self.lines(self.world.crowds[ii].trajectory, DARK_GREEN_COLOR, 3)
 
-        # Objects
-        for obj in self.world.objects:
-            self.line(obj.line[0], obj.line[1], RED_COLOR, 3)
-
-        # TODO: draw robot
+        # draw robot
         for robot in self.world.robots:
             self.circle(robot.pos, 12, ORANGE_COLOR)
             self.circle(robot.leader_ped.pos, 11, PINK_COLOR)
             # draw a vector showing orientation
             u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
             self.line(robot.pos, robot.pos + [u, v], GREEN_COLOR, 3)
+
             # draw Lidar output
             for pnt in robot.lidar.last_range_pnts:
                 if math.isnan(pnt[0]) or math.isnan(pnt[1]):

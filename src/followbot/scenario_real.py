@@ -136,9 +136,8 @@ class RealScenario:
         return pos, vel
 
     def step(self, save=False):
-        self.cur_t += 1
-
         if not self.world.pause and self.cur_t < len(self.frames):
+            self.cur_t += 1
             for ii in range(self.n_peds):
                 self.world.set_ped_position(ii, self.ped_poss[self.cur_t, ii])
                 self.world.set_ped_velocity(ii, self.ped_vels[self.cur_t, ii])

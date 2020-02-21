@@ -34,7 +34,6 @@ class SimpleFusion:
         self.tf = Transform()
 
         while not rospy.is_shutdown():
-            print('++++++++++++++++++++ fusion is running ++++++++++++++')
             rate.sleep()
 
     def callback_detection(self, msg):

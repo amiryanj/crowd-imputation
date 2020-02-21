@@ -11,7 +11,7 @@ class LiDAR2D:
         # self.range_max = 25   #
 
         self.fov = 340          # in degree
-        self.resolution = 1     # per degree
+        self.resolution = 3     # per degree
         self.angle_min_radian = lambda: - self.fov / 2 * np.pi / 180.
         self.angle_max_radian = lambda: + self.fov / 2 * np.pi / 180.
         self.angle_increment_radian = lambda: (1 / self.resolution) * np.pi / 180
@@ -54,7 +54,7 @@ class LiDAR2D:
             results, intersect_pts_ = obj.intersect_many(cur_rays)
             is_not_nan = 1 - np.any(np.isnan(intersect_pts_), axis=1)
             results = np.bitwise_and(results, is_not_nan)
-            intersect_pts = np.stack([res * intersect_pts_[ii] + (1-res) * self.range_max for ii, res in enumerate(results)])
+            intersect_pts = np.stack([res * intersect_pts_[ii] + (1-res) * (self.range_max + self.robot_ptr.pos) for ii, res in enumerate(results)])
             all_intersects.append(intersect_pts)
 
         for kk, ped in enumerate(world.crowds):
@@ -67,7 +67,7 @@ class LiDAR2D:
             #     print(intersect_pts_)
             is_not_nan = 1 - np.any(np.isnan(intersect_pts_), axis=1)
             results = np.bitwise_and(results, is_not_nan)
-            intersect_pts = np.stack([intersect_pts_[ii] * r + 100000 * (1 - r) for ii, r in enumerate(results)])
+            intersect_pts = np.stack([res * intersect_pts_[ii] + (1-res) * (self.range_max + self.robot_ptr.pos) for ii, res in enumerate(results)])
             all_intersects.append(intersect_pts)
 
         all_intersects = np.stack(all_intersects)
