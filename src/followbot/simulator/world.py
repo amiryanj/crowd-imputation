@@ -1,18 +1,19 @@
 import numpy as np
 
-from followbot.pedestrian import Pedestrian
-from followbot.robot import MyRobot
+from followbot.crowdsim.pedestrian import Pedestrian
+from followbot.robot_functions.robot import MyRobot
 import followbot.crowdsim.crowdsim as crowdsim
 
 
 class World:
-    def __init__(self, n_peds, n_robots, sim_model="helbing"):
+    def __init__(self, n_peds, n_robots, sim_model="helbing", biped=False):
         self.pause = False
         self.n_peds = n_peds
         self.n_robots = n_robots
-        self.objects = []
         self.robots = []
+        self.objects = []
         self.walkable = []  # would be a constant-matrix that is determined by the scenario maker
+        self.POM = []  # probabilistic occupancy map
         self.mapping_to_grid = []
         self.inertia_coeff = 0.8  # larger, more inertia, zero means no inertia
 
@@ -26,7 +27,7 @@ class World:
 
         self.crowds = []
         for ii in range(n_peds):
-            ped_i = Pedestrian()
+            ped_i = Pedestrian(biped=biped)
             ped_i.id = ii
             ped_i.world = self  # set world ptr
             self.crowds.append(ped_i)
@@ -42,8 +43,7 @@ class World:
         if hasattr(obj, 'line'):
             self.sim.addObstacleCoords(obj.line[0][0], obj.line[0][1], obj.line[1][0], obj.line[1][1])
         else:
-            print('Circle objects are not supported!')
-            exit(1)
+            print('Circle objects are not supported in crowd simulation!')
 
     def set_ped_position(self, index, pos):
         self.crowds[index].pos = np.array(pos, dtype=np.float)
@@ -89,6 +89,21 @@ class World:
 
     def step_robot(self, dt):
         for jj, robot in enumerate(self.robots):
+
+            update_pom = False   # Fixme
+            self.robots[jj].lidar.scan(self, update_pom, walkable_area=self.walkable)
+            if update_pom:
+                pom_new = self.robots[jj].lidar.last_occupancy_gridmap.copy()
+                seen_area_indices = np.where(pom_new != 0)
+                self.POM[:] = self.POM[:] * 0.4 + 0.5
+                self.POM[seen_area_indices] = 0
+                for track in self.robots[jj].tracks:
+                    if track.coasted: continue
+                    px, py = track.position()
+                    u, v = self.mapping_to_grid(px, py)
+                    if 0 <= u < self.POM.shape[0] and 0 <= v < self.POM.shape[1]:
+                        self.POM[u - 2:u + 2, v - 2:v + 2] = 1
+
             self.robots[jj].step(dt)
             self.sim.setPosition(self.n_peds + jj, robot.pos[0], robot.pos[1])
             self.sim.setVelocity(self.n_peds + jj, robot.vel[0], robot.vel[1])

@@ -2,6 +2,10 @@ import numpy as np
 from filterpy.kalman import KalmanFilter
 
 
+def norm(x):
+    return np.linalg.norm(x)
+
+
 class ObjectTracker:
     def __init__(self, dt=0.01):
         self.kf = KalmanFilter(dim_x=4, dim_z=2)
@@ -54,19 +58,20 @@ class ObjectTracker:
         return self.kf.x[2:]
 
 
-class MultiObjectTracking:
-    def __init__(self, range_max_):
+class PedestrianDetection:
+    def __init__(self, range_max_, lidar_resolution):
         self.range_max = range_max_
-        self.segmentation_threshold = 0.5
-        self.detection_matching_threshold = 1.5
-        self.tracks = []
+        self.segmentation_threshold = 0.2
+        self.lidar_resolution = lidar_resolution
+        self.min_n_pixel = 5
 
-    def segment_points(self, scan, sensor_pos):
+    def segment_points(self, scan_pnts_rel):
         segments = []
-        last_x = np.array([1000, 1000])
-        for x in scan:
-            if np.linalg.norm(x - sensor_pos) < (self.range_max - 1):
-                if np.linalg.norm(x - last_x) > self.segmentation_threshold:
+        last_x = np.array([self.range_max, self.range_max])
+        for x in scan_pnts_rel:
+            range_x = np.linalg.norm(x)
+            if range_x < (self.range_max - 0.1):
+                if np.linalg.norm(x - last_x) > range_x * self.lidar_resolution * 2.5:
                     segments.append([])
 
                 if not np.isnan(x[0]):
@@ -74,47 +79,48 @@ class MultiObjectTracking:
                 last_x = x
         return segments
 
-    def segment_range(self, scan):
-        segments = []
-        last_x = np.array(1)
-        for x in scan:
-            if x < (self.range_max - 1):
-                if abs(x - last_x) > self.segmentation_threshold:
-                    segments.append([])
-
-                if np.isnan(x):
-                    dummy_test = 1
-                else:
-                    segments[-1].append(x)
-            last_x = x
-        return segments
+    def segment_range(self, range, angles):
+        coss = np.cos(angles)
+        sins = np.sin(angles)
+        xs = np.multiply(coss, range)
+        ys = np.multiply(sins, range)
+        scan_pnts_rel = np.stack([xs, ys]).T
+        return self.segment_points(scan_pnts_rel)
 
     def detect(self, segments, sensor_pos):
         detections = []
         walls = []
         for seg in segments:
-            if len(seg) < 2: continue
-            seg_np = np.array(seg)
+            if len(seg) < self.min_n_pixel: continue  # noise
+            seg_cntr = (seg[0] + seg[-1]) * 0.5  # center of seg
+            seg_vctr = seg[0] - seg[-1]
+            seg_prepend = np.array([seg_vctr[1], -seg_vctr[0]])
+            if np.dot(seg_prepend, seg_cntr - sensor_pos) < 0:  # find concavity of the segment
+                seg_prepend = -seg_prepend
 
-            p = (seg[0] + seg[-1]) * 0.5
-            q = seg[0] - seg[-1]
-            q_prepend = np.array([q[1], -q[0]])
-
-            if np.linalg.norm(q) > 1:
-                # TODO: check line by using polyfit
-                # z, res, _, _, _ = np.polyfit(seg_np[:, 0], seg_np[:, 1], deg=2, full=True)
-                # if res < 0.001:
-                #     walls.append(seg)
+            # TODO: check regression error using polyfit()
+            segment_len = norm(seg_vctr)
+            if segment_len > 1.5:
                 walls.append(seg)
                 continue
+            else:
+                seg_np = np.array(seg)
+                z, res, _, _, _ = np.polyfit(seg_np[:, 0], seg_np[:, 1], deg=2, full=True)
+                if res < 0.001:
+                    walls.append(seg)
+                    continue
 
-            if np.dot(q_prepend, p - sensor_pos) < 0:
-                q_prepend = -q_prepend
-            detections.append(p + q_prepend * (1/(np.linalg.norm(q_prepend)+1e-7) * 0.1))
+            detections.append(seg_cntr + seg_prepend * (1/(np.linalg.norm(seg_prepend)+1e-7) * 0.1))
         return detections, walls
 
+
+class MultiObjectTracking:
+    def __init__(self):
+        self.detection_matching_threshold = 1.5
+        self.tracks = []
+
     def track(self, detections):
-        # TODO| from Mathworks: www.mathworks.com/help/driving/examples/multiple-object-tracking-tutorial.html
+        # TODO| from Mathworks: www.mathworks.com/help/driving/examples/multiple-object-robot_functions-tutorial.html
         # 1. Assigning detections to tracks.
         # 2. Initializing new tracks based on unassigned detections. All tracks are initialized as 'Tentative',
         #    accounting for the possibility that they resulted from a false detection.

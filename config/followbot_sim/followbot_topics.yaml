@@ -4,6 +4,22 @@ publisher:
         queue_size: 1
         latch: false
 
+    robot_tf:
+        topic: /followbot/robot_tf
+        queue_size: 1
+        latch: false
+
+    robot_vis:
+        topic: /vis/robot
+        queue_size: 1
+        latch: false
+
+    objects_vis:
+        topic: /vis/objects
+        queue_size: 1
+        latch: false
+
+    frame_id: myFixedFrame
 subscriber:
     cmd:
         topic: /robot/xxxx

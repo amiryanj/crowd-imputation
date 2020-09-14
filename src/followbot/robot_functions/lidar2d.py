@@ -1,6 +1,5 @@
 import numpy as np
-from math import cos, sin, tan, tanh, acos
-from followbot.basic_geometry import Circle
+from math import cos, sin
 
 
 class LiDAR2D:
@@ -25,8 +24,7 @@ class LiDAR2D:
         self.data_type = np.float32
         self.robot_ptr = robot_ptr
 
-        # pre-computed ray angles
-        self.angles = []
+        self.angles = []  # pre-computed ray angles
         self.rays = []
         for angle in np.arange(-self.fov / 2, self.fov / 2, 1 / self.resolution):
             alpha = angle * np.pi / 180
@@ -81,16 +79,17 @@ class LiDAR2D:
         self.last_intensities = np.zeros_like(self.last_range_data)
 
         if update_gridmap:
-            self.last_occupancy_gridmap = np.ones_like(walkable_area, dtype=np.float) * 0.5
+            self.last_occupancy_gridmap = np.zeros_like(walkable_area, dtype=np.int8)
             for ii in range(len(cur_rays)):
                 ray_i = cur_rays[ii]
                 scan_i = self.last_range_pnts[ii]
                 white_line = [self.robot_ptr.pos, scan_i]
                 line_len = np.linalg.norm(white_line[1] - white_line[0])
 
-                for z in np.arange(0, line_len/self.range_max, 0.05):
+                for z in np.arange(0, line_len/self.range_max, 0.01):
                     px, py = z * ray_i[1] + (1-z) * ray_i[0]
                     u, v = world.mapping_to_grid(px, py)
-                    self.last_occupancy_gridmap[u, v] = 0
+                    if 0 <= u < self.last_occupancy_gridmap.shape[0] and 0 <= v < self.last_occupancy_gridmap.shape[1]:
+                        self.last_occupancy_gridmap[u, v] = -1
 
 

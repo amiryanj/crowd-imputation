@@ -125,6 +125,17 @@ def intersect_circle_line(circle_center, circle_radius, line):
 
 
 def intersect_circle_lines(circle_center, circle_radius, lines):
+    """
+    calculates all the intersection points between a given circle and a set of line segments
+
+    :param circle_center: the center point of given circle
+    :param circle_radius: the radius of given circle
+    :param lines: the coordinates of the line segments (Nx2x2)
+    :return: three variables
+            1. results: list<bool> shows if each line intersects with the circle or not
+            2. intersects: list<point> shows the intersection points
+            3. the normalized distance of intersection points from beginning of the line segments
+    """
     Q = circle_center  # Centre of circle
     r = circle_radius  # Radius of circle
     P1 = lines[:, 0, :]  # Start of line segment
@@ -141,7 +152,7 @@ def intersect_circle_lines(circle_center, circle_radius, lines):
     t = np.minimum(t1, t2)  # closest intersection to starting point of line
 
     results = np.all([disc > 0, 0 <= t1, t1 <= 1, 0 <= t2, t2 <= 1], axis=0)
-    return results, P1 + np.stack((np.multiply(V[:, 0], t), np.multiply(V[:, 1], t))).transpose()
+    return results, P1 + np.stack((np.multiply(V[:, 0], t), np.multiply(V[:, 1], t))).transpose(), t
 
 
 class Line:
@@ -159,7 +170,7 @@ class Line:
 
 class Circle:
     def __init__(self, center, radius):
-        self.center = center
+        self.center = np.array(center, dtype=np.float)
         self.radius = radius
 
     def translate(self, d):
@@ -190,9 +201,10 @@ class DoubleCircle:  # to represent two legs of a pedestrian
         else:
             return circle2_res, circle2_intpnt
 
-    def intersect_many(self, lines):
-        circle1_ress, circle1_intpnts = intersect_circle_lines(self.center1, self.radius, lines)
-        circle2_ress, circle2_intpnts = intersect_circle_lines(self.center2, self.radius, lines)
+    # @deprecated
+    def intersect_many_deprecated(self, lines):
+        circle1_ress, circle1_intpnts,_ = intersect_circle_lines(self.center1, self.radius, lines)
+        circle2_ress, circle2_intpnts,_ = intersect_circle_lines(self.center2, self.radius, lines)
 
         final_ress, final_intpnts = circle2_ress.copy(), circle2_intpnts.copy()
         line_0 = np.array(lines[0][0])
@@ -203,6 +215,29 @@ class DoubleCircle:  # to represent two legs of a pedestrian
                 final_intpnts[ii] = circle1_intpnts[ii]
         return final_ress, final_intpnts
 
+    def intersect_many(self, lines):
+        circle1_ress, circle1_intpnts, t1 = intersect_circle_lines(self.center1, self.radius, lines)
+        circle2_ress, circle2_intpnts, t2 = intersect_circle_lines(self.center2, self.radius, lines)
 
+        final_ress, final_intpnts = circle2_ress.copy(), circle2_intpnts.copy()
+        final_ress = np.logical_or(circle1_ress , circle2_ress)
+        int_with_circle_1_inds = t1 < t2
+        final_intpnts[int_with_circle_1_inds] = circle1_intpnts[int_with_circle_1_inds]
+
+        return final_ress, final_intpnts
+
+
+# test functions
+if __name__ == "__main__":
+    # Test DoubleCircle
+
+    double_circle = DoubleCircle(np.array([10, 0]), np.array([13, 0]), 1)
+    angles = np.deg2rad(np.arange(0, 90, 1))
+    lines = np.stack([np.zeros((90, 2)),
+                     np.stack([np.cos(angles) * 15, np.sin(angles) * 15]).T], axis=2)
+    lines = lines.transpose([0, 2, 1])
+
+    does_intersect, intersect_pnts = double_circle.intersect_many(lines)
+    does_intersect_Dep, intersect_pnts_Dep = double_circle.intersect_many_deprecated(lines)
 
 

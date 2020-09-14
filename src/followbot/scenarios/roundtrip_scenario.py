@@ -1,12 +1,11 @@
-import numpy as np
 import time
 
-from followbot.basic_geometry import Line, Circle
-from followbot.world import World
-from followbot.display import *
+from followbot.scenarios.scenario import Scenario
+from followbot.simulator.world import World
+from followbot.gui.display import *
 
 
-class RoundTrip:
+class RoundTrip(Scenario):
     def __init__(self, n_peds_=32, n_robots_=1, inner_dim_=12, outer_dim_=18):
         super(RoundTrip, self).__init__()
         self.world = []
@@ -20,7 +19,7 @@ class RoundTrip:
     def setup(self, sim_model, flow_2d=True):  # 1D flow / 2D flow
         k_in_each_corridor = self.n_peds // 4
         world_dim = [[-self.outer_dim, self.outer_dim], [-self.outer_dim, self.outer_dim]]
-        self.world = World(self.n_peds, self.n_robots, sim_model)
+        self.world = World(self.n_peds, self.n_robots, sim_model, biped=True)
         self.display = Display(self.world, world_dim, (960, 960), 'Round Trip / ' + sim_model)
         # world.pref_speed = 1.5  # FIXME : set it for sim as well
 
@@ -37,9 +36,10 @@ class RoundTrip:
         for l_obj in line_objects:
             self.world.add_object(l_obj)
 
-        pom_resolution = 10  # per meter
+        pom_resolution = 4  # per meter
         self.world.walkable = np.ones((self.outer_dim * 2 * pom_resolution,
                                        self.outer_dim * 2 * pom_resolution), dtype=bool)
+        self.world.POM = np.zeros_like(self.world.walkable)
         self.world.walkable[(-self.inner_dim + self.outer_dim) * pom_resolution:
                             (self.inner_dim + self.outer_dim) * pom_resolution,
                             (-self.inner_dim + self.outer_dim) * pom_resolution:
@@ -77,6 +77,8 @@ class RoundTrip:
             self.world.set_ped_position(ped_ind, ped_poss[ped_ind])
             self.world.set_ped_goal(ped_ind, ped_poss[ped_ind])
             self.world.set_ped_velocity(ped_ind, [0, 0])
+            self.world.crowds[ped_ind].ccw = False
+
             if ped_ind == 0 or not flow_2d: continue
             if np.random.rand() > 0.5:
                 self.world.crowds[ped_ind].ccw = True
@@ -128,11 +130,12 @@ class RoundTrip:
 
     def step(self, save=False):
         if not self.world.pause:
-            dt = 0.02
+            dt = 0.05
             self.world.step_crowd(dt)
             self.world.step_robot(dt)
 
             for ii, ped in enumerate(self.world.crowds):
+                ped.step()
                 if np.linalg.norm(ped.pos - ped.goal) > 2.5: continue
                 goal = self.set_goals_roundtrip(ped)
                 if len(goal) > 0:

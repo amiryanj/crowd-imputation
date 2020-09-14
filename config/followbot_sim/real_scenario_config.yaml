@@ -1,0 +1,48 @@
+General:
+   biped: True
+   resolution_dpm: 100
+
+## ETH Univ
+Dataset:
+   OpenTrajRoot: '/home/cyrus/workspace2/OpenTraj'
+   Metafile: '/home/cyrus/workspace2/OpenTraj/datasets/ETH/ETH.json'
+   Annotation: '/home/cyrus/workspace2/OpenTraj/ETH/seq_eth/obsmat.txt'
+   Map: '/home/cyrus/workspace2/OpenTraj/ETH/seq_eth/map.xml'
+   LeaderId: 80
+   Parser: ParserETH
+
+## ETH Hotel
+#Dataset:
+#   Annotation: '/home/cyrus/workspace2/OpenTraj/ETH/seq_hotel/obsmat.txt'
+#   Map: '/home/cyrus/workspace2/OpenTraj/ETH/seq_hotel/map.xml'
+#   LeaderId: 11
+#   Parser: ParserETH
+
+## ZARA 01
+#Dataset:
+#   Annotation: '/home/cyrus/workspace2/OpenTraj/UCY/data_zara01/obsmat.txt'
+#   Map: '/home/cyrus/workspace2/OpenTraj/UCY/data_zara01/map.xml'
+#   LeaderId: 1
+#   Parser: ParserETH
+
+## ZARA 02
+#Dataset:
+#   Annotation: '/home/cyrus/workspace2/OpenTraj/UCY/data_zara02/obsmat.txt'
+#   Map: '/home/cyrus/workspace2/OpenTraj/UCY/data_zara02/map.xml'
+#   LeaderId: 1
+#   Parser: ParserETH
+
+## GC
+#Dataset:
+#   Annotation: '/home/cyrus/workspace2/OpenTraj/GC/Annotation'
+#   Map: '/home/cyrus/workspace2/OpenTraj/GC/map.xml'
+#   LeaderId: 1
+#   Parser: ParserGC
+
+## Hermes
+#Dataset:
+#   # Annotation: '/home/cyrus/workspace2/OpenTraj/HERMES/Corridor-1D/uo-300-300-200.txt'
+#   Annotation: '/home/cyrus/workspace2/OpenTraj/HERMES/Corridor-2D/boa-300-050-070.txt'
+#   Map: ''
+#   LeaderId: 15
+#   Parser: ParserHermes

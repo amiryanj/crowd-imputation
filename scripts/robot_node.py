@@ -14,7 +14,6 @@ class RobotNode:
         self.nav_pub = rospy.Publisher('/navigation', Twist, queue_size=1)
         rate = rospy.Rate(10)
 
-        self.scan_subscriber = rospy.Subscriber('/followbot/scan_front', LaserScan, self.callback_scan)
         self.detection_subscriber = rospy.Subscriber('/rwth_tracker/tracked_persons', TrackedPersons, self.callback_tracking)
         # self.tracking_subscriber = rospy.Subscriber('/rwth_tracker/tracked_persons', TrackedPersons, self.callback_tracking)
         # /rwth_tracker/pedestrian_array [rwth_perception_people_msgs/PedestrianTrackingArray]
@@ -25,19 +24,12 @@ class RobotNode:
         while not rospy.is_shutdown():
             rate.sleep()
 
-
-    def callback_scan(self, data):
-        print('received scan data')
-
-    def callback_drow(self, data):
-        print('received drow data')
-
     def callback_tracking(self, track_msg):
         for track in track_msg.tracks:
             if not track.track_id in self.tracks:
                 self.tracks[track.track_id] = []
-            self.tracks[track.track_id].append([track.pose.pose.position.x, track.pos.position.y])
-            print(self.tracks)
+            self.tracks[track.track_id].append([track.pose.pose.position.x, track.pose.pose.position.y])
+            # print(self.tracks)
         return
 
         try:

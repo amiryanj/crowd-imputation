@@ -15,14 +15,11 @@ class RosTracking:
         rospy.spin()
 
     def detection_callback(self, data):
-        print('New detection message received')
-        # rospy.loginfo(rospy.get_caller_id() + "I heard %s", data)
-        print('num of detections = ', len(data.detections), '\n***********************')
         for ii, det in enumerate(data.detections):
             print('id = ', det.detection_id)
 
     def vis_callback(self, data):
-        print('New Visualization message received')
+        print('Received Visualization msg')
         rospy.loginfo(rospy.get_caller_id() + "I heard %s", data)
 
     def clock_callback(self, data):

@@ -2,9 +2,8 @@ import os
 import math
 import pygame
 import numpy as np
-
-from followbot.cv_importer import *
-from followbot.world import World
+from followbot.util.basic_geometry import Line, Circle
+from followbot.util.cv_importer import *
 
 BLACK_COLOR = (0, 0, 0)
 RED_COLOR = (255, 0, 0)
@@ -34,6 +33,7 @@ class Display:
         '''
         pygame.init()
         self.world = world
+        self.event = None
         self.win = pygame.display.set_mode(win_size)
         self.win.fill([255, 255, 255])
         pygame.display.set_caption(caption)
@@ -42,8 +42,8 @@ class Display:
         world_w = world_dim[0][1] - world_dim[0][0]
         world_h = world_dim[1][1] - world_dim[1][0]
 
-        sx = float(win_size[0]) / (world_w * (1 + 2 * margin))
-        sy = -float(win_size[1]) / (world_h * (1 + 2 * margin))
+        sx = float(win_size[0]) / (world_w * (1 + 2 * margin)) * 2
+        sy = -float(win_size[1]) / (world_h * (1 + 2 * margin)) * 2
         self.scale = np.array([[sx, 0], [0, sy]])
         self.trans = np.array([margin * win_size[0] - world_dim[0][0] * sx,
                                margin * win_size[1] - world_dim[1][1] * sy], dtype=np.float)
@@ -75,17 +75,25 @@ class Display:
 
         # Objects
         for obj in self.world.objects:
-            self.line(obj.line[0], obj.line[1], RED_COLOR, 3)
+            if isinstance(obj, Line):
+                self.line(obj.line[0], obj.line[1], RED_COLOR, 3)
+            elif isinstance(obj, Circle):
+                self.circle(obj.center, int(obj.radius * self.scale[0, 0]), RED_COLOR, 0)
 
         # Pedestrians
         for ii in range(len(self.world.crowds)):
             self.circle(self.world.crowds[ii].pos, 10, self.world.crowds[ii].color)
             self.lines(self.world.crowds[ii].trajectory, DARK_GREEN_COLOR, 3)
+            if self.world.crowds[ii].biped:
+                ped_geo = self.world.crowds[ii].geometry()
+                self.circle(ped_geo.center1, 4, CYAN_COLOR)
+                self.circle(ped_geo.center2, 4, CYAN_COLOR)
 
         # draw robot
         for robot in self.world.robots:
-            self.circle(robot.pos, 12, ORANGE_COLOR)
-            self.circle(robot.leader_ped.pos, 11, PINK_COLOR)
+            self.circle(robot.pos, 7, ORANGE_COLOR)
+            self.circle(robot.pos, 9, BLACK_COLOR, 3)
+            self.circle(robot.leader_ped.pos, 11, PINK_COLOR, 5)
             # draw a vector showing orientation
             u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
             self.line(robot.pos, robot.pos + [u, v], GREEN_COLOR, 3)
@@ -98,11 +106,14 @@ class Display:
                 else:
                     self.circle(pnt, 2, WHITE_COLOR)
 
-            for seg in robot.lidar_segments:
-                self.line(seg[0], seg[-1], BLUE_LIGHT, 3)
+            # for seg in robot.lidar_segments:
+            #     self.line(seg[0], seg[-1], BLUE_LIGHT, 3)
 
             for pos in robot.lidar.last_range_pnts:
                 self.circle(pos, 2, GREEN_COLOR, 2)
+
+            for det in robot.detected_peds:
+                self.circle(det, 14, RED_COLOR, 2)
 
             for track in robot.tracks:
                 if track.coasted: continue
@@ -110,11 +121,13 @@ class Display:
                 if len(track.recent_detections) >= 2:
                     self.lines(track.recent_detections, ORANGE_COLOR, 1)
 
-            if len(robot.lidar.last_occupancy_gridmap) > 1:
-                self.grid_map = np.rot90(robot.lidar.last_occupancy_gridmap.copy().astype(float))  # + self.world.walkable * 0.5)
+            if len(self.world.POM) > 1:
+                self.grid_map = np.rot90(self.world.POM.copy().astype(float))  # + self.world.walkable * 0.5)
                 cv2.namedWindow('grid', cv2.WINDOW_NORMAL)
                 cv2.imshow('grid', self.grid_map)
                 cv2.waitKey(2)
+                # plt.imshow(self.grid_map)
+                # plt.show()
 
         # pygame.display.flip()
         pygame.display.update()
@@ -126,12 +139,14 @@ class Display:
                 pygame.quit()
                 print('Simulation exited by user')
                 exit(1)
-
+            if event.type == pygame.KEYDOWN:
+                self.event = event.key
+            else:
+                self.event = None
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                return True
-        return False
+                self.world.pause = not self.world.pause
 
-    def save(self, dir):
+    def screenshot(self, dir):
         pygame.image.save(self.win, os.path.join(dir, 'win-%05d.jpg' % self.local_time))
         if len(self.grid_map) > 1:
             cv2.imwrite(os.path.join(dir, 'grid-%05d.png' % self.local_time), self.grid_map * 255)

@@ -27,7 +27,11 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-catkin_install_python(PROGRAMS scripts/simulator_node.py scripts/robot_node.py
+catkin_install_python(PROGRAMS
+        scripts/simulation_node.py
+        scripts/fusion_node.py
+        scripts/tracking_node.py
+        scripts/robot_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 

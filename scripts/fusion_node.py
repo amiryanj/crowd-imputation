@@ -1,16 +1,10 @@
 #!/usr/bin/env python
 import numpy as np
 import rospy
-from frame_msgs.msg import DetectedPerson, DetectedPersons, TrackedPersons
+from frame_msgs.msg import DetectedPerson, DetectedPersons
 from geometry_msgs.msg import TransformStamped
 # import tf2_geometry_msgs
-from scipy.spatial.transform import Rotation
-
-
-class Transform:
-    def __init__(self):
-        self.translation = None
-        self.rotation = None
+from followbot.util.transform import Transform, Rotation
 
 
 class SimpleFusion:
@@ -18,14 +12,13 @@ class SimpleFusion:
         detection_topic = rospy.get_param("~subscriber/detections0/topic")
         transform_topic = rospy.get_param("~subscriber/transform/topic")
         fusion_topic = rospy.get_param("~publisher/detections/topic")
-        print(fusion_topic)
-        print('****************/////////////////////////////////////////////')
+        # print('detection_topic')
+        # print('transform_topic')
+        # print('fusion_topic')
 
         queue_size = rospy.get_param("~publisher/detections/queue_size")
         latch = rospy.get_param("~publisher/detections/latch")
         rate = rospy.Rate(10)
-
-        print('fusion_topic')
 
         self.detection_sub = rospy.Subscriber(detection_topic, DetectedPersons, self.callback_detection)
         self.transform_sub = rospy.Subscriber(transform_topic, TransformStamped, self.callback_transform)
@@ -52,13 +45,13 @@ class SimpleFusion:
             out_det.modality = det.modality
             out_det.embed_vector = det.embed_vector
 
-            det_orien = det.pose.pose.orientation
-            det_orien = Rotation.from_quat([det_orien.x, det_orien.y, det_orien.z, det_orien.w])
-            det_trans = det.pose.pose.position
-            det_trans = np.array([det_trans.x, det_trans.y, det_trans.z])
+            det_rot = Rotation.from_quat([det.pose.pose.orientation.x,
+                                          det.pose.pose.orientation.y,
+                                          det.pose.pose.orientation.z,
+                                          det.pose.pose.orientation.w])
+            det_trans = np.array([det.pose.pose.position.x, det.pose.pose.position.y, det.pose.pose.position.z])
 
-            out_orien = det_orien.__mul__(self.tf.rotation).as_quat()
-            out_trans = self.tf.translation + self.tf.rotation.apply(det_trans)
+            out_trans, out_orien = self.tf.apply(det_trans, det_rot)
 
             out_det.pose.pose.orientation.x = out_orien[0]
             out_det.pose.pose.orientation.y = out_orien[1]
@@ -71,10 +64,9 @@ class SimpleFusion:
             out_det.pose.covariance = det.pose.covariance
             fusion_msg.detections.append(out_det)
         self.fusion_pub.publish(fusion_msg)
-        print('fusion is publishing a message ***********************')
 
     def callback_transform(self, msg):
-        print('fusion node received transform msg')
+        # print('fusion node received transform msg')
         self.tf.translation = np.array([msg.transform.translation.x,
                                         msg.transform.translation.y,
                                         msg.transform.translation.z])
@@ -83,7 +75,6 @@ class SimpleFusion:
                                                msg.transform.rotation.y,
                                                    msg.transform.rotation.z,
                                                    msg.transform.rotation.w])
-
 
 
 if __name__ == '__main__':

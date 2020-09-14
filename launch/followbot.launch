@@ -12,23 +12,27 @@
 	motion_planning // publish motion package
 -->
 
-
-    <node pkg="followbot" type="simulator_node.py" name="followbot_sim" output="screen">
-        <rosparam command="load" file="$(find followbot)/config/followbot_sim/followbot_params.yaml"/>
+    <node pkg="followbot" type="simulation_node.py" name="followbot_sim" output="screen">
         <rosparam command="load" file="$(find followbot)/config/followbot_sim/followbot_topics.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/followbot_sim/followbot_params.yaml"/>
     </node>
 
-    <node pkg="followbot" type="robot_node.py" name="follow_bot" output="screen">
-    </node>
 
     <node pkg="drow_ros" type="node.py" name="drow_ros_front" output="screen">
         <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_params.yaml"/>
         <rosparam command="load" file="$(find followbot)/config/drow_ros/drow_topics.yaml"/>
     </node>
 
-    <node pkg="followbot" type="fusion_node.py" name="simple_fusion" output="screen">
-        <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_params.yaml"/>
+   <!--
+    <node pkg="followbot" type="detection_node.py" name="simple_detection" output="screen">
         <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_topics.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/followbot_sim/followbot_topics.yaml"/>
+    </node>
+    -->
+
+    <node pkg="followbot" type="fusion_node.py" name="simple_fusion" output="screen">
+        <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_topics.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/detection_fusion/fusion_params.yaml"/>
     </node>
 
     <!-- Fuse Detection
@@ -64,11 +68,16 @@
         <arg name="queue_size" value="10" />
     </include>
 
+    <node pkg="crowd_prediction" type="prediction_node.py" name="crowd_prediction" output="screen">
+        <rosparam command="load" file="$(find crowd_prediction)/config/prediction_topics.yaml"/>
+        <rosparam command="load" file="$(find crowd_prediction)/config/prediction_params.yaml"/>
+        <rosparam command="load" file="$(find followbot)/config/followbot_sim/real_scenario_config.yaml"/>
+    </node>
+
+
     <!--
-    <node pkg="trajec_prediction" type="trajec_prediction_server.py" name="trajec_prediction" output="screen" />
-    <node pkg="trajec_prediction" type="crowd_synthesis_server.py" name="crowd_synthesis" output="screen" />
+    <node pkg="followbot" type="robot_node.py" name="follow_bot" output="screen">
+    </node>
     -->
-
-
 
 </launch>
