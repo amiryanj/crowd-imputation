@@ -180,7 +180,8 @@ class Circle:
         return intersect_circle_line(self.center, self.radius, line)
 
     def intersect_many(self, lines):
-        return intersect_circle_lines(self.center, self.radius, lines)
+        circle1_ress, circle1_intpnts, _ = intersect_circle_lines(self.center, self.radius, lines)
+        return circle1_ress, circle1_intpnts
 
 
 class DoubleCircle:  # to represent two legs of a pedestrian

@@ -42,8 +42,8 @@ class Display:
         world_w = world_dim[0][1] - world_dim[0][0]
         world_h = world_dim[1][1] - world_dim[1][0]
 
-        sx = float(win_size[0]) / (world_w * (1 + 2 * margin)) * 2
-        sy = -float(win_size[1]) / (world_h * (1 + 2 * margin)) * 2
+        sx = float(win_size[0]) / (world_w * (1 + 2 * margin)) #* 2
+        sy = -float(win_size[1]) / (world_h * (1 + 2 * margin)) #* 2
         self.scale = np.array([[sx, 0], [0, sy]])
         self.trans = np.array([margin * win_size[0] - world_dim[0][0] * sx,
                                margin * win_size[1] - world_dim[1][1] * sy], dtype=np.float)
@@ -139,6 +139,9 @@ class Display:
                 pygame.quit()
                 print('Simulation exited by user')
                 exit(1)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                click_pnt = np.matmul(np.linalg.inv(self.scale), (pygame.mouse.get_pos() - self.trans))
+                print('- ped:\n\t\tpos_x: %.3f\n\t\tpos_y: %.3f\n\t\torien: 0' % (click_pnt[0], click_pnt[1]))
             if event.type == pygame.KEYDOWN:
                 self.event = event.key
             else:

@@ -27,7 +27,7 @@ class Pedestrian:
         #  2: using 2 legs for use with DROW
 
         if biped:
-            self.leg_radius = 0.06
+            self.leg_radius = 0.075
             self.leg_dist   = 0.25
             self.geometry = lambda: DoubleCircle(self.pos + self.lateral_unitvec() * self.leg_dist /2.,
                                                  self.pos - self.lateral_unitvec() * self.leg_dist /2.,
@@ -45,7 +45,6 @@ class Pedestrian:
 
     def step(self):
         self.mocap_walk.step(0.05)
-        print("Fixme: pedestrian.py -> step()")   # Fixme
         self_orien = self.orien() + np.pi/2
         rot_mat = np.array([[cos(self_orien), -sin(self_orien)], [sin(self_orien), cos(self_orien)]])
         right_leg_pos = self.pos + np.matmul(rot_mat, self.mocap_walk.right_leg)

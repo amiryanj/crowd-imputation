@@ -2,6 +2,7 @@ import time
 from scipy.spatial.transform import Rotation
 from followbot.gui.display import *
 from followbot.scenarios.roundtrip_scenario import RoundTrip
+from followbot.scenarios.static_crowd import StaticCrowd
 from followbot.simulator.world import World
 from followbot.util.basic_geometry import Line
 from followbot.scenarios.real_scenario import RealScenario
@@ -96,6 +97,9 @@ def run():
 
     scenario = RoundTrip()
     scenario.setup('powerlaw', flow_2d=True)
+
+    # scenario = StaticCrowd()
+    # scenario.setup()
 
     # scenario = RealScenario()
     # scenario.setup()

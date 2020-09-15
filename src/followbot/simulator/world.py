@@ -15,7 +15,6 @@ class World:
         self.walkable = []  # would be a constant-matrix that is determined by the scenario maker
         self.POM = []  # probabilistic occupancy map
         self.mapping_to_grid = []
-        self.inertia_coeff = 0.8  # larger, more inertia, zero means no inertia
 
         for ii in range(n_robots):
             robot = MyRobot()
@@ -24,6 +23,7 @@ class World:
 
         self.sim = crowdsim.CrowdSim(sim_model)
         self.sim.initSimulation(n_peds + n_robots)
+        self.inertia_coeff = 0.8  # larger, more inertia, zero means no inertia
 
         self.crowds = []
         for ii in range(n_peds):
