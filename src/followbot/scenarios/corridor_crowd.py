@@ -15,14 +15,14 @@ from followbot.simulator.world import World
 from followbot.util.basic_geometry import Line
 
 
-class StaticCrowd(SimulationScenario):
+class CorridorCrowd(SimulationScenario):
     """
     -> Crowd standing in groups of (2, 3, 4) persons, in a corridor.
     -> The inter-group distance is bigger than intra-group distances
     -> The leader passes the corridor among crowd
     """
     def __init__(self, n_peds_=32, n_robots_=1, corridor_wid=5, corridor_len=18):
-        super(StaticCrowd, self).__init__()
+        super(CorridorCrowd, self).__init__()
         self.world = []
         self.display = []
         self.n_peds = n_peds_
@@ -32,7 +32,7 @@ class StaticCrowd(SimulationScenario):
         self.ped_radius = 0.25
 
     def setup_crowd_sim(self):
-        self.world.sim = crowdsim.CrowdSim("rvo2")
+        self.world.sim = crowdsim.CrowdSim("powerlaw")
         self.world.sim.initSimulation(self.n_peds + 1)
         self.world.inertia_coeff = 0.1  # larger, more inertia, zero means no inertia
 
@@ -45,49 +45,22 @@ class StaticCrowd(SimulationScenario):
             self.world.sim.setAgentTimeHorizon(ii, 2)
 
     def setup(self):
-        config_filename = '/home/cyrus/workspace2/ros-catkin/src/followbot/config/followbot_sim/static_crowd_config.yaml'
-        with open(config_filename, 'r') as config_file:
-            crowd_config = yaml.load(config_file, Loader=yaml.FullLoader)
-
         ped_poss = []
-
-        # Case 1: Manually arranged crowd
-        # for item, doc in crowd_config.items():
-        #     if item == 'crowd':
-        #         for ped in doc:
-        #             ped_poss.append([ped['ped']['pos_x'], ped['ped']['pos_y']])
-
-        # Case 2: Randomly select group centers
-        # add multiple groups [2, 3, 4, 5]
-        # accum_n_peds = 0
-        # group_sizes = []
-        # while accum_n_peds < self.n_peds - 2:
-        #     rand_group_size = np.random.random_integers(2, 5)
-        #     while (accum_n_peds + rand_group_size) > self.n_peds:
-        #         rand_group_size -= 1  # modify the random number so that accumulated number exactly match self.n_peds
-        #     group_sizes.append(rand_group_size)
-        #     accum_n_peds += rand_group_size
-
         poisson_distrib = PoissonDistribution((self.corridor_len - self.ped_radius * 4,
                                                self.corridor_wid - self.ped_radius * 4),
-                                              minDist=3, k=50)
+                                              minDist=1.3, k=10)
+
         group_centers = poisson_distrib.create_samples() + self.ped_radius * 2
-        group_sizes = np.random.random_integers(2, 4, len(group_centers))
+        group_sizes = np.random.random_integers(1, 1, len(group_centers))
 
         for gg, g_size in enumerate(group_sizes):
-            # px_g = np.random.uniform(self.ped_radius * 2, self.corridor_len - self.ped_radius * 2)
-            # py_g = np.random.uniform(self.ped_radius * 2, self.corridor_wid - self.ped_radius * 2)
             px_g = group_centers[gg][0]
             py_g = group_centers[gg][1]
-
             rotation = np.random.uniform(0, np.pi)
             for ii in range(g_size):
                 px_i = px_g + cos(rotation + (ii / g_size) * np.pi * 2) * self.ped_radius * sqrt(g_size)
                 py_i = py_g + sin(rotation + (ii / g_size) * np.pi * 2) * self.ped_radius * sqrt(g_size)
                 ped_poss.append([px_i, py_i])
-
-        # Set the position of Leader agent
-        ped_poss.insert(0, [1, self.corridor_wid/2])
 
         self.n_peds = len(ped_poss)  # the random algorithm may return a different number of agents than what is asked
 
@@ -95,7 +68,7 @@ class StaticCrowd(SimulationScenario):
         self.world = World(self.n_peds, self.n_robots, biped=False)
         self.setup_crowd_sim()
 
-        self.display = Display(self.world, world_dim, (960, 960), 'Static Crowd')
+        self.display = Display(self.world, world_dim, (960, 960), 'Basic Corridor')
 
         # Two walls of the corridor
         self.world.add_object(Line([0, 0], [self.corridor_len, 0]))
@@ -111,8 +84,12 @@ class StaticCrowd(SimulationScenario):
         for ped_ind in range(len(ped_poss)):
             self.world.set_ped_position(ped_ind, ped_poss[ped_ind])
             self.world.set_ped_velocity(ped_ind, [0, 0])
+            if np.random.rand() > 0.5:
+                self.world.set_ped_goal(ped_ind, [1000, self.corridor_wid / 2])
+            else:
+                self.world.set_ped_goal(ped_ind, [-1000, self.corridor_wid / 2])
+
             if ped_ind == 0: continue
-            self.world.set_ped_goal(ped_ind, ped_poss[ped_ind])
             self.world.crowds[ped_ind].color = RED_COLOR
         # Set the goal of Leader agent
         self.world.set_ped_goal(0, [self.corridor_len, self.corridor_wid / 2])
@@ -132,14 +109,10 @@ class StaticCrowd(SimulationScenario):
             for ii in range(self.n_peds):
                 p = self.world.sim.getCenterNext(ii)
                 v = self.world.sim.getCenterVelocityNext(ii)
-                if ii != 0:
-                    v_new = np.zeros(2)
-                    p_new = self.world.crowds[ii].pos
-                else:
-                    # apply inertia
-                    v_new = np.array(v) * (1 - self.world.inertia_coeff) \
-                            + self.world.crowds[ii].vel * self.world.inertia_coeff
-                    p_new = self.world.crowds[ii].pos + v_new * dt
+                # apply inertia
+                v_new = np.array(v) * (1 - self.world.inertia_coeff) \
+                        + self.world.crowds[ii].vel * self.world.inertia_coeff
+                p_new = self.world.crowds[ii].pos + v_new * dt
 
                 self.world.set_ped_position(ii, p_new)
                 self.world.set_ped_velocity(ii, v_new)
@@ -147,5 +120,5 @@ class StaticCrowd(SimulationScenario):
             self.world.step_robot(dt)
 
         self.update_disply()
-        super(StaticCrowd, self).step()
+        super(CorridorCrowd, self).step()
 

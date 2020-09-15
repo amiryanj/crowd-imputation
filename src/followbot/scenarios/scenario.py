@@ -20,9 +20,11 @@ class Scenario:
     def setup(self):
         pass
 
-    def step(self):
-        pass
+    def step(self, save=False):
+        if not self.world.pause and save:
+            self.display.save('/home/cyrus/Videos/crowdsim/followbot/')
 
     def update_disply(self):
-        self.display.update()
-        time.sleep(0.05)
+        toggle_pause = self.display.update()
+        if toggle_pause: self.world.pause = not self.world.pause
+        time.sleep(0.01)

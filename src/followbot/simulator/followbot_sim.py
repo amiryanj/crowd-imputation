@@ -1,6 +1,7 @@
 import time
 from scipy.spatial.transform import Rotation
 from followbot.gui.display import *
+from followbot.scenarios.corridor_crowd import CorridorCrowd
 from followbot.scenarios.roundtrip_scenario import RoundTrip
 from followbot.scenarios.static_crowd import StaticCrowd
 from followbot.simulator.world import World
@@ -95,8 +96,17 @@ def run():
     # scenario = setup_corridor()
     # scenario = setup_circle()
 
-    scenario = RoundTrip()
-    scenario.setup('powerlaw', flow_2d=True)
+    # scenario = RoundTrip()
+    # scenario.setup('powerlaw', flow_2d=True)
+
+    scenario = CorridorCrowd()
+    scenario.setup()
+
+    # Todo:
+    #  capture the agents around the robot and extract the pattern
+    #  1. Distance to (k)-nearest agent
+    #  2. Velocity vector
+    #  3. You can feed these data to a network with a pooling layer to classify different cases
 
     # scenario = StaticCrowd()
     # scenario.setup()

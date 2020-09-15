@@ -1,11 +1,12 @@
 import time
 
 from followbot.scenarios.scenario import Scenario
+from followbot.scenarios.simulation_scenario import SimulationScenario
 from followbot.simulator.world import World
 from followbot.gui.display import *
 
 
-class RoundTrip(Scenario):
+class RoundTrip(SimulationScenario):
     def __init__(self, n_peds_=32, n_robots_=1, inner_dim_=12, outer_dim_=18):
         super(RoundTrip, self).__init__()
         self.world = []
@@ -141,12 +142,9 @@ class RoundTrip(Scenario):
                 if len(goal) > 0:
                     self.world.set_ped_goal(ii, goal)
 
-        toggle_pause = self.display.update()
-        if toggle_pause: self.world.pause = not self.world.pause
-        time.sleep(0.01)
-
-        if not self.world.pause and save:
-            self.display.save('/home/cyrus/Videos/crowdsim/followbot/')
+        self.update_disply()
+        super(RoundTrip, self).step()
+        
 
 
 
