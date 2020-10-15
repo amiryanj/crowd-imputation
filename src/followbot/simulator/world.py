@@ -1,27 +1,26 @@
 import numpy as np
 
 from followbot.crowdsim.pedestrian import Pedestrian
+from followbot.robot_functions.follower_bot import FollowerBot
 from followbot.robot_functions.robot import MyRobot
 import followbot.crowdsim.crowdsim as crowdsim
+import followbot.crowdsim.umans_api as umans_api
 
 
 class World:
-    def __init__(self, n_peds, n_robots, sim_model="helbing", biped=False):
+    def __init__(self, n_peds, n_robots, sim_model="SocialForces", biped=False):
         self.pause = False
         self.n_peds = n_peds
         self.n_robots = n_robots
         self.robots = []
-        self.objects = []
+        self.obstacles = []
         self.walkable = []  # would be a constant-matrix that is determined by the scenario maker
         self.POM = []  # probabilistic occupancy map
         self.mapping_to_grid = []
 
-        for ii in range(n_robots):
-            robot = MyRobot()
-            robot.world = self
-            self.robots.append(robot)
+        # self.sim = crowdsim.CrowdSim(sim_model)
+        self.sim = umans_api.CrowdSimUMANS(sim_model)
 
-        self.sim = crowdsim.CrowdSim(sim_model)
         self.sim.initSimulation(n_peds + n_robots)
         self.inertia_coeff = 0.8  # larger, more inertia, zero means no inertia
 
@@ -33,15 +32,25 @@ class World:
             self.crowds.append(ped_i)
             ped_i.radius = 0.25
             ped_i.pref_speed = np.random.uniform(1.2, 1.7)
-            self.sim.setAgentRadius(ii, ped_i.radius * 2)
-            self.sim.setAgentSpeed(ii, ped_i.pref_speed)
-            self.sim.setAgentNeighborDist(ii, 3)
-            self.sim.setAgentTimeHorizon(ii, 2)
+            # self.sim.setAgentParameters(ii, radius=ped_i.radius * 2,
+            #                             prefSpeed=ped_i.pref_speed, maxNeighborDist=3, maxTimeHorizon=2)
+            # self.sim.setAgentRadius(ii, ped_i.radius * 2)
+            # self.sim.setAgentSpeed(ii, ped_i.pref_speed)
+            # self.sim.setAgentNeighborDist(ii, 3)
+            # self.sim.setAgentTimeHorizon(ii, 2)
 
-    def add_object(self, obj):
-        self.objects.append(obj)
+    def add_robot(self, robot):
+        robot.world = self
+        self.robots.append(robot)
+
+    def add_obstacle(self, obj):
+        self.obstacles.append(obj)
         if hasattr(obj, 'line'):
-            self.sim.addObstacleCoords(obj.line[0][0], obj.line[0][1], obj.line[1][0], obj.line[1][1])
+            try:
+                self.sim.addObstacleCoords(obj.line[0][0], obj.line[0][1], obj.line[1][0], obj.line[1][1])
+            except:
+                print('obstacles should be defined in config file')
+                exit(-1)
         else:
             print('Circle objects are not supported in crowd simulation!')
 
@@ -63,29 +72,18 @@ class World:
         self.sim.setGoal(index, goal[0], goal[1])
 
     def set_robot_position(self, index, pos):
+        """Robot is assumed to be the last agent in the CrowdSim agents"""
         self.robots[index].pos = np.array(pos, dtype=np.float)
         self.sim.setPosition(self.n_peds + index, pos[0], pos[1])
 
     def set_robot_velocity(self, index, vel):
+        """Robot is assumed to be the last agent in the CrowdSim agents"""
         self.robots[index].vel = np.array(vel, dtype=np.float)
         self.sim.setVelocity(self.n_peds + index, vel[0], vel[1])
 
-    def set_robot_leader(self, index_robot, index_ped):
-        self.robots[index_robot].leader_ped = self.crowds[index_ped]
-
-    def step_crowd(self, dt):
-        self.sim.doStep(dt)
-        for ii in range(self.n_peds):
-            try:
-                p = self.sim.getCenterNext(ii)
-                v = self.sim.getCenterVelocityNext(ii)
-                # apply inertia
-                v_new = np.array(v) * (1-self.inertia_coeff) + self.crowds[ii].vel * self.inertia_coeff
-                p_new = self.crowds[ii].pos + v_new * dt
-                self.set_ped_position(ii, p_new)
-                self.set_ped_velocity(ii, v_new)
-            except:
-                print('exception occurred in running crowd sim')
+    def set_robot_goal(self, index, goal):
+        self.robots[index].goal = np.array(goal, dtype=np.float)
+        self.sim.setGoal(self.n_peds + index, goal[0], goal[1])
 
     def step_robot(self, dt):
         for jj, robot in enumerate(self.robots):

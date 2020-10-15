@@ -32,17 +32,18 @@ class StaticCrowd(SimulationScenario):
         self.ped_radius = 0.25
 
     def setup_crowd_sim(self):
-        self.world.sim = crowdsim.CrowdSim("rvo2")
+        # self.world.sim = crowdsim.CrowdSim("powerlaw")
+
         self.world.sim.initSimulation(self.n_peds + 1)
         self.world.inertia_coeff = 0.1  # larger, more inertia, zero means no inertia
 
         for ii in range(self.n_peds):
             self.world.crowds[ii].pref_speed = 1.3
             self.world.crowds[ii].radius = 0.25
-            self.world.sim.setAgentRadius(ii, self.world.crowds[ii].radius * 2)
-            self.world.sim.setAgentSpeed(ii, self.world.crowds[ii].pref_speed)
-            self.world.sim.setAgentNeighborDist(ii, 4)
-            self.world.sim.setAgentTimeHorizon(ii, 2)
+            # self.world.sim.setAgentRadius(ii, self.world.crowds[ii].radius * 1.2)
+            # self.world.sim.setAgentSpeed(ii, self.world.crowds[ii].pref_speed)
+            # self.world.sim.setAgentNeighborDist(ii, 4)
+            # self.world.sim.setAgentTimeHorizon(ii, 2)
 
     def setup(self):
         config_filename = '/home/cyrus/workspace2/ros-catkin/src/followbot/config/followbot_sim/static_crowd_config.yaml'
@@ -87,7 +88,7 @@ class StaticCrowd(SimulationScenario):
                 ped_poss.append([px_i, py_i])
 
         # Set the position of Leader agent
-        ped_poss.insert(0, [1, self.corridor_wid/2])
+        # ped_poss.insert(0, [1, self.corridor_wid/2])
 
         self.n_peds = len(ped_poss)  # the random algorithm may return a different number of agents than what is asked
 
@@ -98,8 +99,9 @@ class StaticCrowd(SimulationScenario):
         self.display = Display(self.world, world_dim, (960, 960), 'Static Crowd')
 
         # Two walls of the corridor
-        self.world.add_object(Line([0, 0], [self.corridor_len, 0]))
-        self.world.add_object(Line([0, self.corridor_wid], [self.corridor_len, self.corridor_wid]))
+        # self.world.add_obstacle(Line([0, 0], [self.corridor_len, 0]))
+        # self.world.add_obstacle(Line([0, self.corridor_wid], [self.corridor_len, self.corridor_wid]))
+        self.world.obstacles = self.world.sim.obstacles
 
         pom_resolution = 4  # per meter
         self.world.walkable = np.ones((self.corridor_len * pom_resolution,
@@ -111,16 +113,12 @@ class StaticCrowd(SimulationScenario):
         for ped_ind in range(len(ped_poss)):
             self.world.set_ped_position(ped_ind, ped_poss[ped_ind])
             self.world.set_ped_velocity(ped_ind, [0, 0])
-            if ped_ind == 0: continue
             self.world.set_ped_goal(ped_ind, ped_poss[ped_ind])
             self.world.crowds[ped_ind].color = RED_COLOR
-        # Set the goal of Leader agent
-        self.world.set_ped_goal(0, [self.corridor_len, self.corridor_wid / 2])
 
-        # set the Robot position just behind first ped
-        ped0_pos = self.world.crowds[0].pos
-        self.world.set_robot_position(0, [ped0_pos[0] - 1, ped0_pos[1]])
-        self.world.set_robot_leader(0, 0)
+        # Set the goal of Leader agent
+        # self.world.set_ped_goal(0, [self.corridor_len, self.corridor_wid / 2])
+
         self.world.sim.setTime(0)
         self.display.update()
 
@@ -132,14 +130,15 @@ class StaticCrowd(SimulationScenario):
             for ii in range(self.n_peds):
                 p = self.world.sim.getCenterNext(ii)
                 v = self.world.sim.getCenterVelocityNext(ii)
-                if ii != 0:
-                    v_new = np.zeros(2)
-                    p_new = self.world.crowds[ii].pos
-                else:
-                    # apply inertia
-                    v_new = np.array(v) * (1 - self.world.inertia_coeff) \
-                            + self.world.crowds[ii].vel * self.world.inertia_coeff
-                    p_new = self.world.crowds[ii].pos + v_new * dt
+                # if ii == 0:
+                #     # apply inertia
+                #     v_new = np.array(v) * (1 - self.world.inertia_coeff) \
+                #             + self.world.crowds[ii].vel * self.world.inertia_coeff
+                #     p_new = self.world.crowds[ii].pos + v_new * dt
+                # else:
+                v_new = np.zeros(2)
+                p_new = self.world.crowds[ii].pos
+
 
                 self.world.set_ped_position(ii, p_new)
                 self.world.set_ped_velocity(ii, v_new)

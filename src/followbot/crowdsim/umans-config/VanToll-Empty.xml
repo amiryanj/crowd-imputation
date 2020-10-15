@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Simulation delta_time="0.1" end_time="100">
+	<World type="Infinite"> 
+		<Obstacles file="obstacles/CodeGenerated.xml" />
+	</World>
+	<Policies file="policies/VanToll.xml" />
+	<Agents file="agents/Empty.xml" />
+</Simulation>

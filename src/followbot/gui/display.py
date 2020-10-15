@@ -2,6 +2,8 @@ import os
 import math
 import pygame
 import numpy as np
+
+from followbot.robot_functions.follower_bot import FollowerBot
 from followbot.util.basic_geometry import Line, Circle
 from followbot.util.cv_importer import *
 
@@ -42,8 +44,8 @@ class Display:
         world_w = world_dim[0][1] - world_dim[0][0]
         world_h = world_dim[1][1] - world_dim[1][0]
 
-        sx = float(win_size[0]) / (world_w * (1 + 2 * margin)) #* 2
-        sy = -float(win_size[1]) / (world_h * (1 + 2 * margin)) #* 2
+        sx = float(win_size[0]) / (world_w * (1 + 2 * margin))  # * 0.5
+        sy = -float(win_size[1]) / (world_h * (1 + 2 * margin))  # * 0.5
         self.scale = np.array([[sx, 0], [0, sy]])
         self.trans = np.array([margin * win_size[0] - world_dim[0][0] * sx,
                                margin * win_size[1] - world_dim[1][1] * sy], dtype=np.float)
@@ -69,16 +71,18 @@ class Display:
 
     # returns pause state
     def update(self):
+        # if len(self.world.robots):
+        #     self.trans = np.array(self.world.robots[0].pos)
         self.local_time += 1
         self.win.fill(WHITE_COLOR)  # ms
         self.circle([0, 0], 2, WHITE_COLOR)  # DEBUG
 
         # Objects
-        for obj in self.world.objects:
-            if isinstance(obj, Line):
-                self.line(obj.line[0], obj.line[1], RED_COLOR, 3)
-            elif isinstance(obj, Circle):
-                self.circle(obj.center, int(obj.radius * self.scale[0, 0]), RED_COLOR, 0)
+        for obs in self.world.obstacles:
+            if isinstance(obs, Line):
+                self.line(obs.line[0], obs.line[1], RED_COLOR, 3)
+            elif isinstance(obs, Circle):
+                self.circle(obs.center, int(obs.radius * self.scale[0, 0]), RED_COLOR, 0)
 
         # Pedestrians
         for ii in range(len(self.world.crowds)):
@@ -93,10 +97,11 @@ class Display:
         for robot in self.world.robots:
             self.circle(robot.pos, 7, ORANGE_COLOR)
             self.circle(robot.pos, 9, BLACK_COLOR, 3)
-            self.circle(robot.leader_ped.pos, 11, PINK_COLOR, 5)
+            if isinstance(robot, FollowerBot):
+                self.circle(robot.leader_ped.pos, 11, PINK_COLOR, 5)
             # draw a vector showing orientation
             u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
-            self.line(robot.pos, robot.pos + [u, v], GREEN_COLOR, 3)
+            self.line(robot.pos, robot.pos + [u, v], BLUE_COLOR, 3)
 
             # draw Lidar output
             for pnt in robot.lidar.last_range_pnts:
@@ -141,7 +146,7 @@ class Display:
                 exit(1)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 click_pnt = np.matmul(np.linalg.inv(self.scale), (pygame.mouse.get_pos() - self.trans))
-                print('- ped:\n\t\tpos_x: %.3f\n\t\tpos_y: %.3f\n\t\torien: 0' % (click_pnt[0], click_pnt[1]))
+                # print('- ped:\n\t\tpos_x: %.3f\n\t\tpos_y: %.3f\n\t\torien: 0' % (click_pnt[0], click_pnt[1]))
             if event.type == pygame.KEYDOWN:
                 self.event = event.key
             else:

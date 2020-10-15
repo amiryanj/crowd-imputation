@@ -1,6 +1,6 @@
 from followbot.scenarios.real_scenario import RealScenario
 from followbot.util.basic_geometry import Line
-
+import re
 
 
 class HermesScenario(RealScenario):
@@ -15,7 +15,7 @@ class HermesScenario(RealScenario):
         else:
             line_objs = corridor_map(int(exp_dimensions[1])/100., int(exp_dimensions[2])/100.)
         for line_obj in line_objs:
-            self.world.add_object(line_obj)
+            self.world.add_obstacle(line_obj)
 
 def corridor_map(width, bottleneck):
     wall_b = Line((-4, 0), (4, 0))

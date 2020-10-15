@@ -35,7 +35,7 @@ class RoundTrip(SimulationScenario):
                         Line([self.outer_dim, self.outer_dim], [-self.outer_dim, self.outer_dim]),
                         Line([-self.outer_dim, self.outer_dim], [-self.outer_dim, -self.outer_dim]) ]
         for l_obj in line_objects:
-            self.world.add_object(l_obj)
+            self.world.add_obstacle(l_obj)
 
         pom_resolution = 4  # per meter
         self.world.walkable = np.ones((self.outer_dim * 2 * pom_resolution,

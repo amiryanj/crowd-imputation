@@ -48,8 +48,8 @@ class LiDAR2D:
         cur_rays[:, 1, :] = np.matmul(rot_matrix, cur_rays[:, 1, :].transpose()).transpose() + self.robot_ptr.pos
 
         all_intersects = [cur_rays[:, 1]]
-        for obj in world.objects:
-            results, intersect_pts_ = obj.intersect_many(cur_rays)
+        for obs in world.obstacles:
+            results, intersect_pts_ = obs.intersect_many(cur_rays)
             is_not_nan = 1 - np.any(np.isnan(intersect_pts_), axis=1)
             results = np.bitwise_and(results, is_not_nan)
             intersect_pts = np.stack([res * intersect_pts_[ii] + (1-res) * (self.range_max + self.robot_ptr.pos) for ii, res in enumerate(results)])

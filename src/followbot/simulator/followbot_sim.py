@@ -1,7 +1,11 @@
 import time
+from datetime import datetime
 from scipy.spatial.transform import Rotation
 from followbot.gui.display import *
+from followbot.robot_functions.follower_bot import FollowerBot
+from followbot.robot_functions.robot import MyRobot
 from followbot.scenarios.corridor_crowd import CorridorCrowd
+from followbot.scenarios.group_crowd import GroupCrowd
 from followbot.scenarios.roundtrip_scenario import RoundTrip
 from followbot.scenarios.static_crowd import StaticCrowd
 from followbot.simulator.world import World
@@ -11,13 +15,10 @@ from followbot.robot_functions.tracking import PedestrianDetection
 from followbot.util.transform import Transform
 # from crowd_synthesis.crowd_synthesis import CrowdSynthesizer
 
-default_model = 'powerlaw'
-agent_color = GREEN_COLOR
 
-
-def init_world(world_dim, model=default_model, title='followBot'):
-    world = World(N_ped, N_robots, model)
-    display = Display(world, world_dim, (960, 960), title + '/' + model)
+def init_world(world_dim, title='followBot'):
+    world = World(N_ped, N_robots)
+    display = Display(world, world_dim, (960, 960), title)
     # world.pref_speed = 1.5  # FIXME : set it for sim as well
     return world, display
 
@@ -25,9 +26,9 @@ def init_world(world_dim, model=default_model, title='followBot'):
 def setup_linear_peds():
     # FIXME: init objects
     world, display = init_world(world_dim=[[0, 8], [-5, 5]], title='linear')
-    line_objects = [Line([5, 0], [5, 8]), Line([6, 0], [6, 9])]
-    for l_obj in line_objects:
-        world.add_object(l_obj)
+    line_obstacles = [Line([5, 0], [5, 8]), Line([6, 0], [6, 9])]
+    for l_obj in line_obstacles:
+        world.add_obstacle(l_obj)
 
     # FIXME: init crowd
     for ii in range(N_ped):
@@ -55,11 +56,12 @@ def setup_circle():
 
 
 def setup_corridor():
+    outer_dim = 18
     world, display = init_world(world_dim=[[-outer_dim, outer_dim], [-outer_dim, outer_dim]], title='corridor')
 
     line_objects = [Line([0, 0], [10, 0]), Line([2, 7], [10, 7])]
     for l_obj in line_objects:
-        world.add_object(l_obj)
+        world.add_obstacle(l_obj)
 
     global N_ped, N_robots
     N_ped, N_robots = 10, 1
@@ -79,28 +81,43 @@ def setup_corridor():
     display.update()
 
 
-def update_default(save=False):
-    world, display = init_world(world_dim=[[-5, 5], [-5, 5]], title='circle')
-    if not world.pause:
-        world.step_crowd(0.02)
-
-    toggle_pause = display.update()
-    if toggle_pause: world.pause = not world.pause
-    time.sleep(0.01)
-
-    if not world.pause and save:
-        display.screenshot('/home/cyrus/Videos/crowdsim/followbot/')
-
-
 def run():
-    # scenario = setup_corridor()
-    # scenario = setup_circle()
+    ## scenario = setup_corridor()   # FixMe
+    ## scenario = setup_circle()     # FixMe
+
+    # scenario = RealScenario()
+    # scenario.setup()
 
     # scenario = RoundTrip()
     # scenario.setup('powerlaw', flow_2d=True)
 
+    # FixME: 4 main types of scenarios:
+    #  1. Static groups (french people standing to talk all the weekend!)
+    #  2. 1-D flow of singles (parades of bachelors!)
+    #  3. 2-D flow of singles
+    #  4. 2-D flow of couples (love street!)
+    # scenario = StaticCrowd()
+    # scenario.setup()
+
+    # scenario = CorridorCrowd()
+    # scenario.setup(biD_flow=False)
+
     scenario = CorridorCrowd()
-    scenario.setup()
+    scenario.setup(biD_flow=True)
+
+    # scenario = GroupCrowd()
+    # scenario.setup()
+
+    # FixMe: uncomment to use FollowerBot
+    # robot = FollowerBot()
+    # scenario.world.add_robot(robot)
+    # robot.set_leader_ped(scenario.world.crowds[0])
+
+    # FixMe: uncomment to use Std Robot
+    robot = MyRobot()
+    scenario.world.add_robot(robot)
+    robot.init([0, 2])
+    scenario.world.set_robot_goal(0, [100, 2])
 
     # Todo:
     #  capture the agents around the robot and extract the pattern
@@ -108,27 +125,46 @@ def run():
     #  2. Velocity vector
     #  3. You can feed these data to a network with a pooling layer to classify different cases
 
-    # scenario = StaticCrowd()
-    # scenario.setup()
-
-    # scenario = RealScenario()
-    # scenario.setup()
     # crowd_syn = CrowdSynthesizer()
     # crowd_syn.extract_features(scenario.dataset)
 
-    robot = scenario.world.robots[0]
-    lidar = robot.lidar
+    # lidar = robot.lidar
+    # ped_detector = PedestrianDetection(robot.lidar.range_max, np.deg2rad(1 / robot.lidar.resolution))
 
-    ped_detector = PedestrianDetection(robot.lidar.range_max, np.deg2rad(1 / robot.lidar.resolution))
+    dt = 0.1
 
-    # ped_detector.
+    # Write robot observations to file  # FixME: I start with recording ground truth values
+    output_dir = "/home/cyrus/workspace2/ros-catkin/src/followbot/src/followbot/temp/robot_obsvs"
+    output_filename = os.path.join(output_dir, type(scenario).__name__ + ".txt")
+    output_file = open(output_filename, 'a+')
 
+    frame_id = -1
     while True:
-        scenario.step()
-            # scenario.step_crowd()
-            # scenario.step_robot()
-        cur_t = scenario.cur_t
+        # frame_id += 1
+        frame_id = datetime.now().timestamp() * 1000  # Unix Time - in millisecond
 
+        scenario.step(dt)
+        robot = scenario.world.robots[0]
+
+        # FixMe: This is for StdRobot
+        if not isinstance(robot, FollowerBot):
+            v_new_robot = scenario.world.sim.getCenterVelocityNext(scenario.n_peds)
+            robot.vel = np.array(v_new_robot)
+
+        peds_t = []
+
+        for pid in range(scenario.n_peds):
+            ped_i = scenario.world.crowds[pid]
+            if robot.lidar.range_min < np.linalg.norm(robot.pos - ped_i.pos) < robot.lidar.range_max:
+                output_file.write("%d %d %.3f %.3f %.3f %.3f\n" % (frame_id, pid,
+                                                                   ped_i.pos[0], ped_i.pos[1],
+                                                                   ped_i.vel[0], ped_i.vel[1]))
+            peds_t.append(ped_i.pos)
+        # pcf(peds_t)
+
+        #  scenario.step_crowd()
+        #  scenario.step_robot()
+        # cur_t = scenario.cur_t
 
         # angles = np.arange(lidar.angle_min_radian(), lidar.angle_max_radian() - 1E-10, lidar.angle_increment_radian())
         # segments = ped_detector.segment_range(lidar.last_range_data, angles)
@@ -145,9 +181,9 @@ def run():
         # # robot_functions  #Todo
         # robot.tracks = robot.tracker.track(robot.detected_peds)
 
-        scenario.update_disply()
+        # scenario.update_disply()
 
-        ## FixMe:
+        # FixMe:
         # n_configs = 2
         # if scenario.display.event == pygame.K_p:
         #     inds = np.where(scenario.ped_valid[scenario.cur_t])

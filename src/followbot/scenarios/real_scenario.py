@@ -118,7 +118,7 @@ class RealScenario(Scenario):
                 y2 = line_elem.getAttribute('y2')
                 line_obj = Line([x1, y1], [x2, y2])
                 # self.line_objects.append(line_obj)
-                self.world.add_object(line_obj)
+                self.world.add_obstacle(line_obj)
 
             # TODO: modify the XML file
             circle_elems = map_doc.getElementsByTagName('Circle')
@@ -127,7 +127,7 @@ class RealScenario(Scenario):
                 y = float(circle_elem.getAttribute('y'))
                 rad = float(circle_elem.getAttribute('radius'))
                 # self.circle_objects.append(Circle([x, y], rad))
-                self.world.add_object(Circle([x, y], rad))
+                self.world.add_obstacle(Circle([x, y], rad))
 
     # def interpolate(self, dataset, id, frame):
     #     ts_id = dataset.id_t_dict[id]
