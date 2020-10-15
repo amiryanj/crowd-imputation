@@ -40,7 +40,7 @@ class SimulationNode:
         self.rate = rospy.Rate(10)  # Hz
 
         world_objects = MarkerArray()
-        for ii, obj in enumerate(self.scenario.world.objects):
+        for ii, obj in enumerate(self.scenario.world.obstacles):
             obj_i_marker = Marker()
             obj_i_marker.color.a = 1.0
             obj_i_marker.color.r = 1.0

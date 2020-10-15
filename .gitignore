@@ -8,6 +8,10 @@ __pycache__/
 .Python
 build/
 
+# ML model checkpoints
+model-ckpnts/
+
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
