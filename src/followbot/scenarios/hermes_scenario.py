@@ -4,6 +4,9 @@ import re
 
 
 class HermesScenario(RealScenario):
+    """
+    Class for replaying Hermes (Bottleneck) Crowd Experiments
+    """
     def __init__(self):
         super(HermesScenario, self).__init__()
 

@@ -10,7 +10,7 @@ from geometry_msgs.msg import Point
 
 from scipy.spatial.transform import Rotation
 from followbot.scenarios.real_scenario import RealScenario
-from followbot.gui.display import *
+from followbot.gui.visualizer import *
 
 
 class SimulationNode:
@@ -142,14 +142,14 @@ class SimulationNode:
     def callback_detection(self, detection_msg):
         for track in detection_msg.detections:
             p = [track.pose.pose.position.x, track.pose.pose.position.y]
-            self.scenario.display.circle(p, 12, BLUE_LIGHT, 5)
+            self.scenario.visualizer.draw_circle(p, 12, BLUE_LIGHT, 5)
         pygame.display.update()
 
     def callback_tracking(self, track_msg):
         # print(track_msg)
         for track in track_msg.tracks:
             p = [track.pose.pose.position.x, track.pose.pose.position.y]
-            self.scenario.display.circle(p, 12, RED_COLOR, 3)
+            self.scenario.visualizer.draw_circle(p, 12, RED_COLOR, 3)
         pygame.display.update()
 
     def robot_nav_callback(self):

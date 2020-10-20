@@ -1,7 +1,7 @@
 import numpy as np
 
 from followbot.crowdsim.pedestrian import Pedestrian
-from followbot.robot_functions.follower_bot import FollowerBot
+# from followbot.robot_functions.follower_bot import FollowerBot
 from followbot.robot_functions.robot import MyRobot
 import followbot.crowdsim.crowdsim as crowdsim
 import followbot.crowdsim.umans_api as umans_api
@@ -14,15 +14,13 @@ class World:
         self.n_robots = n_robots
         self.robots = []
         self.obstacles = []
-        self.walkable = []  # would be a constant-matrix that is determined by the scenario maker
-        self.POM = []  # probabilistic occupancy map
-        self.mapping_to_grid = []
+
 
         # self.sim = crowdsim.CrowdSim(sim_model)
         self.sim = umans_api.CrowdSimUMANS(sim_model)
 
         self.sim.initSimulation(n_peds + n_robots)
-        self.inertia_coeff = 0.8  # larger, more inertia, zero means no inertia
+        self.inertia_coeff = 0.4  # larger, more inertia, zero means no inertia
 
         self.crowds = []
         for ii in range(n_peds):
@@ -40,14 +38,14 @@ class World:
             # self.sim.setAgentTimeHorizon(ii, 2)
 
     def add_robot(self, robot):
-        robot.world = self
+        robot.real_world = self
         self.robots.append(robot)
 
     def add_obstacle(self, obj):
         self.obstacles.append(obj)
         if hasattr(obj, 'line'):
             try:
-                self.sim.addObstacleCoords(obj.line[0][0], obj.line[0][1], obj.line[1][0], obj.line[1][1])
+                self.sim.addObstacleCoords(obj.draw_line[0][0], obj.draw_line[0][1], obj.draw_line[1][0], obj.draw_line[1][1])
             except:
                 print('obstacles should be defined in config file')
                 exit(-1)

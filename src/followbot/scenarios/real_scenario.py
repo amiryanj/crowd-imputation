@@ -6,9 +6,9 @@ from followbot.scenarios.scenario import Scenario
 
 from toolkit.loaders.loader_metafile import load_metafile
 from followbot.util.basic_geometry import Line, Circle
-from followbot.gui.display import Display
+from followbot.gui.visualizer import Visualizer
 from followbot.simulator.world import World
-from followbot.gui.display import BLUE_COLOR
+from followbot.gui.visualizer import BLUE_COLOR
 
 
 class RealScenario(Scenario):
@@ -79,9 +79,9 @@ class RealScenario(Scenario):
                      [self.dataset.bbox['y']['min'], self.dataset.bbox['y']['max']]]
 
         self.world = World(self.n_peds, self.n_robots, 'helbing', biped)
-        self.display = Display(self.world, world_dim,
-                               (int(x_dim * display_resolution), int(y_dim * display_resolution)),
-                               self.dataset.title)
+        self.visualizer = Visualizer(self.world, world_dim,
+                                     (int(x_dim * display_resolution), int(y_dim * display_resolution)),
+                                     self.dataset.title)
 
         pom_resolution = 10  # per meter
         self.world.walkable = np.ones((int(x_dim * pom_resolution),
@@ -139,7 +139,7 @@ class RealScenario(Scenario):
     #     return pos, vel
 
 
-    def step(self):
+    def step(self, save=False):
         # def step_crowd(self):
         if not self.world.pause and self.cur_t < len(self.frames) - 1:
             self.cur_t += 1
@@ -151,6 +151,7 @@ class RealScenario(Scenario):
         if not self.world.pause and self.cur_t < len(self.frames) - 1:
             self.world.step_robot(0.04)
 
+        super(RealScenario, self).step(save)
 
 
 if __name__ == '__main__':

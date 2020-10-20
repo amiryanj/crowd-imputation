@@ -8,28 +8,23 @@ import yaml
 from poisson_distribution import PoissonDistribution
 
 import followbot.crowdsim.crowdsim as crowdsim
-from followbot.gui.display import *
+from followbot.gui.visualizer import *
 from followbot.scenarios.scenario import Scenario
 from followbot.scenarios.simulation_scenario import SimulationScenario
 from followbot.simulator.world import World
 from followbot.util.basic_geometry import Line
 
 
-class CorridorCrowd(SimulationScenario):
+class CorridorScenario(SimulationScenario):
     """
     -> Crowd standing in groups of (2, 3, 4) persons, in a corridor.
     -> The inter-group distance is bigger than intra-group distances
     -> The leader passes the corridor among crowd
     """
     def __init__(self, n_peds_=32, n_robots_=1, corridor_wid=5, corridor_len=18):
-        super(CorridorCrowd, self).__init__()
-        self.world = []
-        self.display = []
-        self.n_peds = n_peds_
-        self.n_robots = n_robots_
+        super(CorridorScenario, self).__init__()
         self.corridor_wid = corridor_wid
         self.corridor_len = corridor_len
-        self.ped_radius = 0.25
         self.biD_flow = False  # by default Uni-directional Flow
 
     def setup_crowd_sim(self):
@@ -89,7 +84,7 @@ class CorridorCrowd(SimulationScenario):
         world_dim = [[0, self.corridor_len], [-self.corridor_len/2, self.corridor_len/2]]
         self.world = World(self.n_peds, self.n_robots, biped=False)
         self.setup_crowd_sim()
-        self.display = Display(self.world, world_dim, (960, 960), 'Basic Corridor')
+        self.visualizer = Visualizer(self.world, world_dim, (960, 960), 'Basic Corridor')
 
         # Two walls of the corridor
         # self.world.add_obstacle(Line([0, 0], [self.corridor_len, 0]))
@@ -112,26 +107,8 @@ class CorridorCrowd(SimulationScenario):
             self.world.crowds[ped_ind].color = RED_COLOR
 
         self.world.sim.setTime(0)
-        self.display.update()
+        self.visualizer.update()
 
-    def step(self, save=False):
-        if not self.world.pause:
-            dt = 0.05
-
-            self.world.sim.doStep(dt)
-            for ii in range(self.n_peds):
-                p_new = self.world.sim.getCenterNext(ii)
-                v = self.world.sim.getCenterVelocityNext(ii)
-                # apply inertia
-                v_new = np.array(v) * (1 - self.world.inertia_coeff) \
-                        + self.world.crowds[ii].vel * self.world.inertia_coeff
-                # p_new = self.world.crowds[ii].pos + v_new * dt
-
-                self.world.set_ped_position(ii, p_new)
-                self.world.set_ped_velocity(ii, v_new)
-
-            self.world.step_robot(dt)
-
-        self.update_disply()
-        super(CorridorCrowd, self).step()
+    def step(self, dt, save=False):
+        super(CorridorScenario, self).step(save)
 

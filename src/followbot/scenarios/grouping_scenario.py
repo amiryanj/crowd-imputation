@@ -1,24 +1,26 @@
 # Author: Javad Amirian
 # Email: amiryan.j@gmail.com
 
-import followbot.crowdsim.crowdsim as crowdsim
-from followbot.scenarios.corridor_crowd import CorridorCrowd
+
 from poisson_distribution import PoissonDistribution
 
 import numpy as np
 from math import sin, cos, sqrt
 from sklearn.metrics.pairwise import euclidean_distances
 
-from followbot.scenarios.simulation_scenario import SimulationScenario
+import followbot.crowdsim.crowdsim as crowdsim
+from followbot.crowdsim.grouping_behavior import GroupingBehavior
+from followbot.scenarios.corridor_scenario import CorridorScenario
 
 
-class GroupCrowd(CorridorCrowd):
+class GroupScenario(CorridorScenario):
     """
     2D couples scenario
     """
 
     def __init__(self):
-        super(GroupCrowd, self).__init__()
+        super(GroupScenario, self).__init__()
+        self.group_behavior_handler = GroupingBehavior()
         self.grouped_agents = []
 
     def setup_agents(self):
@@ -72,7 +74,7 @@ class GroupCrowd(CorridorCrowd):
             # self.world.sim.setAgentTimeHorizon(ii, 2)
 
     def setup(self):
-        super(GroupCrowd, self).setup()
+        super(GroupScenario, self).setup()
 
     def step(self, dt, save=False):
         #  override original step() function to apply grouping behavior
@@ -123,5 +125,4 @@ class GroupCrowd(CorridorCrowd):
 
             self.world.step_robot(dt)
 
-        self.update_disply()
-        SimulationScenario.step(self, save)
+        super(GroupScenario, self).step(save)

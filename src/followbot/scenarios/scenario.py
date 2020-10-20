@@ -2,37 +2,37 @@
 # Email: amiryan.j@gmail.com
 
 from followbot.simulator.world import World
-from followbot.gui.display import Display
+from followbot.gui.visualizer import Visualizer
 import os.path
 import time
 
 
 class Scenario:
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.world = World
-        self.display = Display
+        self.visualizer = Visualizer
 
         self.cur_t = -1
-        self.n_robots = 1
-        self.leader_id = -1
+        self.n_robots = kwargs.get("numRobots", 1)
+        self.leader_id = kwargs.get("LeaderPedId", -1)
 
         self.n_peds = 0  # will be read from dataset
 
-
-    # FixMe: Don't forget to override this function in an inherited class
-    def setup(self):
+    # @Warning: Don't forget to override this function in an inherited class
+    def setup(self, **kwargs):
         raise NotImplementedError
 
-    # FixMe: Don't forget to override this function in an inherited class
-    def step_crowd(self):
+    # @Warning: Don't forget to override this function in an inherited class
+    def step_crowd(self, dt):
         raise NotImplementedError
 
-    def step(self, save=False):
+    def step(self, dt, save=False):
         if not self.world.pause and save:
             home = os.path.expanduser("~")
-            self.display.save(os.path.join(home, 'Videos/followbot/'))
+            self.visualizer.save_screenshot(os.path.join(home, 'Videos/followbot/'))
+        self.update_disply()
 
-    def update_disply(self):
-        toggle_pause = self.display.update()
+    def update_disply(self, delay_sec=0.01):
+        toggle_pause = self.visualizer.update()
         if toggle_pause: self.world.pause = not self.world.pause
-        time.sleep(0.01)
+        time.sleep(delay_sec)

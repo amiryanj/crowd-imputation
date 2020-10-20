@@ -3,14 +3,14 @@ import time
 from followbot.scenarios.scenario import Scenario
 from followbot.scenarios.simulation_scenario import SimulationScenario
 from followbot.simulator.world import World
-from followbot.gui.display import *
+from followbot.gui.visualizer import *
 
 
 class RoundTrip(SimulationScenario):
     def __init__(self, n_peds_=32, n_robots_=1, inner_dim_=12, outer_dim_=18):
         super(RoundTrip, self).__init__()
         self.world = []
-        self.display = []
+        self.visualizer = []
         self.n_peds = n_peds_
         self.n_robots = n_robots_
         self.inner_dim = inner_dim_
@@ -21,7 +21,7 @@ class RoundTrip(SimulationScenario):
         k_in_each_corridor = self.n_peds // 4
         world_dim = [[-self.outer_dim, self.outer_dim], [-self.outer_dim, self.outer_dim]]
         self.world = World(self.n_peds, self.n_robots, sim_model, biped=True)
-        self.display = Display(self.world, world_dim, (960, 960), 'Round Trip / ' + sim_model)
+        self.visualizer = Visualizer(self.world, world_dim, (960, 960), 'Round Trip / ' + sim_model)
         # world.pref_speed = 1.5  # FIXME : set it for sim as well
 
         # NOTE Symmetric with center at (0, 0)
@@ -93,7 +93,7 @@ class RoundTrip(SimulationScenario):
         self.world.set_robot_position(0, [ped0_pos[0] - 1.5, ped0_pos[1]])
         self.world.set_robot_leader(0, 0)
         self.world.sim.setTime(0)
-        self.display.update()
+        self.visualizer.update()
 
     def set_goals_roundtrip(self, ped):
         goal = []
@@ -131,7 +131,7 @@ class RoundTrip(SimulationScenario):
 
     def step(self, save=False):
         if not self.world.pause:
-            dt = 0.05
+            dt = 0.01
             self.world.step_crowd(dt)
             self.world.step_robot(dt)
 
@@ -142,8 +142,7 @@ class RoundTrip(SimulationScenario):
                 if len(goal) > 0:
                     self.world.set_ped_goal(ii, goal)
 
-        self.update_disply()
-        super(RoundTrip, self).step()
+        super(RoundTrip, self).step(save)
         
 
 

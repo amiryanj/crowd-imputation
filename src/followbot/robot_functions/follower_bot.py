@@ -32,7 +32,7 @@ class FollowerBot(MyRobot):
 
     def init(self, leader_pos):
         # set the Robot position just behind first ped on the X axis
-        self.world.set_robot_position(0, [leader_pos[0] - 1, leader_pos[1]])
+        self.real_world.set_robot_position(0, [leader_pos[0] - 1, leader_pos[1]])
 
     def set_leader_ped(self, leader_ped):
         self.leader_ped = leader_ped

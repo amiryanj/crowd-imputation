@@ -1,13 +1,13 @@
 import time
 from datetime import datetime
 from scipy.spatial.transform import Rotation
-from followbot.gui.display import *
+from followbot.gui.visualizer import *
 from followbot.robot_functions.follower_bot import FollowerBot
 from followbot.robot_functions.robot import MyRobot
-from followbot.scenarios.corridor_crowd import CorridorCrowd
-from followbot.scenarios.group_crowd import GroupCrowd
+from followbot.scenarios.corridor_scenario import CorridorScenario
+from followbot.scenarios.grouping_scenario import GroupScenario
 from followbot.scenarios.roundtrip_scenario import RoundTrip
-from followbot.scenarios.static_crowd import StaticCrowd
+from followbot.scenarios.static_crowd import StaticCorridorScenario
 from followbot.simulator.world import World
 from followbot.util.basic_geometry import Line
 from followbot.scenarios.real_scenario import RealScenario
@@ -16,98 +16,45 @@ from followbot.util.transform import Transform
 # from crowd_synthesis.crowd_synthesis import CrowdSynthesizer
 
 
-def init_world(world_dim, title='followBot'):
-    world = World(N_ped, N_robots)
-    display = Display(world, world_dim, (960, 960), title)
-    # world.pref_speed = 1.5  # FIXME : set it for sim as well
-    return world, display
-
-
-def setup_linear_peds():
-    # FIXME: init objects
-    world, display = init_world(world_dim=[[0, 8], [-5, 5]], title='linear')
-    line_obstacles = [Line([5, 0], [5, 8]), Line([6, 0], [6, 9])]
-    for l_obj in line_obstacles:
-        world.add_obstacle(l_obj)
-
-    # FIXME: init crowd
-    for ii in range(N_ped):
-        world.set_ped_position(ii, [0, ii])
-        world.set_ped_velocity(ii, [0, 0])
-        world.set_ped_goal(ii, [10, ii])
-
-    world.set_robot_position(0, [3, 3.2])
-    world.set_robot_leader(0, 0)
-    world.sim.setTime(0)
-    display.update()
-
-
-def setup_circle():
-    world, display = init_world(world_dim=[[-5, 5], [-5, 5]], title='circle')
-    for ii in range(N_ped):
-        theta = ii / N_ped * 2 * np.pi
-        world.set_ped_position(ii, np.array([np.cos(theta), np.sin(theta)]) * 5 + np.random.randn(1) * 0.01)
-        world.set_ped_goal(ii, np.array([np.cos(theta+np.pi), np.sin(theta+np.pi)]) * 5)
-        world.crowds[ii].color = agent_color
-    # world.set_robot_position(0, [-1, -1])
-    # world.set_robot_leader(0, 0)
-    world.sim.setTime(0)
-    display.update()
-
-
-def setup_corridor():
-    outer_dim = 18
-    world, display = init_world(world_dim=[[-outer_dim, outer_dim], [-outer_dim, outer_dim]], title='corridor')
-
-    line_objects = [Line([0, 0], [10, 0]), Line([2, 7], [10, 7])]
-    for l_obj in line_objects:
-        world.add_obstacle(l_obj)
-
-    global N_ped, N_robots
-    N_ped, N_robots = 10, 1
-    for ii in range(5):
-        world.set_ped_position(ii, [2, ii + 2])
-        world.set_ped_velocity(ii, [0, 0])
-        world.set_ped_goal(ii, [10, 6 - ii])
-
-    for ii in range(5, 10):
-        world.set_ped_position(ii, [10, ii -5 + 2])
-        world.set_ped_velocity(ii, [0, 0])
-        world.set_ped_goal(ii, [0, ii])
-
-    world.set_robot_position(0, [1, 2])
-    world.set_robot_leader(0, 0)
-    world.sim.setTime(0)
-    display.update()
-
-
 def run():
-    ## scenario = setup_corridor()   # FixMe
-    ## scenario = setup_circle()     # FixMe
+    # =======================================
+    # Main scenarios
+    # =======================================
+    # # Static groups (french people standing to talk all the weekend!)
+    # scenario = StaticCrowd()
+    # scenario.setup()
+
+    # # Uni-D flow of singles (parades of bachelors!)
+    # scenario = CorridorCrowd()
+    # scenario.setup(biD_flow=False)
+
+    # # Bi-D flow of singles
+    scenario = CorridorScenario()
+    scenario.setup(biD_flow=True)
+
+    # # Bi-D flow of couples (love street!)
+    # scenario = GroupCrowd()
+    # scenario.setup()
+    # =======================================
+    
+
+    # =======================================
+    # Older scenarios
+    # =======================================
+    # scenario = setup_corridor()   # FixMe
+    # scenario = setup_circle()     # FixMe
 
     # scenario = RealScenario()
     # scenario.setup()
 
     # scenario = RoundTrip()
     # scenario.setup('powerlaw', flow_2d=True)
+    # =======================================
 
-    # FixME: 4 main types of scenarios:
-    #  1. Static groups (french people standing to talk all the weekend!)
-    #  2. 1-D flow of singles (parades of bachelors!)
-    #  3. 2-D flow of singles
-    #  4. 2-D flow of couples (love street!)
-    # scenario = StaticCrowd()
-    # scenario.setup()
 
-    # scenario = CorridorCrowd()
-    # scenario.setup(biD_flow=False)
-
-    scenario = CorridorCrowd()
-    scenario.setup(biD_flow=True)
-
-    # scenario = GroupCrowd()
-    # scenario.setup()
-
+    # =======================================
+    # Choose the robot type
+    # =======================================
     # FixMe: uncomment to use FollowerBot
     # robot = FollowerBot()
     # scenario.world.add_robot(robot)
@@ -118,7 +65,8 @@ def run():
     scenario.world.add_robot(robot)
     robot.init([0, 2])
     scenario.world.set_robot_goal(0, [100, 2])
-
+    # =======================================
+    
     # Todo:
     #  capture the agents around the robot and extract the pattern
     #  1. Distance to (k)-nearest agent
@@ -131,35 +79,45 @@ def run():
     # lidar = robot.lidar
     # ped_detector = PedestrianDetection(robot.lidar.range_max, np.deg2rad(1 / robot.lidar.resolution))
 
-    dt = 0.1
+    dt = 0.01
 
-    # Write robot observations to file  # FixME: I start with recording ground truth values
+    # FixMe: Write robot observations to file  
+    # Todo: At the moment it only records the ground truth locations
+    #  It can be the output of tracking module or even after using RWTH's DROW tracker
+    # =======================================
     output_dir = "/home/cyrus/workspace2/ros-catkin/src/followbot/src/followbot/temp/robot_obsvs"
     output_filename = os.path.join(output_dir, type(scenario).__name__ + ".txt")
     output_file = open(output_filename, 'a+')
+    # =======================================
 
     frame_id = -1
+    robot = scenario.world.robots[0]
+
+    # ****************** Program Loop *******************
     while True:
         # frame_id += 1
         frame_id = datetime.now().timestamp() * 1000  # Unix Time - in millisecond
 
         scenario.step(dt)
-        robot = scenario.world.robots[0]
 
         # FixMe: This is for StdRobot
-        if not isinstance(robot, FollowerBot):
-            v_new_robot = scenario.world.sim.getCenterVelocityNext(scenario.n_peds)
-            robot.vel = np.array(v_new_robot)
+        # if not isinstance(robot, FollowerBot):
+        #     v_new_robot = scenario.world.sim.getCenterVelocityNext(scenario.n_peds)
+        #     robot.vel = np.array(v_new_robot)
 
-        peds_t = []
-
+        # Write detected pedestrians to the output file
+        # =======================================
         for pid in range(scenario.n_peds):
             ped_i = scenario.world.crowds[pid]
             if robot.lidar.range_min < np.linalg.norm(robot.pos - ped_i.pos) < robot.lidar.range_max:
                 output_file.write("%d %d %.3f %.3f %.3f %.3f\n" % (frame_id, pid,
                                                                    ped_i.pos[0], ped_i.pos[1],
                                                                    ped_i.vel[0], ped_i.vel[1]))
-            peds_t.append(ped_i.pos)
+        # =======================================
+
+        # peds_t = []
+        # for pid in range(scenario.n_peds):
+        #     peds_t.append(ped_i.pos)
         # pcf(peds_t)
 
         #  scenario.step_crowd()

@@ -2,16 +2,21 @@
 # Email: amiryan.j@gmail.com
 
 from followbot.scenarios.scenario import Scenario
+import numpy as np
 
 
 class SimulationScenario(Scenario):
-    def __init__(self):
+    """Any non-real scenario should inherit this class"""
+
+    def __init__(self, **kwargs):
+        self.ped_radius = kwargs.get("pedRadius", 0.25)
+        self.n_peds = kwargs.get("numPeds", 0)
         super(SimulationScenario, self).__init__()
 
-    def setup(self):
+    def setup(self, **kwargs):
         super(SimulationScenario, self).setup()
 
-    def step_crowd(self):
+    def step_crowd(self, dt):
         self.sim.doStep(dt)
         for ii in range(self.n_peds):
             try:
@@ -25,5 +30,19 @@ class SimulationScenario(Scenario):
             except:
                 print('exception occurred in running crowd sim')
 
-    def step(self, save=False):
-        super(SimulationScenario, self).step()
+    def step(self, dt, save=False):
+        if not self.world.pause:
+            self.world.sim.doStep(dt)
+            for ii in range(self.n_peds):
+                p_new = self.world.sim.getCenterNext(ii)
+                v = self.world.sim.getCenterVelocityNext(ii)
+                # apply inertia
+                v_new = np.array(v) * (1 - self.world.inertia_coeff) \
+                        + self.world.crowds[ii].vel * self.world.inertia_coeff
+                # p_new = self.world.crowds[ii].pos + v_new * dt
+
+                self.world.set_ped_position(ii, p_new)
+                self.world.set_ped_velocity(ii, v_new)
+
+            self.world.step_robot(dt)
+        super(SimulationScenario, self).step(dt, save)
