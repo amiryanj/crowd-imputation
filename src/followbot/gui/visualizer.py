@@ -42,17 +42,22 @@ class Visualizer:
         pygame.display.set_caption(caption)
 
         margin = 0.1
+
         world_w = world_dim[0][1] - world_dim[0][0]
         world_h = world_dim[1][1] - world_dim[1][0]
 
         sx = float(win_size[0]) / (world_w * (1 + 2 * margin))
         sy = -float(win_size[1]) / (world_h * (1 + 2 * margin))
 
-        # TODO: make sx == sy
+        # make sx == sy
+        sx = min(sx, abs(sy)); sy = -sx
 
         self.scale = np.array([[sx, 0], [0, sy]])
-        self.trans = np.array([margin * win_size[0] - world_dim[0][0] * sx,
-                               margin * win_size[1] - world_dim[1][1] * sy], dtype=np.float)
+        # self.trans = np.array([margin * win_size[0] - world_dim[0][0] * sx,
+        #                        margin * win_size[1] - world_dim[1][1] * sy], dtype=np.float)
+
+        self.trans = np.array(self.win_size, dtype=np.float) / 2.
+
         self.local_time = 0
         self.grid_map = []
 
@@ -74,8 +79,9 @@ class Visualizer:
         pygame.draw.lines(self.win, color, False, points_uv, width)
 
     def update(self):
-        # if len(self.world.robots):
-        #     self.trans = np.array(self.world.robots[0].pos)
+        if len(self.world.robots):
+            self.trans = np.array(self.win_size, dtype=np.float) / 2. - \
+                         np.array(self.world.robots[0].pos) * [self.scale[0, 0], self.scale[1, 1]]
         self.local_time += 1
         self.win.fill(WHITE_COLOR)
 

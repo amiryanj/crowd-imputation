@@ -79,7 +79,7 @@ def run():
     # lidar = robot.lidar
     # ped_detector = PedestrianDetection(robot.lidar.range_max, np.deg2rad(1 / robot.lidar.resolution))
 
-    dt = 0.01
+    dt = 0.1
 
     # FixMe: Write robot observations to file  
     # Todo: At the moment it only records the ground truth locations

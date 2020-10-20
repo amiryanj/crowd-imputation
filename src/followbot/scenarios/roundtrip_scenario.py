@@ -129,9 +129,8 @@ class RoundTrip(SimulationScenario):
 
         return goal
 
-    def step(self, save=False):
+    def step(self, dt, save=False):
         if not self.world.pause:
-            dt = 0.01
             self.world.step_crowd(dt)
             self.world.step_robot(dt)
 
@@ -142,7 +141,7 @@ class RoundTrip(SimulationScenario):
                 if len(goal) > 0:
                     self.world.set_ped_goal(ii, goal)
 
-        super(RoundTrip, self).step(save)
+        super(RoundTrip, self).step(dt, save)
         
 
 

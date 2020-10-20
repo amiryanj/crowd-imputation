@@ -110,5 +110,5 @@ class CorridorScenario(SimulationScenario):
         self.visualizer.update()
 
     def step(self, dt, save=False):
-        super(CorridorScenario, self).step(save)
+        super(CorridorScenario, self).step(dt, save)
 
