@@ -10,7 +10,7 @@ class RobotWorld:
     """
 
     def __init__(self):
-        # crowds: pedestrians (actual or imaginary)
+        # crowds: pedestrians (both actual or imaginary)
         self.crowds = {}
 
         self.walkable = []  # would be a constant-matrix that is determined by the scenario maker

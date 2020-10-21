@@ -1,14 +1,15 @@
 import numpy as np
 
+from followbot.robot_functions.robot_world import RobotWorld
 from followbot.robot_functions.tracking import PedestrianDetection, MultiObjectTracking
 from followbot.robot_functions.lidar2d import LiDAR2D
 # from followbot.basics_geometry import Circle
 
 
 class MyRobot:
-    def __init__(self):
+    def __init__(self, numBeliefWorlds=1):
         # self.real_world = []  # pointer to world
-        self.belief_worlds = []
+        self.belief_worlds = [RobotWorld()] * numBeliefWorlds
 
         self.lidar = LiDAR2D(robot_ptr=self)
         self.ped_detector = PedestrianDetection(self.lidar.range_max, np.deg2rad(1/self.lidar.resolution))
@@ -56,5 +57,5 @@ class MyRobot:
         if self.orien < -np.pi: self.orien += 2 * np.pi
 
         for w in self.belief_worlds:
-            w.update()
+            w.update(self.lidar.last_range_data, self.tracker.tracks)
 

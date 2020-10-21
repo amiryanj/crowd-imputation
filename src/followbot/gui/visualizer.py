@@ -8,6 +8,7 @@ from followbot.util.basic_geometry import Line, Circle
 from followbot.util.cv_importer import *
 
 BLACK_COLOR = (0, 0, 0)
+GREY_COLOR = (100, 100, 100)
 RED_COLOR = (255, 0, 0)
 GREEN_COLOR = (0, 255, 0)
 BLUE_COLOR = (0, 0, 255)
@@ -26,20 +27,23 @@ WHITE_COLOR = (255, 255, 255)
 
 
 class Visualizer:
-    def __init__(self, world, world_dim, win_size=(960, 960), caption='followbot'):
+    def __init__(self, world, world_dim, caption='followbot', subViewRowCount=1, subViewColCount=1):
         """
         :param world:  pointer to world object
         :param world_dim:  [[x0, x1], [y0, y1]]
         :param win_size:
-        :param caption:
+        :param caption: caption for display window
         """
         pygame.init()
-        self.world = world
-        self.event = None
+        win_size = (1200, 960)  # FixMe
         self.win = pygame.display.set_mode(win_size)
-        self.win.fill([255, 255, 255])
+
+        # the display can be divided into an array of subviews
+        self.subviews_array_size = np.array([subViewRowCount, subViewColCount]).astype(int)
+
         self.win_size = win_size
-        pygame.display.set_caption(caption)
+        self.subview_size = [win_size[0] / self.subviews_array_size[1],
+                             win_size[1] / self.subviews_array_size[0]]
 
         margin = 0.1
 
@@ -49,52 +53,79 @@ class Visualizer:
         sx = float(win_size[0]) / (world_w * (1 + 2 * margin))
         sy = -float(win_size[1]) / (world_h * (1 + 2 * margin))
 
-        # make sx == sy
-        sx = min(sx, abs(sy)); sy = -sx
+        # make (-sy) == sx
+        sx = min(sx, abs(sy))
+        sy = -sx
 
-        self.scale = np.array([[sx, 0], [0, sy]])
+        self.scale = np.stack([[np.array([[sx, 0], [0, sy]])
+                                for __ in range(self.subviews_array_size[1])]
+                               for _ in range(self.subviews_array_size[0])])
         # self.trans = np.array([margin * win_size[0] - world_dim[0][0] * sx,
         #                        margin * win_size[1] - world_dim[1][1] * sy], dtype=np.float)
 
-        self.trans = np.array(self.win_size, dtype=np.float) / 2.
+        self.trans = np.stack([[np.array(self.subview_size, dtype=np.float) / 2.
+                                for __ in range(self.subviews_array_size[1])]
+                               for _ in range(self.subviews_array_size[0])])
 
+        self.world = world
         self.local_time = 0
+        self.win.fill([255, 255, 255])
+        pygame.display.set_caption(caption)
         self.grid_map = []
 
-    def transform(self, x):
-        return self.trans + np.matmul(x, self.scale)
+    def transform(self, x, view_index=(0, 0)):
+        return self.trans[view_index[0]][view_index[1]] + np.matmul(x, self.scale[view_index[0]][view_index[1]])
 
-    def draw_circle(self, center, radius, color, width=0):
-        center_uv = self.transform(center)
+    # =========== draw methods ================
+    # =========================================
+    def draw_circle(self, center, radius, color, width=0, view_index=(0, 0)):
+        center_uv = self.transform(center, view_index)
         pygame.draw.circle(self.win, color, (int(center_uv[0]), int(center_uv[1])), radius, width)
 
-    def draw_line(self, p1, p2, color, width=1):
-        p1_uv = self.transform(p1)
-        p2_uv = self.transform(p2)
+    def draw_line(self, p1, p2, color, width=1, view_index=(0, 0)):
+        p1_uv = self.transform(p1, view_index)
+        p2_uv = self.transform(p2, view_index)
         pygame.draw.line(self.win, color, p1_uv, p2_uv, width)
 
-    def draw_lines(self, points, color, width=1):
+    def draw_lines(self, points, color, width=1, view_index=(0, 0)):
         if len(points) < 2: return
-        points_uv = self.transform(points)
+        points_uv = self.transform(points, view_index)
         pygame.draw.lines(self.win, color, False, points_uv, width)
+
+    # =========================================
 
     def update(self):
         if len(self.world.robots):
-            self.trans = np.array(self.win_size, dtype=np.float) / 2. - \
-                         np.array(self.world.robots[0].pos) * [self.scale[0, 0], self.scale[1, 1]]
+            for col_jj in range(self.subviews_array_size[1]):
+                for row_ii in range(self.subviews_array_size[0]):
+                    self.trans[row_ii][col_jj] = np.array(self.subview_size, dtype=np.float) / 2. \
+                                                 - self.world.robots[0].pos * [self.scale[row_ii][col_jj][0, 0],
+                                                                               self.scale[row_ii][col_jj][1, 1]] \
+                                                 + self.subview_size * np.array([col_jj, row_ii])
+
         self.local_time += 1
         self.win.fill(WHITE_COLOR)
+
+        # Draw lines between subviews
+        for row_ii in range(1, self.subviews_array_size[0]):
+            pygame.draw.line(self.win, GREY_COLOR,
+                             (0, row_ii * self.subview_size[1]),
+                             (self.win_size[1], row_ii * self.subview_size[1]), width=2)
+        for col_jj in range(1, self.subviews_array_size[1]):
+            pygame.draw.line(self.win, GREY_COLOR,
+                             (col_jj * self.subview_size[0], 0),
+                             (col_jj * self.subview_size[0], self.win_size[0]), width=2)
 
         # Draw Obstacles
         for obs in self.world.obstacles:
             if isinstance(obs, Line):
                 self.draw_line(obs.line[0], obs.line[1], RED_COLOR, 3)
             elif isinstance(obs, Circle):
-                self.draw_circle(obs.center, int(obs.radius * self.scale[0, 0]), RED_COLOR, 0)
+                self.draw_circle(obs.center, int(obs.radius * self.scale[0][0][0, 0]), RED_COLOR, 0)
 
         # Draw Pedestrians
         for ii in range(len(self.world.crowds)):
-            self.draw_circle(self.world.crowds[ii].pos, 10, self.world.crowds[ii].color)
+            self.draw_circle(self.world.crowds[ii].pos, 8, self.world.crowds[ii].color)
             self.draw_lines(self.world.crowds[ii].trajectory, DARK_GREEN_COLOR, 3)
             if self.world.crowds[ii].biped:
                 ped_geo = self.world.crowds[ii].geometry()
@@ -114,19 +145,15 @@ class Visualizer:
             # draw Lidar output as points
             for pnt in robot.lidar.last_range_pnts:
                 if math.isnan(pnt[0]) or math.isnan(pnt[1]):
-                    print('Error: Nan Value in Lidar data!')
-                    raise ValueError
+                    raise ValueError('Nan Value in Lidar data!')
                 else:
-                    self.draw_circle(pnt, 2, WHITE_COLOR)
+                    self.draw_circle(pnt, 2, GREEN_COLOR)
 
             # for seg in robot.lidar_segments:
             #     self.line(seg[0], seg[-1], BLUE_LIGHT, 3)
 
-            for pos in robot.lidar.last_range_pnts:
-                self.draw_circle(pos, 2, GREEN_COLOR, 2)
-
-            for det in robot.detected_peds:
-                self.draw_circle(det, 14, RED_COLOR, 2)
+            # for det in robot.detected_peds:
+            #     self.draw_circle(det, 14, RED_COLOR, 2)
 
             for track in robot.tracks:
                 if track.coasted: continue
@@ -134,13 +161,32 @@ class Visualizer:
                 if len(track.recent_detections) >= 2:
                     self.draw_lines(track.recent_detections, ORANGE_COLOR, 1)
 
-            if len(self.world.POM) > 1:
-                self.grid_map = np.rot90(self.world.POM.copy().astype(float))  # + self.world.walkable * 0.5)
-                cv2.namedWindow('grid', cv2.WINDOW_NORMAL)
-                cv2.imshow('grid', self.grid_map)
-                cv2.waitKey(2)
-                # plt.imshow(self.grid_map)
-                # plt.show()
+            # Robot Beliefs
+            # ====================================
+            for ii, belief in enumerate(robot.belief_worlds):
+                self.draw_circle(robot.pos, 7, ORANGE_COLOR, view_index=(ii + 1, 0))
+                self.draw_circle(robot.pos, 9, BLACK_COLOR, 3, view_index=(ii + 1, 0))
+                if isinstance(robot, FollowerBot):
+                    self.draw_circle(robot.leader_ped.pos, 11, PINK_COLOR, 5, view_index=(ii + 1, 0))
+                u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
+                self.draw_line(robot.pos, robot.pos + [u, v], BLUE_COLOR, 3, view_index=(ii + 1, 0))
+                for pnt in robot.lidar.last_range_pnts:
+                    self.draw_circle(pnt, 2, YELLOW_COLOR, view_index=(ii + 1, 0))
+                for det in robot.detected_peds:
+                    self.draw_circle(det, 14, RED_COLOR, 2, view_index=(ii + 1, 0))
+
+            # ====================================
+
+            # Draw Occupancy Map of Robot
+            # ====================================
+            # if len(self.world.POM) > 1:
+            #     self.grid_map = np.rot90(self.world.POM.copy().astype(float))  # + self.world.walkable * 0.5)
+            #     cv2.namedWindow('grid', cv2.WINDOW_NORMAL)
+            #     cv2.imshow('grid', self.grid_map)
+            #     cv2.waitKey(2)
+            #    # plt.imshow(self.grid_map)
+            #    # plt.show()
+            # ====================================
 
         # pygame.display.flip()
         pygame.display.update()
@@ -153,26 +199,18 @@ class Visualizer:
                 print('Simulation exited by user')
                 exit(1)
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                click_pnt = np.matmul(np.linalg.inv(self.scale), (pygame.mouse.get_pos() - self.trans))
+                click_pnt = np.matmul(np.linalg.inv(self.scale[0][0]), (pygame.mouse.get_pos() - self.trans[0][0]))
                 # print('- ped:\n\t\tpos_x: %.3f\n\t\tpos_y: %.3f\n\t\torien: 0' % (click_pnt[0], click_pnt[1]))
             if event.type == pygame.MOUSEWHEEL:
                 if event.y > 0:
                     self.scale *= 1.1
                 else:
                     self.scale /= 1.1
-            if event.type == pygame.KEYDOWN:
-                self.event = event.key
-            else:
-                self.event = None
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 self.world.pause = not self.world.pause
+        return self.world.pause
 
-    def save_screenshot(self, dir):
-        pygame.image.save(self.win, os.path.join(dir, 'win-%05d.jpg' % self.local_time))
+    def save_screenshot(self, dir_name):
+        pygame.image.save(self.win, os.path.join(dir_name, 'win-%05d.jpg' % self.local_time))
         if len(self.grid_map) > 1:
-            cv2.imwrite(os.path.join(dir, 'grid-%05d.png' % self.local_time), self.grid_map * 255)
-
-
-
-
-
+            cv2.imwrite(os.path.join(dir_name, 'grid-%05d.png' % self.local_time), self.grid_map * 255)

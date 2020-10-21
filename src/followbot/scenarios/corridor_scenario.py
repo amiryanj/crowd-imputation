@@ -21,7 +21,7 @@ class CorridorScenario(SimulationScenario):
     -> The inter-group distance is bigger than intra-group distances
     -> The leader passes the corridor among crowd
     """
-    def __init__(self, n_peds_=32, n_robots_=1, corridor_wid=5, corridor_len=18):
+    def __init__(self, n_peds_=32, n_robots_=1, corridor_wid=5, corridor_len=20):
         super(CorridorScenario, self).__init__()
         self.corridor_wid = corridor_wid
         self.corridor_len = corridor_len
@@ -40,7 +40,7 @@ class CorridorScenario(SimulationScenario):
             # self.world.sim.setAgentNeighborDist(ii, 4)
             # self.world.sim.setAgentTimeHorizon(ii, 2)
 
-    def setup_agents(self):
+    def setup_agents(self, working_area):
         ped_poss = []
         ped_goals = []
 
@@ -48,11 +48,12 @@ class CorridorScenario(SimulationScenario):
         # ped_poss.insert(0, [1.2, self.corridor_wid / 2])
         # ped_goals.insert(0, [self.corridor_len, self.corridor_wid / 2])
 
-        poisson_distrib = PoissonDistribution((self.corridor_len - self.ped_radius * 4,
-                                               self.corridor_wid - self.ped_radius * 4),
+        poisson_distrib = PoissonDistribution((working_area[0][1] - working_area[0][0] - self.ped_radius * 4,
+                                               working_area[1][1] - working_area[1][0] - self.ped_radius * 4),
                                               minDist=1.6, k=10)
 
-        group_centers = poisson_distrib.create_samples() + self.ped_radius * 2
+        group_centers = poisson_distrib.create_samples() + self.ped_radius * 2 \
+                        + np.array([working_area[0][0], working_area[1][0]])
         group_sizes = np.random.random_integers(1, 1, len(group_centers))
 
         for gg, g_size in enumerate(group_sizes):
@@ -79,12 +80,13 @@ class CorridorScenario(SimulationScenario):
 
     def setup(self, biD_flow=True):
         self.biD_flow = biD_flow
-        ped_poss, ped_goals = self.setup_agents()
+        world_dim = [[-self.corridor_len/2, self.corridor_len/2],
+                     [-self.corridor_wid/2, self.corridor_wid/2]]
+        ped_poss, ped_goals = self.setup_agents(world_dim)
 
-        world_dim = [[0, self.corridor_len], [-self.corridor_len/2, self.corridor_len/2]]
-        self.world = World(self.n_peds, self.n_robots, biped=False)
+        self.world = World(self.n_peds, self.n_robots, world_dim=world_dim, biped=False)
+
         self.setup_crowd_sim()
-        self.visualizer = Visualizer(self.world, world_dim, (960, 960), 'Basic Corridor')
 
         # Two walls of the corridor
         # self.world.add_obstacle(Line([0, 0], [self.corridor_len, 0]))
@@ -107,7 +109,6 @@ class CorridorScenario(SimulationScenario):
             self.world.crowds[ped_ind].color = RED_COLOR
 
         self.world.sim.setTime(0)
-        self.visualizer.update()
 
     def step(self, dt, save=False):
         super(CorridorScenario, self).step(dt, save)

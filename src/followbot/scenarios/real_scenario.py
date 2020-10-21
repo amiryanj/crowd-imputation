@@ -78,10 +78,7 @@ class RealScenario(Scenario):
         world_dim = [[self.dataset.bbox['x']['min'], self.dataset.bbox['x']['max']],
                      [self.dataset.bbox['y']['min'], self.dataset.bbox['y']['max']]]
 
-        self.world = World(self.n_peds, self.n_robots, 'helbing', biped)
-        self.visualizer = Visualizer(self.world, world_dim,
-                                     (int(x_dim * display_resolution), int(y_dim * display_resolution)),
-                                     self.dataset.title)
+        self.world = World(self.n_peds, self.n_robots, world_dim, "", biped)
 
         pom_resolution = 10  # per meter
         self.world.walkable = np.ones((int(x_dim * pom_resolution),

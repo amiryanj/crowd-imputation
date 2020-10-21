@@ -13,10 +13,11 @@ from followbot.util.basic_geometry import Line
 from followbot.scenarios.real_scenario import RealScenario
 from followbot.robot_functions.tracking import PedestrianDetection
 from followbot.util.transform import Transform
-# from crowd_synthesis.crowd_synthesis import CrowdSynthesizer
+# from followbot.crowd_synthesis.crowd_synthesis import CrowdSynthesizer
 
 
 def run():
+    num_robot_belief_worlds = 2
     # =======================================
     # Main scenarios
     # =======================================
@@ -50,6 +51,11 @@ def run():
     # scenario = RoundTrip()
     # scenario.setup('powerlaw', flow_2d=True)
     # =======================================
+    print(type(scenario).__name__)
+    scenario.visualizer = Visualizer(scenario.world, scenario.world.world_dim,
+                                     subViewRowCount=1 + num_robot_belief_worlds,
+                                     subViewColCount=1,
+                                     caption=type(scenario).__name__)
 
 
     # =======================================
@@ -61,10 +67,10 @@ def run():
     # robot.set_leader_ped(scenario.world.crowds[0])
 
     # FixMe: uncomment to use Std Robot
-    robot = MyRobot()
+    robot = MyRobot(numBeliefWorlds=num_robot_belief_worlds)
     scenario.world.add_robot(robot)
-    robot.init([0, 2])
-    scenario.world.set_robot_goal(0, [100, 2])
+    robot.init([-15, 0])
+    scenario.world.set_robot_goal(0, [100, 0])
     # =======================================
     
     # Todo:
@@ -76,8 +82,8 @@ def run():
     # crowd_syn = CrowdSynthesizer()
     # crowd_syn.extract_features(scenario.dataset)
 
-    # lidar = robot.lidar
-    # ped_detector = PedestrianDetection(robot.lidar.range_max, np.deg2rad(1 / robot.lidar.resolution))
+    lidar = robot.lidar
+    ped_detector = PedestrianDetection(robot.lidar.range_max, np.deg2rad(1 / robot.lidar.resolution))
 
     dt = 0.1
 
@@ -120,34 +126,43 @@ def run():
         #     peds_t.append(ped_i.pos)
         # pcf(peds_t)
 
-        #  scenario.step_crowd()
-        #  scenario.step_robot()
         # cur_t = scenario.cur_t
 
-        # angles = np.arange(lidar.angle_min_radian(), lidar.angle_max_radian() - 1E-10, lidar.angle_increment_radian())
-        # segments = ped_detector.segment_range(lidar.last_range_data, angles)
-        # detections, walls = ped_detector.detect(segments, [0, 0])
-        # robot.lidar_segments = segments
-        # detections_tf = []
-        # robot_rot = Rotation.from_euler('z', robot.orien, degrees=False)
-        # robot_tf = Transform(np.array([robot.pos[0], robot.pos[1], 0]), robot_rot)
-        # for det in detections:
-        #     tf_trans, tf_orien = robot_tf.apply(np.array([det[0], det[1], 0]), Rotation.from_quat([0, 0, 0, 1]))
-        #     detections_tf.append(np.array([tf_trans[0], tf_trans[1]]))
-        # robot.detected_peds = detections_tf
-        #
-        # # robot_functions  #Todo
-        # robot.tracks = robot.tracker.track(robot.detected_peds)
+        # Casting LiDAR rays to get detections
+        # ====================================
+        angles = np.arange(lidar.angle_min_radian(), lidar.angle_max_radian() - 1E-10, lidar.angle_increment_radian())
+        segments = ped_detector.segment_range(lidar.last_range_data, angles)
+        detections, walls = ped_detector.detect(segments, [0, 0])
+        robot.lidar_segments = segments
+        # ====================================
 
-        # scenario.update_disply()
+        # Transform (rotate + translate) the detections, given the robot pose
+        # ====================================
+        detections_tf = []
+        robot_rot = Rotation.from_euler('z', robot.orien, degrees=False)
+        robot_tf = Transform(np.array([robot.pos[0], robot.pos[1], 0]), robot_rot)
+        for det in detections:
+            tf_trans, tf_orien = robot_tf.apply(np.array([det[0], det[1], 0]), Rotation.from_quat([0, 0, 0, 1]))
+            detections_tf.append(np.array([tf_trans[0], tf_trans[1]]))
+        robot.detected_peds = detections_tf
+        # ====================================
 
-        # FixMe:
-        # n_configs = 2
-        # if scenario.display.event == pygame.K_p:
-        #     inds = np.where(scenario.ped_valid[scenario.cur_t])
-        #     gt_pnts = scenario.ped_poss[scenario.cur_t, np.where(scenario.ped_valid[scenario.cur_t])]
-        #     crowd_syn.analyze_and_plot(np.array(robot.detected_peds),
-        #                                gt_pnts.reshape((-1, 2)), n_configs)
+        # Todo: robot_functions
+        # ====================================
+        robot.tracks = robot.tracker.track(robot.detected_peds)
+        # ====================================
+
+        # ToDo:
+        #  Robot Beliefs
+        # ====================================
+        n_beliefs = 2
+        # if scenario.visualizer.event == pygame.K_p:
+        # inds = np.where(scenario.ped_valid[scenario.cur_t])
+        # gt_pnts = scenario.ped_poss[scenario.cur_t, np.where(scenario.ped_valid[scenario.cur_t])]
+        # crowd_syn.analyze_and_plot(np.array(robot.detected_peds),
+        #                            gt_pnts.reshape((-1, 2)), n_beliefs)
+        # ====================================
+
 
 
 if __name__ == '__main__':

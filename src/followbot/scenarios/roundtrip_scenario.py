@@ -21,7 +21,6 @@ class RoundTrip(SimulationScenario):
         k_in_each_corridor = self.n_peds // 4
         world_dim = [[-self.outer_dim, self.outer_dim], [-self.outer_dim, self.outer_dim]]
         self.world = World(self.n_peds, self.n_robots, sim_model, biped=True)
-        self.visualizer = Visualizer(self.world, world_dim, (960, 960), 'Round Trip / ' + sim_model)
         # world.pref_speed = 1.5  # FIXME : set it for sim as well
 
         # NOTE Symmetric with center at (0, 0)
@@ -93,7 +92,7 @@ class RoundTrip(SimulationScenario):
         self.world.set_robot_position(0, [ped0_pos[0] - 1.5, ped0_pos[1]])
         self.world.set_robot_leader(0, 0)
         self.world.sim.setTime(0)
-        self.visualizer.update()
+
 
     def set_goals_roundtrip(self, ped):
         goal = []

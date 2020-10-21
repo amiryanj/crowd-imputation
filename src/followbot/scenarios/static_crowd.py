@@ -75,10 +75,9 @@ class StaticCorridorScenario(CorridorScenario):
         self.n_peds = len(ped_poss)  # the random algorithm may return a different number of agents than what is asked
 
         world_dim = [[0, self.corridor_len], [-self.corridor_len/2, self.corridor_len/2]]
-        self.world = World(self.n_peds, self.n_robots, biped=False)
+        self.world = World(self.n_peds, self.n_robots, world_dim, biped=False)
         self.world.sim.initSimulation(self.n_peds + 1)
 
-        self.display = Visualizer(self.world, world_dim, (960, 960), 'Static Crowd')
         self.world.obstacles = self.world.sim.obstacles
 
         for ped_ind in range(len(ped_poss)):
@@ -90,7 +89,7 @@ class StaticCorridorScenario(CorridorScenario):
         # self.world.set_ped_goal(0, [self.corridor_len, self.corridor_wid / 2])
 
         self.world.sim.setTime(0)
-        self.display.update()
+
 
     def step(self, dt, save=False):
         if not self.world.pause:

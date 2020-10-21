@@ -30,9 +30,9 @@ class Scenario:
         if not self.world.pause and save:
             home = os.path.expanduser("~")
             self.visualizer.save_screenshot(os.path.join(home, 'Videos/followbot/'))
-        self.update_disply()
+        self.update_display()
 
-    def update_disply(self, delay_sec=0.01):
+    def update_display(self, delay_sec=0.01):
         toggle_pause = self.visualizer.update()
         if toggle_pause: self.world.pause = not self.world.pause
         time.sleep(delay_sec)
