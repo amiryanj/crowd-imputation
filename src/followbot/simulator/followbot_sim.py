@@ -69,7 +69,7 @@ def run():
     # FixMe: uncomment to use Std Robot
     robot = MyRobot(numBeliefWorlds=num_robot_belief_worlds)
     scenario.world.add_robot(robot)
-    robot.init([-15, 0])
+    robot.init([-15, -0.5])
     scenario.world.set_robot_goal(0, [100, 0])
     # =======================================
     

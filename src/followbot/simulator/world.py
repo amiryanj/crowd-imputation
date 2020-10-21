@@ -8,7 +8,7 @@ import followbot.crowdsim.umans_api as umans_api
 
 
 class World:
-    def __init__(self, n_peds, n_robots, world_dim, sim_model="SocialForces", biped=False):
+    def __init__(self, n_peds, n_robots, world_dim, sim_model="RVO", biped=False):
         self.pause = False
         self.n_peds = n_peds
         self.n_robots = n_robots

@@ -21,7 +21,7 @@ class CorridorScenario(SimulationScenario):
     -> The inter-group distance is bigger than intra-group distances
     -> The leader passes the corridor among crowd
     """
-    def __init__(self, n_peds_=32, n_robots_=1, corridor_wid=5, corridor_len=20):
+    def __init__(self, n_peds_=32, n_robots_=1, corridor_wid=6, corridor_len=30):
         super(CorridorScenario, self).__init__()
         self.corridor_wid = corridor_wid
         self.corridor_len = corridor_len
@@ -50,7 +50,7 @@ class CorridorScenario(SimulationScenario):
 
         poisson_distrib = PoissonDistribution((working_area[0][1] - working_area[0][0] - self.ped_radius * 4,
                                                working_area[1][1] - working_area[1][0] - self.ped_radius * 4),
-                                              minDist=1.6, k=10)
+                                              minDist=1.2, k=15)
 
         group_centers = poisson_distrib.create_samples() + self.ped_radius * 2 \
                         + np.array([working_area[0][0], working_area[1][0]])
@@ -106,7 +106,10 @@ class CorridorScenario(SimulationScenario):
             self.world.set_ped_velocity(ped_ind, [0, 0])
             self.world.set_ped_goal(ped_ind, ped_goals[ped_ind])
             # if ped_ind == 0: continue
-            self.world.crowds[ped_ind].color = RED_COLOR
+            if ped_goals[ped_ind][0] - ped_poss[ped_ind][0] > 0:
+                self.world.crowds[ped_ind].color = RED_COLOR
+            else:
+                self.world.crowds[ped_ind].color = BLUE_COLOR
 
         self.world.sim.setTime(0)
 

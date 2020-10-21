@@ -52,6 +52,8 @@ class MyRobot:
         #  call it at the end of overridden function
         # TODO: work with ROS
         self.pos += self.vel * dt
+        if self.pos[0] > self.real_world.world_dim[0][1]:
+            self.pos[0] = self.real_world.world_dim[0][0]
         self.orien += self.angular_vel * dt
         if self.orien >  np.pi: self.orien -= 2 * np.pi
         if self.orien < -np.pi: self.orien += 2 * np.pi

@@ -110,11 +110,11 @@ class Visualizer:
         for row_ii in range(1, self.subviews_array_size[0]):
             pygame.draw.line(self.win, GREY_COLOR,
                              (0, row_ii * self.subview_size[1]),
-                             (self.win_size[1], row_ii * self.subview_size[1]), width=2)
+                             (self.win_size[0], row_ii * self.subview_size[1]), width=2)
         for col_jj in range(1, self.subviews_array_size[1]):
             pygame.draw.line(self.win, GREY_COLOR,
                              (col_jj * self.subview_size[0], 0),
-                             (col_jj * self.subview_size[0], self.win_size[0]), width=2)
+                             (col_jj * self.subview_size[0], self.win_size[1]), width=2)
 
         # Draw Obstacles
         for obs in self.world.obstacles:
