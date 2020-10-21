@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Simulation delta_time="0.1" end_time="100">
-	<World type="Toric" width="40" height="20"> 
+<Simulation delta_time="0.1" end_time="1000">
+	<World type="Toric" width="30" height="10">
 		<Obstacles file="obstacles/CodeGenerated.xml" />
 	</World>
 	<Policies file="policies/SocialForces.xml" />

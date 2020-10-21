@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Simulation delta_time="0.1" end_time="100">
-	<World type="Infinite"> 
+	<World type="Toric" width="20" height="10">
 		<Obstacles file="obstacles/CodeGenerated.xml" />
 	</World>
 	<Policies file="policies/Karamouzas.xml" />
