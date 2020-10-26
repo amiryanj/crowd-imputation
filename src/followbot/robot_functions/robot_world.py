@@ -6,7 +6,7 @@ from followbot.crowdsim.pedestrian import Pedestrian
 
 class RobotWorld:
     """
-    This class holds an instance of robot beliefs about the world
+    This class holds an instance of robot hypothesis about the world
     """
 
     def __init__(self):
@@ -14,7 +14,7 @@ class RobotWorld:
         self.crowds = {}
 
         self.walkable = []  # would be a constant-matrix that is determined by the scenario maker
-        self.POM = []  # probabilistic occupancy map
+        self.occupancy_map = []  # probabilistic occupancy map
         self.mapping_to_grid = []
 
     def update(self, lidar_data, tracked_peds):

@@ -14,18 +14,17 @@ class World:
         self.obstacles = []
         self.world_dim = world_dim
 
-        # # Deprecated! -> use UMANS
-        # self.sim = crowdsim.CrowdSim(sim_model)
         self.sim = umans_api.CrowdSimUMANS(sim_model)
+        # self.sim = crowdsim.CrowdSim(sim_model) # Deprecated! -> use UMANS
 
         self.sim.initSimulation(n_peds + n_robots)
-        self.inertia_coeff = 0.25  # larger, more inertia, zero means no inertia
+        self.inertia_coeff = 0.25  # for agent motions: larger, more inertia, zero means no inertia
 
         self.crowds = []
         for ii in range(n_peds):
             ped_i = Pedestrian(biped=biped)
             ped_i.id = ii
-            ped_i.world = self  # set world ptr
+            ped_i.world = self  # set world ptr for agent
             self.crowds.append(ped_i)
             ped_i.radius = 0.25
             ped_i.pref_speed = np.random.uniform(1.2, 1.7)
@@ -44,6 +43,7 @@ class World:
         self.obstacles.append(obj)
         if hasattr(obj, 'line'):
             try:
+                # this functionality is only for crowdsim and doesn't work with UMANS
                 self.sim.addObstacleCoords(obj.draw_line[0][0], obj.draw_line[0][1], obj.draw_line[1][0], obj.draw_line[1][1])
             except Exception:
                 raise ValueError('obstacles should be defined in config file')
@@ -55,12 +55,12 @@ class World:
         self.sim.setPosition(index, pos[0], pos[1])
 
         # append the position to pedestrian trajectory
-        if len(self.crowds[index].trajectory) and \
-            np.linalg.norm(self.crowds[index].trajectory[-1] - np.array(pos)) > 2.0:
-            self.crowds[index].trajectory.clear()
-        self.crowds[index].trajectory.append(np.array(pos))
-        if len(self.crowds[index].trajectory) > 150:
-            del self.crowds[index].trajectory[0]
+        traj_ii = self.crowds[index].trajectory
+        if len(traj_ii) and np.linalg.norm(traj_ii[-1] - np.array(pos)) > 2.0:
+            traj_ii.clear()
+        if len(traj_ii) >= 150:
+            del traj_ii[0]
+        traj_ii.append(np.array(pos))
 
     def set_ped_velocity(self, index, vel):
         self.crowds[index].vel = np.array(vel, dtype=np.float)
@@ -84,5 +84,7 @@ class World:
         self.robots[index].goal = np.array(goal, dtype=np.float)
         self.sim.setGoal(self.n_peds + index, goal[0], goal[1])
 
+    def set_sim_time(self, t):
+        self.sim.setTime(t)
 
 

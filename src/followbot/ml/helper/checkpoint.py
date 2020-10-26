@@ -2,7 +2,7 @@ from followbot.ml.helper.history import History
 import torch
 import os
 import numpy as np
-np.random.seed(0)
+np.random.seed(1)
 
 
 class CheckPoint(object):

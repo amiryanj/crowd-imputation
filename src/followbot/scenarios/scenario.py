@@ -2,6 +2,8 @@
 # Email: amiryan.j@gmail.com
 from abc import ABC, abstractmethod
 
+import pygame
+
 from followbot.simulator.world import World
 from followbot.gui.visualizer import Visualizer
 import os.path
@@ -43,5 +45,6 @@ class Scenario(ABC):
 
     def update_display(self, delay_sec=0.01):
         toggle_pause = self.visualizer.update()
-        if toggle_pause: self.world.pause = not self.world.pause
+        if toggle_pause == pygame.K_SPACE:
+            self.world.pause = not self.world.pause
         time.sleep(delay_sec)

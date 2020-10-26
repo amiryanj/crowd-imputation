@@ -83,7 +83,7 @@ class RealScenario(Scenario):
         pom_resolution = 4  # per meter
         self.world.walkable = np.ones((int(x_dim * pom_resolution),
                                        int(y_dim * pom_resolution)), dtype=bool)
-        self.world.POM = self.world.walkable.copy() * 0.5
+        self.world.occupancy_map = self.world.walkable.copy() * 0.5
 
         self.world.mapping_to_grid = lambda x, y: (int((x - self.dataset.bbox['x']['min']) * pom_resolution),
                                                    int((y - self.dataset.bbox['y']['min']) * pom_resolution))

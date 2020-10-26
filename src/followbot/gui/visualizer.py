@@ -2,6 +2,7 @@ import os
 import math
 import pygame
 import numpy as np
+from sklearn.externals._pilutil import imresize
 
 from followbot.robot_functions.follower_bot import FollowerBot
 from followbot.util.basic_geometry import Line, Circle
@@ -46,12 +47,12 @@ class Visualizer:
                              win_size[1] / self.subviews_array_size[0]]
 
         margin = 0.1
+        self.world_dim = world_dim
+        self.world_w = world_dim[0][1] - world_dim[0][0]
+        self.world_h = world_dim[1][1] - world_dim[1][0]
 
-        world_w = world_dim[0][1] - world_dim[0][0]
-        world_h = world_dim[1][1] - world_dim[1][0]
-
-        sx = float(win_size[0]) / (world_w * (1 + 2 * margin))
-        sy = -float(win_size[1]) / (world_h * (1 + 2 * margin))
+        sx = float(win_size[0]) / (self.world_w * (1 + 2 * margin))
+        sy = -float(win_size[1]) / (self.world_h * (1 + 2 * margin))
 
         # make (-sy) == sx
         sx = min(sx, abs(sy))
@@ -99,7 +100,7 @@ class Visualizer:
             for col_jj in range(self.subviews_array_size[1]):
                 for row_ii in range(self.subviews_array_size[0]):
                     self.trans[row_ii][col_jj] = np.array(self.subview_size, dtype=np.float) / 2. \
-                                                 - self.world.robots[0].pos * [self.scale[row_ii][col_jj][0, 0],
+                                                 - self.world.robots[0].pos * [self.scale[row_ii, col_jj, 0, 0],
                                                                                self.scale[row_ii][col_jj][1, 1]] \
                                                  + self.subview_size * np.array([col_jj, row_ii])
 
@@ -140,10 +141,10 @@ class Visualizer:
                 self.draw_circle(robot.leader_ped.pos, 11, PINK_COLOR, 5)
             # draw a vector showing orientation of the robot
             u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
-            self.draw_line(robot.pos, robot.pos + [u, v], BLUE_COLOR, 3)
+            self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 3)
 
             # draw Lidar output as points
-            for pnt in robot.lidar.last_range_pnts:
+            for pnt in robot.lidar.data.last_points:
                 if math.isnan(pnt[0]) or math.isnan(pnt[1]):
                     raise ValueError('Nan Value in Lidar data!')
                 else:
@@ -155,32 +156,51 @@ class Visualizer:
             # for det in robot.detected_peds:
             #     self.draw_circle(det, 14, RED_COLOR, 2)
 
-            for track in robot.tracks:
-                if track.coasted: continue
-                self.draw_circle(track.position(), 4, YELLOW_COLOR)
-                if len(track.recent_detections) >= 2:
-                    self.draw_lines(track.recent_detections, ORANGE_COLOR, 1)
-
-            # Robot Beliefs
+            # Robot Hypotheses
             # ====================================
-            for ii, belief in enumerate(robot.belief_worlds):
+            for ii, hypothesis in enumerate(robot.hypothesis_worlds):
+                Z = robot.crowd_flow_map.data.T
+                # Z = Z / Z.max() * 255
+                Z = np.clip(np.fliplr(Z), a_min=0, a_max=255)
+                Z = imresize(Z, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
+                Z = np.stack([Z, np.zeros_like(Z), np.zeros_like(Z)], axis=2)
+                surf = pygame.surfarray.make_surface(Z)
+                surf.set_alpha(100)
+                self.win.blit(surf, (self.trans[ii+1, 0, 0] + self.scale[ii+1, 0, 0, 0] * self.world_dim[0][0],
+                                     self.trans[ii+1, 0, 1] - self.scale[ii+1, 0, 1, 1] * self.world_dim[1][0]))
+
                 self.draw_circle(robot.pos, 7, ORANGE_COLOR, view_index=(ii + 1, 0))
                 self.draw_circle(robot.pos, 9, BLACK_COLOR, 3, view_index=(ii + 1, 0))
                 if isinstance(robot, FollowerBot):
                     self.draw_circle(robot.leader_ped.pos, 11, PINK_COLOR, 5, view_index=(ii + 1, 0))
                 u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
-                self.draw_line(robot.pos, robot.pos + [u, v], BLUE_COLOR, 3, view_index=(ii + 1, 0))
-                for pnt in robot.lidar.last_range_pnts:
+                self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 3, view_index=(ii + 1, 0))
+                for pnt in robot.lidar.data.last_points:
                     self.draw_circle(pnt, 2, YELLOW_COLOR, view_index=(ii + 1, 0))
                 for det in robot.detected_peds:
                     self.draw_circle(det, 14, RED_COLOR, 2, view_index=(ii + 1, 0))
+
+                for track in robot.tracks:
+                    if track.coasted: continue
+                    self.draw_circle(track.position(), 4, GREEN_COLOR, view_index=(ii + 1, 0))
+                    if len(track.recent_detections) >= 2:
+                        self.draw_lines(track.recent_detections, BLUE_LIGHT, 1, view_index=(ii + 1, 0))
+
+                    if track.velocity()[0] > 0:
+                        self.draw_line(track.position(), track.position() + track.velocity(),
+                                       RED_COLOR, 2, view_index=(ii+1, 0))
+                    else:
+                        self.draw_line(track.position(), track.position() + track.velocity(),
+                                       BLUE_COLOR, 2, view_index=(ii + 1, 0))
+
+
 
             # ====================================
 
             # Draw Occupancy Map of Robot
             # ====================================
-            # if len(self.world.POM) > 1:
-            #     self.grid_map = np.rot90(self.world.POM.copy().astype(float))  # + self.world.walkable * 0.5)
+            # if len(self.world.occupancy_map) > 1:
+            #     self.grid_map = np.rot90(self.world.occupancy_map.copy().astype(float))  # + self.world.walkable * 0.5)
             #     cv2.namedWindow('grid', cv2.WINDOW_NORMAL)
             #     cv2.imshow('grid', self.grid_map)
             #     cv2.waitKey(2)
@@ -207,8 +227,8 @@ class Visualizer:
                 else:
                     self.scale /= 1.1
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                self.world.pause = not self.world.pause
-        return self.world.pause
+                return event.key
+        return None
 
     def save_screenshot(self, dir_name):
         pygame.image.save(self.win, os.path.join(dir_name, 'win-%05d.jpg' % self.local_time))

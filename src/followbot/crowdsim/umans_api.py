@@ -74,7 +74,7 @@ class CrowdSimUMANS:
                                # default values from UMANS
                                radius=0.24,
                                prefSpeed=1.3,
-                               maxSpeed=1.8,
+                               maxSpeed=1.4,
                                maxAcceleration=5.0,
                                policyID=0, customID=-1)
 

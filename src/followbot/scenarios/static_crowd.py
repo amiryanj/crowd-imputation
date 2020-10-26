@@ -88,7 +88,7 @@ class StaticCorridorScenario(CorridorScenario):
         # Set the goal of Leader agent
         # self.world.set_ped_goal(0, [self.corridor_len, self.corridor_wid / 2])
 
-        self.world.sim.setTime(0)
+        self.world.set_sim_time(0)
 
 
     def step(self, dt, save=False):

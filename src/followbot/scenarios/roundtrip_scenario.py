@@ -39,7 +39,7 @@ class RoundTrip(SimulationScenario):
         pom_resolution = 4  # per meter
         self.world.walkable = np.ones((self.outer_dim * 2 * pom_resolution,
                                        self.outer_dim * 2 * pom_resolution), dtype=bool)
-        self.world.POM = np.zeros_like(self.world.walkable)
+        self.world.occupancy_map = np.zeros_like(self.world.walkable)
         self.world.walkable[(-self.inner_dim + self.outer_dim) * pom_resolution:
                             (self.inner_dim + self.outer_dim) * pom_resolution,
                             (-self.inner_dim + self.outer_dim) * pom_resolution:
@@ -91,8 +91,7 @@ class RoundTrip(SimulationScenario):
         ped0_pos = self.world.crowds[0].pos
         self.world.set_robot_position(0, [ped0_pos[0] - 1.5, ped0_pos[1]])
         self.world.set_robot_leader(0, 0)
-        self.world.sim.setTime(0)
-
+        self.world.set_sim_time(0)
 
     def set_goals_roundtrip(self, ped):
         goal = []
