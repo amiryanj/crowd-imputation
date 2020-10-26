@@ -98,7 +98,7 @@ class StaticCorridorScenario(CorridorScenario):
                 p_new = self.world.crowds[ii].pos
                 self.world.set_ped_position(ii, p_new)
                 self.world.set_ped_velocity(ii, np.zeros(2))
-            self.world.step_robot(dt)
+            self.step_robots(dt)
 
         super(StaticCorridorScenario, self).step(dt, save)
 

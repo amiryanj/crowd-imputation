@@ -10,7 +10,7 @@ class LiDAR2D:
         # self.range_max = 25   #
 
         self.fov = 340          # in degree
-        self.resolution = 3     # per degree
+        self.resolution = 2     # per degree
         self.angle_min_radian = lambda: - self.fov / 2 * np.pi / 180.
         self.angle_max_radian = lambda: + self.fov / 2 * np.pi / 180.
         self.angle_increment_radian = lambda: (1 / self.resolution) * np.pi / 180

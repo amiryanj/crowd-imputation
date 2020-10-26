@@ -73,8 +73,8 @@ class SimulationNode:
         counter = -1
         while not rospy.is_shutdown():
             counter += 1
-            self.scenario.step_crowd()
-            self.scenario.step_robot()
+            self.scenario.step_crowd(dt=0.1)
+            self.scenario.step_robots(dt=0.1)
             self.scenario.update_disply()
 
             # for ped_i in self.scenario.world.crowds:

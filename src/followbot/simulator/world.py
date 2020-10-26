@@ -1,10 +1,8 @@
 import numpy as np
 
-from followbot.crowdsim.pedestrian import Pedestrian
-# from followbot.robot_functions.follower_bot import FollowerBot
-from followbot.robot_functions.robot import MyRobot
 import followbot.crowdsim.crowdsim as crowdsim
 import followbot.crowdsim.umans_api as umans_api
+from followbot.crowdsim.pedestrian import Pedestrian
 
 
 class World:
@@ -16,11 +14,12 @@ class World:
         self.obstacles = []
         self.world_dim = world_dim
 
+        # # Deprecated! -> use UMANS
         # self.sim = crowdsim.CrowdSim(sim_model)
         self.sim = umans_api.CrowdSimUMANS(sim_model)
 
         self.sim.initSimulation(n_peds + n_robots)
-        self.inertia_coeff = 0.4  # larger, more inertia, zero means no inertia
+        self.inertia_coeff = 0.25  # larger, more inertia, zero means no inertia
 
         self.crowds = []
         for ii in range(n_peds):
@@ -46,18 +45,20 @@ class World:
         if hasattr(obj, 'line'):
             try:
                 self.sim.addObstacleCoords(obj.draw_line[0][0], obj.draw_line[0][1], obj.draw_line[1][0], obj.draw_line[1][1])
-            except:
-                print('obstacles should be defined in config file')
-                exit(-1)
+            except Exception:
+                raise ValueError('obstacles should be defined in config file')
         else:
             print('Circle objects are not supported in crowd simulation!')
 
     def set_ped_position(self, index, pos):
         self.crowds[index].pos = np.array(pos, dtype=np.float)
         self.sim.setPosition(index, pos[0], pos[1])
-        u, v = self.mapping_to_grid(pos[0], pos[1])
-        if 0 <= u <= self.walkable.shape[0] and 0 <= v <= self.walkable.shape[1]:
-            self.crowds[index].trajectory.append(pos)
+
+        # append the position to pedestrian trajectory
+        if len(self.crowds[index].trajectory) and \
+            np.linalg.norm(self.crowds[index].trajectory[-1] - np.array(pos)) > 2.0:
+            self.crowds[index].trajectory.clear()
+        self.crowds[index].trajectory.append(np.array(pos))
         if len(self.crowds[index].trajectory) > 150:
             del self.crowds[index].trajectory[0]
 
@@ -70,41 +71,18 @@ class World:
         self.sim.setGoal(index, goal[0], goal[1])
 
     def set_robot_position(self, index, pos):
-        """Robot is assumed to be the last agent in the CrowdSim agents"""
+        """Notice: Robot is assumed to be the last agent in the CrowdSim agents"""
         self.robots[index].pos = np.array(pos, dtype=np.float)
         self.sim.setPosition(self.n_peds + index, pos[0], pos[1])
 
     def set_robot_velocity(self, index, vel):
-        """Robot is assumed to be the last agent in the CrowdSim agents"""
+        """Notice: Robot is assumed to be the last agent in the CrowdSim agents"""
         self.robots[index].vel = np.array(vel, dtype=np.float)
         self.sim.setVelocity(self.n_peds + index, vel[0], vel[1])
 
     def set_robot_goal(self, index, goal):
         self.robots[index].goal = np.array(goal, dtype=np.float)
         self.sim.setGoal(self.n_peds + index, goal[0], goal[1])
-
-    def step_robot(self, dt):
-        for jj, robot in enumerate(self.robots):
-
-            update_pom = False   # Fixme
-            self.robots[jj].lidar.scan(self, update_pom, walkable_area=self.walkable)
-            if update_pom:
-                pom_new = self.robots[jj].lidar.last_occupancy_gridmap.copy()
-                seen_area_indices = np.where(pom_new != 0)
-                self.POM[:] = self.POM[:] * 0.4 + 0.5
-                self.POM[seen_area_indices] = 0
-                for track in self.robots[jj].tracks:
-                    if track.coasted: continue
-                    px, py = track.position()
-                    u, v = self.mapping_to_grid(px, py)
-                    if 0 <= u < self.POM.shape[0] and 0 <= v < self.POM.shape[1]:
-                        self.POM[u - 2:u + 2, v - 2:v + 2] = 1
-
-            self.robots[jj].step(dt)
-            self.sim.setPosition(self.n_peds + jj, robot.pos[0], robot.pos[1])
-            self.sim.setVelocity(self.n_peds + jj, robot.vel[0], robot.vel[1])
-
-
 
 
 

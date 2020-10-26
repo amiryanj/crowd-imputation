@@ -43,8 +43,8 @@ class Pedestrian:
         # visualization features
         self.color = (255, 255, 255)  # for visualization
 
-    def step(self):
-        self.mocap_walk.step(0.05)
+    def step(self, dt):
+        self.mocap_walk.step(dt)
         self_orien = self.orien() + np.pi/2
         rot_mat = np.array([[cos(self_orien), -sin(self_orien)], [sin(self_orien), cos(self_orien)]])
         right_leg_pos = self.pos + np.matmul(rot_mat, self.mocap_walk.right_leg)

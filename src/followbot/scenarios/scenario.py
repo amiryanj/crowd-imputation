@@ -1,5 +1,6 @@
 # Author: Javad Amirian
 # Email: amiryan.j@gmail.com
+from abc import ABC, abstractmethod
 
 from followbot.simulator.world import World
 from followbot.gui.visualizer import Visualizer
@@ -7,25 +8,33 @@ import os.path
 import time
 
 
-class Scenario:
+class Scenario(ABC):
     def __init__(self, **kwargs):
         self.world = World
         self.visualizer = Visualizer
 
         self.cur_t = -1
-        self.n_robots = kwargs.get("numRobots", 1)
+
+        self.n_robots = kwargs.get("numRobots", 1)       # to be used to initialize the world
         self.leader_id = kwargs.get("LeaderPedId", -1)
 
         self.n_peds = 0  # will be read from dataset
 
-    # @Warning: Don't forget to override this function in an inherited class
+    @abstractmethod
     def setup(self, **kwargs):
-        raise NotImplementedError
+        pass
 
-    # @Warning: Don't forget to override this function in an inherited class
+    @abstractmethod
     def step_crowd(self, dt):
-        raise NotImplementedError
+        pass
 
+    def step_robots(self, dt):
+        for jj, robot in enumerate(self.world.robots):
+            robot.step(dt)
+            self.world.set_robot_position(jj, robot.pos)
+            self.world.set_robot_velocity(jj, robot.vel)
+
+    @abstractmethod
     def step(self, dt, save=False):
         if not self.world.pause and save:
             home = os.path.expanduser("~")

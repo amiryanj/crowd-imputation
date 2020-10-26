@@ -1,11 +1,12 @@
 # Author: Javad Amirian
 # Email: amiryan.j@gmail.com
 
+from abc import ABC, abstractmethod
 from followbot.scenarios.scenario import Scenario
 import numpy as np
 
 
-class SimulationScenario(Scenario):
+class SimulationScenario(Scenario, ABC):
     """Any non-real scenario should inherit this class"""
 
     def __init__(self, **kwargs):
@@ -13,6 +14,7 @@ class SimulationScenario(Scenario):
         self.n_peds = kwargs.get("numPeds", 0)
         super(SimulationScenario, self).__init__()
 
+    @abstractmethod
     def setup(self, **kwargs):
         super(SimulationScenario, self).setup()
 
@@ -27,8 +29,11 @@ class SimulationScenario(Scenario):
                 p_new = self.crowds[ii].pos + v_new * dt
                 self.set_ped_position(ii, p_new)
                 self.set_ped_velocity(ii, v_new)
-            except:
-                print('exception occurred in running crowd sim')
+            except Exception:
+                raise ValueError('exception occurred in running crowd sim')
+
+    def step_robots(self, dt):
+        super(SimulationScenario, self).step_robots(dt)
 
     def step(self, dt, save=False):
         if not self.world.pause:
@@ -36,6 +41,7 @@ class SimulationScenario(Scenario):
             for ii in range(self.n_peds):
                 p_new = self.world.sim.getCenterNext(ii)
                 v = self.world.sim.getCenterVelocityNext(ii)
+
                 # apply inertia
                 v_new = np.array(v) * (1 - self.world.inertia_coeff) \
                         + self.world.crowds[ii].vel * self.world.inertia_coeff
@@ -44,5 +50,5 @@ class SimulationScenario(Scenario):
                 self.world.set_ped_position(ii, p_new)
                 self.world.set_ped_velocity(ii, v_new)
 
-            self.world.step_robot(dt)
+            self.step_robots(dt)
         super(SimulationScenario, self).step(dt, save)

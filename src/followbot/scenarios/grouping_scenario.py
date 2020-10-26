@@ -123,6 +123,6 @@ class GroupScenario(CorridorScenario):
                 self.world.set_ped_position(ii, p_new)
                 self.world.set_ped_velocity(ii, v_new)
 
-            self.world.step_robot(dt)
+            self.step_robots(dt)
 
         super(GroupScenario, self).step(save)

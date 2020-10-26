@@ -80,7 +80,7 @@ class RealScenario(Scenario):
 
         self.world = World(self.n_peds, self.n_robots, world_dim, "", biped)
 
-        pom_resolution = 10  # per meter
+        pom_resolution = 4  # per meter
         self.world.walkable = np.ones((int(x_dim * pom_resolution),
                                        int(y_dim * pom_resolution)), dtype=bool)
         self.world.POM = self.world.walkable.copy() * 0.5
@@ -146,7 +146,7 @@ class RealScenario(Scenario):
 
         # def step_robot(self):
         if not self.world.pause and self.cur_t < len(self.frames) - 1:
-            self.world.step_robot(0.04)
+            self.step_robots(dt)
 
         super(RealScenario, self).step(save)
 

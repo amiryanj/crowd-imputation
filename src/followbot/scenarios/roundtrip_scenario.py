@@ -130,8 +130,8 @@ class RoundTrip(SimulationScenario):
 
     def step(self, dt, save=False):
         if not self.world.pause:
-            self.world.step_crowd(dt)
-            self.world.step_robot(dt)
+            self.step_crowd(dt)
+            self.step_robots(dt)
 
             for ii, ped in enumerate(self.world.crowds):
                 ped.step()
