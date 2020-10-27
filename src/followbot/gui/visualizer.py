@@ -36,6 +36,9 @@ class Visualizer:
         :param caption: caption for display window
         """
         pygame.init()
+        pygame.font.init()  # you have to call this at the start, # if you want to use this module.
+        self.font = pygame.font.SysFont('Comic Sans MS', 30)
+
         win_size = (1200, 960)  # FixMe
         self.win = pygame.display.set_mode(win_size)
 
@@ -112,10 +115,16 @@ class Visualizer:
             pygame.draw.line(self.win, GREY_COLOR,
                              (0, row_ii * self.subview_size[1]),
                              (self.win_size[0], row_ii * self.subview_size[1]), width=2)
+            #
+            title_surface = self.font.render('H%d' % row_ii, False, (200, 0, 0))
+            self.win.blit(title_surface, (20, row_ii * self.subview_size[1] + 20))
+
         for col_jj in range(1, self.subviews_array_size[1]):
             pygame.draw.line(self.win, GREY_COLOR,
                              (col_jj * self.subview_size[0], 0),
                              (col_jj * self.subview_size[0], self.win_size[1]), width=2)
+
+
 
         # Draw Obstacles
         for obs in self.world.obstacles:
@@ -159,27 +168,40 @@ class Visualizer:
             # Robot Hypotheses
             # ====================================
             for ii, hypothesis in enumerate(robot.hypothesis_worlds):
-                Z = robot.crowd_flow_map.data.T
-                # Z = Z / Z.max() * 255
-                Z = np.clip(np.fliplr(Z), a_min=0, a_max=255)
-                Z = imresize(Z, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
-                Z = np.stack([Z, np.zeros_like(Z), np.zeros_like(Z)], axis=2)
-                surf = pygame.surfarray.make_surface(Z)
-                surf.set_alpha(100)
-                self.win.blit(surf, (self.trans[ii+1, 0, 0] + self.scale[ii+1, 0, 0, 0] * self.world_dim[0][0],
+
+                # show Crowd-Flow-Map as a background
+                cf_map = np.clip(np.fliplr(robot.crowd_flow_map.data), a_min=0, a_max=255)
+                cf_map = imresize(cf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
+                cf_map = np.stack([cf_map, np.zeros_like(cf_map), np.zeros_like(cf_map)], axis=2)
+                cf_map_surf = pygame.surfarray.make_surface(cf_map)
+                cf_map_surf.set_alpha(200)
+                self.win.blit(cf_map_surf, (self.trans[ii+1, 0, 0] + self.scale[ii+1, 0, 0, 0] * self.world_dim[0][0],
                                      self.trans[ii+1, 0, 1] - self.scale[ii+1, 0, 1, 1] * self.world_dim[1][0]))
 
+                # show Blind-Spot-Map as a background
+                bs_map = np.clip(np.fliplr(robot.blind_spot_map.data), a_min=0, a_max=255)
+                bs_map = imresize(bs_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
+                bs_map = np.stack([np.zeros_like(bs_map), bs_map, np.zeros_like(bs_map)], axis=2)
+                bs_map_surf = pygame.surfarray.make_surface(bs_map)
+                bs_map_surf.set_alpha(100)
+                self.win.blit(bs_map_surf, (self.trans[ii + 1, 0, 0] + self.scale[ii + 1, 0, 0, 0] * self.world_dim[0][0],
+                                     self.trans[ii + 1, 0, 1] - self.scale[ii + 1, 0, 1, 1] * self.world_dim[1][0]))
+
+                # Draw robot
                 self.draw_circle(robot.pos, 7, ORANGE_COLOR, view_index=(ii + 1, 0))
                 self.draw_circle(robot.pos, 9, BLACK_COLOR, 3, view_index=(ii + 1, 0))
                 if isinstance(robot, FollowerBot):
                     self.draw_circle(robot.leader_ped.pos, 11, PINK_COLOR, 5, view_index=(ii + 1, 0))
                 u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
                 self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 3, view_index=(ii + 1, 0))
+
+                # Draw lidar points
                 for pnt in robot.lidar.data.last_points:
                     self.draw_circle(pnt, 2, YELLOW_COLOR, view_index=(ii + 1, 0))
                 for det in robot.detected_peds:
                     self.draw_circle(det, 14, RED_COLOR, 2, view_index=(ii + 1, 0))
 
+                # draw tracks
                 for track in robot.tracks:
                     if track.coasted: continue
                     self.draw_circle(track.position(), 4, GREEN_COLOR, view_index=(ii + 1, 0))

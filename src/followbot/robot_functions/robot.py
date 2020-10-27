@@ -64,10 +64,10 @@ class MyRobot:
                                           min_y=self.real_world.world_dim[1][0], max_y=self.real_world.world_dim[1][1],
                                           resolution=self.mapped_array_resolution,  # per meter
                                           n_channels=1, dtype=np.float)
-        self.blind_spot = MappedArray(min_x=self.real_world.world_dim[0][0], max_x=self.real_world.world_dim[0][1],
-                                      min_y=self.real_world.world_dim[1][0], max_y=self.real_world.world_dim[1][1],
-                                      resolution=self.mapped_array_resolution,  # per meter
-                                      n_channels=1, dtype=np.float)
+        self.blind_spot_map = MappedArray(min_x=self.real_world.world_dim[0][0], max_x=self.real_world.world_dim[0][1],
+                                          min_y=self.real_world.world_dim[1][0], max_y=self.real_world.world_dim[1][1],
+                                          resolution=self.mapped_array_resolution,  # per meter
+                                          n_channels=1, dtype=np.float)
         self.lidar_segments = []
         self.detected_peds = []
         self.tracks = []

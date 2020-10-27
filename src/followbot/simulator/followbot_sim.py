@@ -181,16 +181,16 @@ def run():
         y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
         xx, yy = np.meshgrid(np.arange(x_min, x_max, 1/robot.mapped_array_resolution),
                              np.arange(y_min, y_max, 1/robot.mapped_array_resolution))
-        Z = knn_regressor.predict(np.c_[xx.ravel(), yy.ravel()])
-        Z = Z.reshape((xx.shape[0], xx.shape[1], -1))
-        robot.crowd_flow_map.data = Z[:, :, 0]
+        crowd_flow_estimation = knn_regressor.predict(np.c_[xx.ravel(), yy.ravel()])
+        crowd_flow_estimation = crowd_flow_estimation.reshape((xx.shape[0], xx.shape[1], -1))
+        robot.crowd_flow_map.data = crowd_flow_estimation[:, :, 0].T
 
+        # show
         # plt.figure()
-        # plt.imshow(np.flipud(Z[:, :, 1]))
-
+        # plt.imshow(np.flipud(crowd_flow_estimation[:, :, 1]))
         # cmap_light = ListedColormap(['orange', 'cyan', 'cornflowerblue'])
         # cmap_bold = ListedColormap(['darkorange', 'c', 'darkblue'])
-        # plt.pcolormesh(xx, yy, Z[:, :, 1], cmap=cmap_light)
+        # plt.pcolormesh(xx, yy, crowd_flow_estimation[:, :, 1], cmap=cmap_light)
         # plt.scatter(agent_locs[:, 0], agent_locs[:, 1],
         #             c=flow_values[:, 1], cmap=cmap_bold, edgecolor='k', s=20)
         # plt.show()
@@ -198,20 +198,20 @@ def run():
 
         # calc the blind spot area of robot
         # ================================
-        # robot.blind_spot.fill(1)  # everywhere is in blind_spot if it's not!
-        # rays = robot.lidar.data.last_rotated_rays
-        # for ii in range(len(rays)):
-        #     ray_i = rays[ii]
-        #     scan_i = robot.lidar.data.last_points[ii]
-        #     white_line = [robot.pos, scan_i]
-        #     line_len = np.linalg.norm(white_line[1] - white_line[0])
-        #
-        #     for z in np.arange(0, line_len/robot.lidar.range_max, 0.01):
-        #         px, py = z * ray_i[1] + (1-z) * ray_i[0]
-        #         robot.blind_spot.set([px, py], 0)
-        #
+        robot.blind_spot_map.fill(1)  # everywhere is in blind_spot_map if it's not!
+        rays = robot.lidar.data.last_rotated_rays
+        for ii in range(len(rays)):
+            ray_i = rays[ii]
+            scan_i = robot.lidar.data.last_points[ii]
+            white_line = [robot.pos, scan_i]
+            line_len = np.linalg.norm(white_line[1] - white_line[0])
+
+            for z in np.arange(0, line_len/robot.lidar.range_max, 0.01):
+                px, py = z * ray_i[1] + (1-z) * ray_i[0]
+                robot.blind_spot_map.set([px, py], 0)
+
         # plt.title(frame_id)
-        # plt.imshow(np.rot90(robot.blind_spot.data))
+        # plt.imshow(np.rot90(robot.blind_spot_map.data))
         # plt.show()
         # plt.title(frame_id)
         # plt.imshow(np.rot90(robot.crowd_flow_map.data[:, :, 1]))
