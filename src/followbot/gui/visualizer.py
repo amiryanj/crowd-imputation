@@ -170,7 +170,7 @@ class Visualizer:
             for ii, hypothesis in enumerate(robot.hypothesis_worlds):
 
                 # show Crowd-Flow-Map as a background
-                cf_map = np.clip(np.fliplr(robot.crowd_flow_map.data[:, :, 1]), a_min=0, a_max=255)
+                cf_map = np.clip(np.fliplr(robot.crowd_flow_map.data[:, :]), a_min=0, a_max=255)
                 cf_map = imresize(cf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
                 cf_map = np.stack([cf_map, np.zeros_like(cf_map), np.zeros_like(cf_map)], axis=2)
                 cf_map_surf = pygame.surfarray.make_surface(cf_map)

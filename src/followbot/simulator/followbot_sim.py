@@ -9,6 +9,8 @@ from sklearn.mixture import GaussianMixture
 from sklearn import neighbors
 
 from followbot.gui.visualizer import *
+from followbot.robot_functions.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian, draw_bgmm
+from followbot.robot_functions.flow_classifier import FlowClassifier
 from followbot.simulator.world import World
 from followbot.robot_functions.follower_bot import FollowerBot
 from followbot.robot_functions.tracking import PedestrianDetection
@@ -139,32 +141,34 @@ def run():
 
         # Casting LiDAR rays to get detections
         # ====================================
-        angles = np.arange(lidar.angle_min_radian(), lidar.angle_max_radian() - 1E-10, lidar.angle_increment_radian())
-        segments = ped_detector.segment_range(lidar.data.last_range_data, angles)
-        detections, walls = ped_detector.detect(segments, [0, 0])
-        robot.lidar_segments = segments
+        if not scenario.world.pause:
+            angles = np.arange(lidar.angle_min_radian(), lidar.angle_max_radian() - 1E-10, lidar.angle_increment_radian())
+            segments = ped_detector.segment_range(lidar.data.last_range_data, angles)
+            detections, walls = ped_detector.detect(segments, [0, 0])
+            robot.lidar_segments = segments
         # ====================================
 
         # Transform (rotate + translate) the detections, given the robot pose
         # ====================================
-        detections_tf = []
-        robot_rot = Rotation.from_euler('z', robot.orien, degrees=False)
-        robot_tf = Transform(np.array([robot.pos[0], robot.pos[1], 0]), robot_rot)
-        for det in detections:
-            tf_trans, tf_orien = robot_tf.apply(np.array([det[0], det[1], 0]), Rotation.from_quat([0, 0, 0, 1]))
-            detections_tf.append(np.array([tf_trans[0], tf_trans[1]]))
-        robot.detected_peds = detections_tf
+        if not scenario.world.pause:
+            detections_tf = []
+            robot_rot = Rotation.from_euler('z', robot.orien, degrees=False)
+            robot_tf = Transform(np.array([robot.pos[0], robot.pos[1], 0]), robot_rot)
+            for det in detections:
+                tf_trans, tf_orien = robot_tf.apply(np.array([det[0], det[1], 0]), Rotation.from_quat([0, 0, 0, 1]))
+                detections_tf.append(np.array([tf_trans[0], tf_trans[1]]))
+            robot.detected_peds = detections_tf
         # ====================================
 
         # Todo: robot_functions
         # ====================================
-        robot.tracks = robot.tracker.track(robot.detected_peds)
+        if not scenario.world.pause:
+            robot.tracks = robot.tracker.track(robot.detected_peds)
 
         # calc the occupancy map and crowd flow map
         # ====================================
         # robot.occupancy_map.fill(0)
         # robot.crowd_flow_map.fill(0)
-        # 
         # for tr in robot.tracks:
         #     robot.occupancy_map.set(tr.kf.x[:2], 1)
         #     v_ped = tr.kf.x[2:4]
@@ -173,38 +177,39 @@ def run():
 
         # estimate the flow at each pixel
         # ================================
-        agent_locs = np.array([tr.kf.x[:2] for tr in robot.tracks])
-        agent_vels_polar = np.array([[np.linalg.norm(tr.kf.x[2:4]), np.arctan2(tr.kf.x[2], tr.kf.x[3])]
+        agents_loc = np.array([tr.kf.x[:2] for tr in robot.tracks])
+        agents_vel = np.array([tr.kf.x[2:4] for tr in robot.tracks])
+        agents_vel_polar = np.array([[np.linalg.norm(tr.kf.x[2:4]), np.arctan2(tr.kf.x[3], tr.kf.x[2])]
                                     for tr in robot.tracks])
+        agents_flow_class = FlowClassifier().classify(agents_loc, agents_vel)
 
 
         # use multiple gaussian to extrapolate the flow at each pixel
         # ================================
-        n_components = len(agent_locs)
-        gaussian_components = []
-        component_weights = []
-        for ii in range(n_components):
-            robot_vel = robot.tracks[ii].kf.x[2:4]
-            mean = agent_locs[ii]  # agent location is the mean (center) of distribution
-            sig_x = robot_vel[0] + 1
-            sig_y = robot_vel[1] + 1
-            cov = [[robot_vel[0] + 1, 1], []]
-            component_i = multivariate_normal(mean, cov)
-            gaussian_components.append(component_i)
-            component_weights.append(1)
-
-
-        # K-nearest neighbor to
-        # ================================
-        knn_regressor = neighbors.KNeighborsRegressor(n_neighbors=2, weights='distance', n_jobs=-1)
-        knn_regressor.fit(agent_locs, agent_vels_polar)
+        bgm = BivariateGaussianMixtureModel()
+        for i in range(len(agents_loc)):
+            bgm.add_component(BivariateGaussian(agents_loc[i][0], agents_loc[i][1],
+                                                sigma_x=agents_vel_polar[i][0]/5 + 0.1, sigma_y=0.1, theta=agents_vel_polar[i][1]),
+                              weight=1, target=agents_flow_class[i].id)
         x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
         y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
         xx, yy = np.meshgrid(np.arange(x_min, x_max, 1/robot.mapped_array_resolution),
                              np.arange(y_min, y_max, 1/robot.mapped_array_resolution))
-        crowd_flow_estimation = knn_regressor.predict(np.c_[xx.ravel(), yy.ravel()])
-        crowd_flow_estimation = crowd_flow_estimation.reshape((xx.shape[0], xx.shape[1], -1))
-        robot.crowd_flow_map.data = crowd_flow_estimation[:, :, :].transpose((1,0,2))
+        robot.crowd_flow_map.data = bgm.classify_kNN(xx, yy).T
+        # draw_bgmm(bgm, xx, yy)  => for paper
+
+
+        # K-nearest neighbor to
+        # ================================
+        # knn_regressor = neighbors.KNeighborsRegressor(n_neighbors=2, weights='distance', n_jobs=-1)
+        # knn_regressor.fit(agents_loc, agents_vel_polar)
+        # x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
+        # y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
+        # xx, yy = np.meshgrid(np.arange(x_min, x_max, 1/robot.mapped_array_resolution),
+        #                      np.arange(y_min, y_max, 1/robot.mapped_array_resolution))
+        # crowd_flow_estimation = knn_regressor.predict(np.c_[xx.ravel(), yy.ravel()])
+        # crowd_flow_estimation = crowd_flow_estimation.reshape((xx.shape[0], xx.shape[1], -1))
+        # robot.crowd_flow_map.data = crowd_flow_estimation[:, :, :].transpose((1,0,2))
 
         # show
         # plt.figure()
@@ -212,7 +217,7 @@ def run():
         # cmap_light = ListedColormap(['orange', 'cyan', 'cornflowerblue'])
         # cmap_bold = ListedColormap(['darkorange', 'c', 'darkblue'])
         # plt.pcolormesh(xx, yy, crowd_flow_estimation[:, :, 1], cmap=cmap_light)
-        # plt.scatter(agent_locs[:, 0], agent_locs[:, 1],
+        # plt.scatter(agents_loc[:, 0], agents_loc[:, 1],
         #             c=flow_values[:, 1], cmap=cmap_bold, edgecolor='K', s=20)
         # plt.show()
         # ================================

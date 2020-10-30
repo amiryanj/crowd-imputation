@@ -5,6 +5,7 @@ import numpy as np
 from numpy import cos, sin, exp
 from collections import Counter
 from scipy.stats import mode
+from followbot.robot_functions.flow_classifier import FlowClassifier
 
 
 class BivariateGaussian:
@@ -24,6 +25,9 @@ class BivariateGaussian:
         """
         self.x0 = x0
         self.y0 = y0
+        self.sigma_x = sigma_x
+        self.sigma_y = sigma_y
+        self.theta = theta
         self.A = A
         self.a = cos(theta) ** 2 / (2 * sigma_x ** 2) + sin(theta) ** 2 / (2 * sigma_y ** 2)
         self.b = sin(2 * theta) / (4 * sigma_x ** 2) - sin(2 * theta) / (4 * sigma_y ** 2)
@@ -87,6 +91,8 @@ class BivariateGaussianMixtureModel:
                 probs_copy[index] = 0
 
             counter = Counter(votes)
+            # m = [[mode(rr[i, j, :]) for i in range(rr.shape[0])] for j in range(rr.shape[1])]
+            # x = m[0][0]
             return counter.most_common(1)[0][0]
 
             # Todo: what if we have more than one mode
@@ -117,14 +123,32 @@ class BivariateGaussianMixtureModel:
         pass
 
 
+def draw_bgmm(mm: BivariateGaussianMixtureModel, query_x, query_y):
+    import matplotlib.pyplot as plt
+    predicted_class_matrix = mm.classify_kNN(query_x, query_y)
+
+    plt.figure(0, figsize=((np.max(query_x)-np.min(query_x)) * 1.5,
+                           (np.max(query_y)-np.min(query_y)) * 1.5))
+    # draw contour for each gaussian component (gray)
+    for ii in range(len(mm.components)):
+        comp_mean = [mm.components[ii].x0, mm.components[ii].y0]
+        comp_cov = np.array([[mm.components[ii].sigma_x, 0], [0, mm.components[ii].sigma_y]]) * 2
+        samples = np.random.multivariate_normal(comp_mean, comp_cov, 5000)
+        p_k = mm.components[ii].pdf(samples[:, 0], samples[:, 1])
+        samples = samples[p_k > 0.5]
+        plt.scatter(samples[:, 0], samples[:, 1], c='gray', alpha=0.2)
+        plt.scatter(mm.components[ii].x0, mm.components[ii].y0, c='grey')
+
+    plt.scatter(query_x.reshape(-1), query_y.reshape(-1), alpha=0.4,
+                c=FlowClassifier().id2color(predicted_class_matrix).reshape(-1))
+
+    plt.xlim([np.min(query_x), np.max(query_x)])
+    plt.ylim([np.min(query_y), np.max(query_y)])
+    plt.show()
+
+
 # test
 if __name__ == "__main__":
-    # rr = np.random.randint(low=1, high=10, size=(10, 20, 3))
-    # m = [[mode(rr[i, j, :]) for i in range(rr.shape[0])] for j in range(rr.shape[1])]
-    # x = m[0][0]
-    # exit(1)
-
-    import matplotlib.pyplot as plt
     x_min = 0
     x_max = 5
     y_min = 0
@@ -133,46 +157,26 @@ if __name__ == "__main__":
 
     # setup 8 random agents
     n_center_points = 8
-    bgm = BivariateGaussianMixtureModel()
+    bgmm = BivariateGaussianMixtureModel()
     center_points = np.zeros((n_center_points, 2))
     targets = np.random.choice(['b', 'r'], n_center_points)  # labels are chosen randomly either 0 or 1
     for i in range(n_center_points):
         pos = sample_2d()
-        vel = [np.random.uniform(0.8, 1.5), np.random.uniform(-0.2, 0.2)]
+        vel = [np.random.uniform(0.8, 1.5), np.random.uniform(-0.4, 0.4)]
         center_points[i] = pos
         theta = np.arctan2(vel[1], vel[0])
         A = 1
 
         comp_i = BivariateGaussian(pos[0], pos[1], sigma_x=np.linalg.norm(vel)/5, sigma_y=0.1, theta=theta, A=A)
-        bgm.add_component(comp_i, 1, targets[i])
+        bgmm.add_component(comp_i, 1, targets[i])
 
     # test one single point
     test_single_point = sample_2d()
-    predicted_class_single_point = bgm.classify_kNN(test_single_point[0], test_single_point[1])
+    predicted_class_single_point = bgmm.classify_kNN(test_single_point[0], test_single_point[1])
     print('classification of a single point: ', predicted_class_single_point)
 
     # test an grid
     resol = 10   # pixel per meter
     xx, yy = np.meshgrid(np.arange(0, x_max, 1/resol), np.arange(y_min, y_max, 1/resol))
-    predicted_class_matrix = bgm.classify_kNN(xx, yy)
-
-    # draw contour for each gaussian component (gray)
-    for ii in range(len(bgm.components)):
-        samples = []
-        for kk in range(5000):
-            s_k = sample_2d()
-            samples.append(s_k)
-        samples = np.stack(samples)
-        p_k = bgm.components[ii].pdf(samples[:, 0], samples[:, 1])
-        samples = samples[p_k > 0.5]
-        plt.scatter(samples[:, 0], samples[:, 1], c='gray', alpha=0.2)
-    plt.scatter(center_points[:, 0], center_points[:, 1], c=targets)
-
-    plt.plot(test_single_point[0], test_single_point[1], c='g')
-
-    plt.scatter(xx.reshape(-1), yy.reshape(-1), c=predicted_class_matrix.reshape(-1), alpha=0.4)
-
-    plt.xlim([0, 5])
-    plt.ylim([0, 5])
-    plt.show()
+    draw_bgmm(bgmm, xx, yy)
 
