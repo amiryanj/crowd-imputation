@@ -4,6 +4,8 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 from scipy.spatial.transform import Rotation
+from scipy.stats import multivariate_normal
+from sklearn.mixture import GaussianMixture
 from sklearn import neighbors
 
 from followbot.gui.visualizer import *
@@ -17,8 +19,7 @@ from followbot.scenarios.static_crowd import StaticCorridorScenario
 from followbot.scenarios.real_scenario import RealScenario
 from followbot.util.basic_geometry import Line
 from followbot.util.transform import Transform
-# from followbot.crowd_synthesis.crowd_sy
-# nthesis import CrowdSynthesizer
+# from followbot.crowd_synthesis.crowd_synthesis import CrowdSynthesizer
 from numpy.linalg import norm as norm
 
 np.random.seed(1)
@@ -39,7 +40,7 @@ def run():
     # scenario.setup(biD_flow=False)
 
     # # Bi-D flow of singles
-    scenario = CorridorScenario(biD_flow=True, group_size_choices=[2])
+    scenario = CorridorScenario(biD_flow=False, group_size_choices=[2])
     scenario.setup()
 
     # # Bi-D flow of couples (love street!)
@@ -85,7 +86,7 @@ def run():
     
     # Todo:
     #  capture the agents around the robot and extract the pattern
-    #  1. Distance to (k)-nearest agent
+    #  1. Distance to (K)-nearest agent
     #  2. Velocity vector
     #  3. You can feed these data to a network with a pooling layer to classify different cases
 
@@ -170,20 +171,40 @@ def run():
         #     angle_between_robot_motion_and_ped = np.dot(robot.vel, v_ped) / (norm(robot.vel) * norm(v_ped) + 1E-6)
         #     robot.crowd_flow_map.set(tr.kf.x[:2], [norm(v_ped), angle_between_robot_motion_and_ped])
 
-
-        # K-nearest neighbor to estimate the flow at each pixel
+        # estimate the flow at each pixel
         # ================================
         agent_locs = np.array([tr.kf.x[:2] for tr in robot.tracks])
-        flow_values = np.array([(tr.kf.x[2] > 0) for tr in robot.tracks]).astype(float) * 250
+        agent_vels_polar = np.array([[np.linalg.norm(tr.kf.x[2:4]), np.arctan2(tr.kf.x[2], tr.kf.x[3])]
+                                    for tr in robot.tracks])
+
+
+        # use multiple gaussian to extrapolate the flow at each pixel
+        # ================================
+        n_components = len(agent_locs)
+        gaussian_components = []
+        component_weights = []
+        for ii in range(n_components):
+            robot_vel = robot.tracks[ii].kf.x[2:4]
+            mean = agent_locs[ii]  # agent location is the mean (center) of distribution
+            sig_x = robot_vel[0] + 1
+            sig_y = robot_vel[1] + 1
+            cov = [[robot_vel[0] + 1, 1], []]
+            component_i = multivariate_normal(mean, cov)
+            gaussian_components.append(component_i)
+            component_weights.append(1)
+
+
+        # K-nearest neighbor to
+        # ================================
         knn_regressor = neighbors.KNeighborsRegressor(n_neighbors=2, weights='distance', n_jobs=-1)
-        knn_regressor.fit(agent_locs, flow_values)
+        knn_regressor.fit(agent_locs, agent_vels_polar)
         x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
         y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
         xx, yy = np.meshgrid(np.arange(x_min, x_max, 1/robot.mapped_array_resolution),
                              np.arange(y_min, y_max, 1/robot.mapped_array_resolution))
         crowd_flow_estimation = knn_regressor.predict(np.c_[xx.ravel(), yy.ravel()])
         crowd_flow_estimation = crowd_flow_estimation.reshape((xx.shape[0], xx.shape[1], -1))
-        robot.crowd_flow_map.data = crowd_flow_estimation[:, :, 0].T
+        robot.crowd_flow_map.data = crowd_flow_estimation[:, :, :].transpose((1,0,2))
 
         # show
         # plt.figure()
@@ -192,7 +213,7 @@ def run():
         # cmap_bold = ListedColormap(['darkorange', 'c', 'darkblue'])
         # plt.pcolormesh(xx, yy, crowd_flow_estimation[:, :, 1], cmap=cmap_light)
         # plt.scatter(agent_locs[:, 0], agent_locs[:, 1],
-        #             c=flow_values[:, 1], cmap=cmap_bold, edgecolor='k', s=20)
+        #             c=flow_values[:, 1], cmap=cmap_bold, edgecolor='K', s=20)
         # plt.show()
         # ================================
 

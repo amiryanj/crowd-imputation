@@ -152,7 +152,7 @@ class Visualizer:
             u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
             self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 3)
 
-            # draw Lidar output as points
+            # draw Lidar output as center_points
             for pnt in robot.lidar.data.last_points:
                 if math.isnan(pnt[0]) or math.isnan(pnt[1]):
                     raise ValueError('Nan Value in Lidar data!')
@@ -170,7 +170,7 @@ class Visualizer:
             for ii, hypothesis in enumerate(robot.hypothesis_worlds):
 
                 # show Crowd-Flow-Map as a background
-                cf_map = np.clip(np.fliplr(robot.crowd_flow_map.data), a_min=0, a_max=255)
+                cf_map = np.clip(np.fliplr(robot.crowd_flow_map.data[:, :, 1]), a_min=0, a_max=255)
                 cf_map = imresize(cf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
                 cf_map = np.stack([cf_map, np.zeros_like(cf_map), np.zeros_like(cf_map)], axis=2)
                 cf_map_surf = pygame.surfarray.make_surface(cf_map)
@@ -195,7 +195,7 @@ class Visualizer:
                 u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
                 self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 3, view_index=(ii + 1, 0))
 
-                # Draw lidar points
+                # Draw lidar center_points
                 for pnt in robot.lidar.data.last_points:
                     self.draw_circle(pnt, 2, YELLOW_COLOR, view_index=(ii + 1, 0))
                 for det in robot.detected_peds:

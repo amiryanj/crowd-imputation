@@ -74,7 +74,7 @@ class LiDAR2D:
                                       for ii, res in enumerate(results)])
             all_intersects.append(intersect_pts)
 
-        # combine the intersection points
+        # combine the intersection center_points
         all_intersects = np.stack(all_intersects)
         dists = all_intersects - self.data.last_rotated_rays[0, 0]
         dists = np.linalg.norm(dists, axis=2)

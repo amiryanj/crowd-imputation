@@ -31,7 +31,7 @@ class FollowerBot(MyRobot):
             self.angular_vel *= abs(delta_orien) / (np.pi / 30)
 
     def init(self, leader_pos):
-        # set the Robot position just behind first ped on the X axis
+        # set the Robot position just behind first ped on the x axis
         self.real_world.set_robot_position(0, [leader_pos[0] - 1, leader_pos[1]])
 
     def set_leader_ped(self, leader_ped):

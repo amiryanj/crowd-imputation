@@ -126,15 +126,15 @@ def intersect_circle_line(circle_center, circle_radius, line):
 
 def intersect_circle_lines(circle_center, circle_radius, lines):
     """
-    calculates all the intersection points between a given circle and a set of line segments
+    calculates all the intersection center_points between a given circle and a set of line segments
 
     :param circle_center: the center point of given circle
     :param circle_radius: the radius of given circle
     :param lines: the coordinates of the line segments (Nx2x2)
     :return: three variables
             1. results: list<bool> shows if each line intersects with the circle or not
-            2. intersects: list<point> shows the intersection points
-            3. the normalized distance of intersection points from beginning of the line segments
+            2. intersects: list<point> shows the intersection center_points
+            3. the normalized distance of intersection center_points from beginning of the line segments
     """
     Q = circle_center  # Centre of circle
     r = circle_radius  # Radius of circle
