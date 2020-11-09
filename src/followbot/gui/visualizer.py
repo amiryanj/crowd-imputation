@@ -1,6 +1,7 @@
 import os
 import math
 import pygame
+import pygame.gfxdraw
 import numpy as np
 from sklearn.externals._pilutil import imresize
 
@@ -10,10 +11,12 @@ from followbot.util.cv_importer import *
 
 BLACK_COLOR = (0, 0, 0)
 GREY_COLOR = (100, 100, 100)
+LIGHT_GREY_COLOR = (200, 200, 200)
 RED_COLOR = (255, 0, 0)
 GREEN_COLOR = (0, 255, 0)
 BLUE_COLOR = (0, 0, 255)
-YELLOW_COLOR = (150, 150, 0)
+SKY_BLUE_COLOR = (0, 160, 255)  # Deep Sky Blue
+YELLOW_COLOR = (180, 180, 0)
 CYAN_COLOR = (0, 255, 255)
 MAGENTA_COLOR = (255, 0, 255)
 
@@ -82,23 +85,56 @@ class Visualizer:
 
     # =========== draw methods ================
     # =========================================
-    def draw_circle(self, center, radius, color, width=0, view_index=(0, 0)):
+    def draw_circle(self, center, radius, color, width=0, gfx=True, view_index=(0, 0)):
+        """
+        :param center: center of circle
+        :param radius: radius of circle
+        :param color: color
+        :param width: width of circle stroke, filled if width == 0
+        :param gfx: boolean, whether to use gfx functions of pygame which has antialias feature
+        :param view_index: the index of view that is used to find the corresponding transformation matrix
+        :return: None
+        """
         center_uv = self.transform(center, view_index)
-        pygame.draw.circle(self.win, color, (int(center_uv[0]), int(center_uv[1])), radius, width)
+        if gfx:
+            if width <= 0:
+                pygame.gfxdraw.filled_circle(self.win, int(center_uv[0]), int(center_uv[1]), radius, color)
+            else:
+                pygame.gfxdraw.circle(self.win, int(center_uv[0]), int(center_uv[1]), radius, color)
+        else:
+            pygame.draw.circle(self.win, color, (int(center_uv[0]), int(center_uv[1])), radius, width)
+
+    def draw_trigon(self, center, orien, radius, color, width=0, view_index=(0, 0)):
+        center_uv = self.transform(center, view_index)
+        trigon_vertice_angles = np.array([orien, orien + np.deg2rad(135), orien - np.deg2rad(135)])
+        verts = center_uv + np.stack([np.cos(trigon_vertice_angles), np.sin(trigon_vertice_angles)], axis=1) * radius
+        verts = np.round(verts).astype(int)
+
+        if width <= 0:
+            pygame.gfxdraw.filled_trigon(self.win,
+                                         verts[0, 0], verts[0, 1], verts[1, 0], verts[1, 1], verts[2, 0], verts[2, 1],
+                                         color)
+        else:
+            pygame.gfxdraw.trigon(self.win,
+                                  verts[0, 0], verts[0, 1], verts[1, 0], verts[1, 1], verts[2, 0], verts[2, 1],
+                                  color)
+
 
     def draw_line(self, p1, p2, color, width=1, view_index=(0, 0)):
         p1_uv = self.transform(p1, view_index)
         p2_uv = self.transform(p2, view_index)
-        pygame.draw.line(self.win, color, p1_uv, p2_uv, width)
+        # pygame.draw.line(self.win, color, p1_uv, p2_uv, width)
+        pygame.draw.aaline(self.win, color, p1_uv, p2_uv)  # antialias
 
     def draw_lines(self, points, color, width=1, view_index=(0, 0)):
         if len(points) < 2: return
         points_uv = self.transform(points, view_index)
-        pygame.draw.lines(self.win, color, False, points_uv, width)
+        # pygame.draw.lines(self.win, color, False, points_uv, width)
+        pygame.draw.aalines(self.win, color, False, points_uv)  # antialias
 
     # =========================================
-
     def update(self):
+        # the scene will be centered on the (1st) robot position
         if len(self.world.robots):
             for col_jj in range(self.subviews_array_size[1]):
                 for row_ii in range(self.subviews_array_size[0]):
@@ -123,97 +159,96 @@ class Visualizer:
             pygame.draw.line(self.win, GREY_COLOR,
                              (col_jj * self.subview_size[0], 0),
                              (col_jj * self.subview_size[0], self.win_size[1]), width=2)
-
-
+        # -----------------------------
 
         # Draw Obstacles
         for obs in self.world.obstacles:
             if isinstance(obs, Line):
                 self.draw_line(obs.line[0], obs.line[1], RED_COLOR, 3)
             elif isinstance(obs, Circle):
-                self.draw_circle(obs.center, int(obs.radius * self.scale[0][0][0, 0]), RED_COLOR, 0)
+                self.draw_circle(obs.center, int(obs.radius * self.scale[0][0][0, 0]), RED_COLOR)
+        # -----------------------------
 
         # Draw Pedestrians
         for ii in range(len(self.world.crowds)):
             self.draw_circle(self.world.crowds[ii].pos, 8, self.world.crowds[ii].color)
-            self.draw_lines(self.world.crowds[ii].trajectory, DARK_GREEN_COLOR, 3)
-            if self.world.crowds[ii].biped:
+            self.draw_trigon(self.world.crowds[ii].pos, self.world.crowds[ii].orien(), 8, LIGHT_GREY_COLOR)  # orien triangle
+            self.draw_lines(self.world.crowds[ii].trajectory, DARK_GREEN_COLOR + (100,), 3)  # track of robot
+            if self.world.crowds[ii].biped:  # if we use the biped model for pedestrians
                 ped_geo = self.world.crowds[ii].geometry()
                 self.draw_circle(ped_geo.center1, 4, CYAN_COLOR)
                 self.draw_circle(ped_geo.center2, 4, CYAN_COLOR)
+        # -----------------------------
 
-        # Draw robot
+        # Draw robot(s)
         for robot in self.world.robots:
-            self.draw_circle(robot.pos, 7, ORANGE_COLOR)
-            self.draw_circle(robot.pos, 9, BLACK_COLOR, 3)
+            self.draw_circle(robot.pos, 9, BLACK_COLOR)
             if isinstance(robot, FollowerBot):
-                self.draw_circle(robot.leader_ped.pos, 11, PINK_COLOR, 5)
+                self.draw_circle(robot.leader_ped.pos, 10, PINK_COLOR, 5, gfx=False)
             # draw a vector showing orientation of the robot
             u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
-            self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 3)
+            # self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 3)
+            self.draw_trigon(robot.pos, np.arctan2(v, u), 8, CYAN_COLOR, width=0)
+
 
             # draw Lidar output as center_points
             for pnt in robot.lidar.data.last_points:
                 if math.isnan(pnt[0]) or math.isnan(pnt[1]):
                     raise ValueError('Nan Value in Lidar data!')
                 else:
-                    self.draw_circle(pnt, 2, GREEN_COLOR)
+                    self.draw_circle(pnt, 2, YELLOW_COLOR, gfx=False)
 
             # for seg in robot.lidar_segments:
             #     self.line(seg[0], seg[-1], BLUE_LIGHT, 3)
 
-            # for det in robot.detected_peds:
-            #     self.draw_circle(det, 14, RED_COLOR, 2)
-
             # Robot Hypotheses
             # ====================================
             for ii, hypothesis in enumerate(robot.hypothesis_worlds):
-
-                # show Crowd-Flow-Map as a background
+                # show Crowd-Flow-Map as a background image
                 cf_map = np.clip(np.fliplr(robot.crowd_flow_map.data[:, :]), a_min=0, a_max=255)
                 cf_map = imresize(cf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
-                cf_map = np.stack([cf_map, np.zeros_like(cf_map), np.zeros_like(cf_map)], axis=2)
+                cf_map = np.stack([255-cf_map, np.zeros_like(cf_map), cf_map], axis=2)
                 cf_map_surf = pygame.surfarray.make_surface(cf_map)
-                cf_map_surf.set_alpha(200)
+                cf_map_surf.set_alpha(60)
                 self.win.blit(cf_map_surf, (self.trans[ii+1, 0, 0] + self.scale[ii+1, 0, 0, 0] * self.world_dim[0][0],
                                      self.trans[ii+1, 0, 1] - self.scale[ii+1, 0, 1, 1] * self.world_dim[1][0]))
 
                 # show Blind-Spot-Map as a background
                 bs_map = np.clip(np.fliplr(robot.blind_spot_map.data), a_min=0, a_max=255)
                 bs_map = imresize(bs_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
-                bs_map = np.stack([np.zeros_like(bs_map), bs_map, np.zeros_like(bs_map)], axis=2)
+                bs_map = np.stack([255-bs_map, 255-bs_map, 255-bs_map], axis=2)
                 bs_map_surf = pygame.surfarray.make_surface(bs_map)
-                bs_map_surf.set_alpha(100)
+                bs_map_surf.set_alpha(40)
                 self.win.blit(bs_map_surf, (self.trans[ii + 1, 0, 0] + self.scale[ii + 1, 0, 0, 0] * self.world_dim[0][0],
                                      self.trans[ii + 1, 0, 1] - self.scale[ii + 1, 0, 1, 1] * self.world_dim[1][0]))
 
                 # Draw robot
-                self.draw_circle(robot.pos, 7, ORANGE_COLOR, view_index=(ii + 1, 0))
-                self.draw_circle(robot.pos, 9, BLACK_COLOR, 3, view_index=(ii + 1, 0))
+                self.draw_circle(robot.pos, 8, BLACK_COLOR, view_index=(ii + 1, 0))
+                self.draw_trigon(robot.pos, np.arctan2(v, u), 8, CYAN_COLOR, view_index=(ii + 1, 0))
                 if isinstance(robot, FollowerBot):
                     self.draw_circle(robot.leader_ped.pos, 11, PINK_COLOR, 5, view_index=(ii + 1, 0))
-                u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
-                self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 3, view_index=(ii + 1, 0))
+                u, v = math.cos(robot.orien), math.sin(robot.orien)
+                self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 5, view_index=(ii + 1, 0))
+
+                # Draw detected agents
+                for det in robot.detected_peds:
+                    self.draw_circle(det, 8, GREEN_COLOR, view_index=(ii + 1, 0))
 
                 # Draw lidar center_points
                 for pnt in robot.lidar.data.last_points:
-                    self.draw_circle(pnt, 2, YELLOW_COLOR, view_index=(ii + 1, 0))
-                for det in robot.detected_peds:
-                    self.draw_circle(det, 14, RED_COLOR, 2, view_index=(ii + 1, 0))
+                    self.draw_circle(pnt, 2, YELLOW_COLOR, view_index=(ii + 1, 0), gfx=False)
+
 
                 # draw tracks
                 for track in robot.tracks:
                     if track.coasted: continue
-                    self.draw_circle(track.position(), 4, GREEN_COLOR, view_index=(ii + 1, 0))
+                    self.draw_circle(track.position(), 4, BLACK_COLOR, view_index=(ii + 1, 0))
                     if len(track.recent_detections) >= 2:
-                        self.draw_lines(track.recent_detections, BLUE_LIGHT, 1, view_index=(ii + 1, 0))
+                        self.draw_lines(track.recent_detections, WHITE_COLOR, 1, view_index=(ii + 1, 0))
 
-                    if track.velocity()[0] > 0:
-                        self.draw_line(track.position(), track.position() + track.velocity(),
-                                       RED_COLOR, 2, view_index=(ii+1, 0))
-                    else:
-                        self.draw_line(track.position(), track.position() + track.velocity(),
-                                       BLUE_COLOR, 2, view_index=(ii + 1, 0))
+                    self.draw_line(track.position(), track.position() + track.velocity(),
+                                   MAGENTA_COLOR, 2, view_index=(ii+1, 0))
+
 
 
 
