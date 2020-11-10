@@ -119,7 +119,6 @@ class Visualizer:
                                   verts[0, 0], verts[0, 1], verts[1, 0], verts[1, 1], verts[2, 0], verts[2, 1],
                                   color)
 
-
     def draw_line(self, p1, p2, color, width=1, view_index=(0, 0)):
         p1_uv = self.transform(p1, view_index)
         p2_uv = self.transform(p2, view_index)
@@ -138,13 +137,19 @@ class Visualizer:
         if len(self.world.robots):
             for col_jj in range(self.subviews_array_size[1]):
                 for row_ii in range(self.subviews_array_size[0]):
+                    center_of_screen = self.world.robots[0].pos.copy()
+                    center_of_screen[1] = 0
                     self.trans[row_ii][col_jj] = np.array(self.subview_size, dtype=np.float) / 2. \
-                                                 - self.world.robots[0].pos * [self.scale[row_ii, col_jj, 0, 0],
-                                                                               self.scale[row_ii][col_jj][1, 1]] \
+                                                 - center_of_screen * [self.scale[row_ii, col_jj, 0, 0],
+                                                                       self.scale[row_ii][col_jj][1, 1]] \
                                                  + self.subview_size * np.array([col_jj, row_ii])
 
         self.local_time += 1
         self.win.fill(WHITE_COLOR)
+
+        # print time / and some other info in Main View
+        title_surface = self.font.render('t=%.2f' % self.world.time, False, (200, 0, 200))
+        self.win.blit(title_surface, (20, 20))
 
         # Draw lines between subviews
         for row_ii in range(1, self.subviews_array_size[0]):
@@ -172,7 +177,8 @@ class Visualizer:
         # Draw Pedestrians
         for ii in range(len(self.world.crowds)):
             self.draw_circle(self.world.crowds[ii].pos, 8, self.world.crowds[ii].color)
-            self.draw_trigon(self.world.crowds[ii].pos, self.world.crowds[ii].orien(), 7, LIGHT_GREY_COLOR)  # orien triangle
+            self.draw_trigon(self.world.crowds[ii].pos, self.world.crowds[ii].orien(), 7,
+                             LIGHT_GREY_COLOR)  # orien triangle
             self.draw_lines(self.world.crowds[ii].trajectory, DARK_GREEN_COLOR + (100,), 3)  # track of robot
             if self.world.crowds[ii].biped:  # if we use the biped model for pedestrians
                 ped_geo = self.world.crowds[ii].geometry()
@@ -190,7 +196,6 @@ class Visualizer:
             # self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 3)
             self.draw_trigon(robot.pos, np.arctan2(v, u), 7, CYAN_COLOR, width=0)
 
-
             # draw Lidar output as center_points
             for pnt in robot.lidar.data.last_points:
                 if math.isnan(pnt[0]) or math.isnan(pnt[1]):
@@ -207,20 +212,22 @@ class Visualizer:
                 # show Crowd-Flow-Map as a background image
                 cf_map = np.clip(np.fliplr(robot.crowd_flow_map.data[:, :]), a_min=0, a_max=255)
                 cf_map = imresize(cf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
-                cf_map = np.stack([255-cf_map, np.zeros_like(cf_map), cf_map], axis=2)
+                cf_map = np.stack([255 - cf_map, np.zeros_like(cf_map), cf_map], axis=2)
                 cf_map_surf = pygame.surfarray.make_surface(cf_map)
                 cf_map_surf.set_alpha(60)
-                self.win.blit(cf_map_surf, (self.trans[ii+1, 0, 0] + self.scale[ii+1, 0, 0, 0] * self.world_dim[0][0],
-                                     self.trans[ii+1, 0, 1] - self.scale[ii+1, 0, 1, 1] * self.world_dim[1][0]))
+                self.win.blit(cf_map_surf,
+                              (self.trans[ii + 1, 0, 0] + self.scale[ii + 1, 0, 0, 0] * self.world_dim[0][0],
+                               self.trans[ii + 1, 0, 1] - self.scale[ii + 1, 0, 1, 1] * self.world_dim[1][0]))
 
                 # show Blind-Spot-Map as a background
                 bs_map = np.clip(np.fliplr(robot.blind_spot_map.data), a_min=0, a_max=255)
                 bs_map = imresize(bs_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
-                bs_map = np.stack([255-bs_map, 255-bs_map, 255-bs_map], axis=2)
+                bs_map = np.stack([255 - bs_map, 255 - bs_map, 255 - bs_map], axis=2)
                 bs_map_surf = pygame.surfarray.make_surface(bs_map)
                 bs_map_surf.set_alpha(40)
-                self.win.blit(bs_map_surf, (self.trans[ii + 1, 0, 0] + self.scale[ii + 1, 0, 0, 0] * self.world_dim[0][0],
-                                     self.trans[ii + 1, 0, 1] - self.scale[ii + 1, 0, 1, 1] * self.world_dim[1][0]))
+                self.win.blit(bs_map_surf,
+                              (self.trans[ii + 1, 0, 0] + self.scale[ii + 1, 0, 0, 0] * self.world_dim[0][0],
+                               self.trans[ii + 1, 0, 1] - self.scale[ii + 1, 0, 1, 1] * self.world_dim[1][0]))
 
                 # Draw robot
                 self.draw_circle(robot.pos, 8, BLACK_COLOR, view_index=(ii + 1, 0))
@@ -238,7 +245,6 @@ class Visualizer:
                 for pnt in robot.lidar.data.last_points:
                     self.draw_circle(pnt, 2, YELLOW_COLOR, view_index=(ii + 1, 0), gfx=False)
 
-
                 # draw tracks
                 for track in robot.tracks:
                     if track.coasted: continue
@@ -247,9 +253,11 @@ class Visualizer:
                         self.draw_lines(track.recent_detections, WHITE_COLOR, 1, view_index=(ii + 1, 0))
 
                     self.draw_line(track.position(), track.position() + track.velocity(),
-                                   MAGENTA_COLOR, 2, view_index=(ii+1, 0))
+                                   MAGENTA_COLOR, 2, view_index=(ii + 1, 0))
 
-
+                for jj in range(len(hypothesis.crowds)):
+                    if hypothesis.crowds_type[jj]:
+                        self.draw_circle(hypothesis.crowds[jj], 5, SKY_BLUE_COLOR, view_index=(ii + 1, 0))
 
 
             # ====================================
@@ -257,7 +265,7 @@ class Visualizer:
             # Draw Occupancy Map of Robot
             # ====================================
             # if len(self.world.occupancy_map) > 1:
-            #     self.grid_map = np.rot90(self.world.occupancy_map.copy().astype(float))  # + self.world.walkable * 0.5)
+            #     self.grid_map = np.rot90(self.world.occupancy_map.copy().astype(float))  # + self.world.walkable_map * 0.5)
             #     cv2.namedWindow('grid', cv2.WINDOW_NORMAL)
             #     cv2.imshow('grid', self.grid_map)
             #     cv2.waitKey(2)

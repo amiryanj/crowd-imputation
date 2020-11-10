@@ -25,6 +25,9 @@ from followbot.util.transform import Transform
 # from followbot.crowd_synthesis.crowd_synthesis import CrowdSynthesizer
 from numpy.linalg import norm as norm
 
+import matplotlib
+matplotlib.use('TkAgg')
+
 np.random.seed(1)
 random.seed(1)
 
@@ -43,7 +46,7 @@ def run():
     # scenario.setup(biD_flow=False)
 
     # # Bi-D flow of singles
-    scenario = CorridorScenario(biD_flow=False, group_size_choices=[2])
+    scenario = CorridorScenario(biD_flow=False, group_size_choices=[2], corridor_len=60)
     scenario.setup()
 
     # # Bi-D flow of couples (love street!)
@@ -83,7 +86,7 @@ def run():
     robot = MyRobot(numHypothesisWorlds=num_robot_hypothesis_worlds, world_ptr=scenario.world)
     scenario.world.add_robot(robot)
     # Robot: starting in up side of the corridor, facing toward right end of the corridor
-    robot.init([-15, 1.5])
+    robot.init([-25, 1.5])
     scenario.world.set_robot_goal(0, [1000, 0])
     # =======================================
     
@@ -128,12 +131,12 @@ def run():
 
         # Write detected pedestrians to the output file
         # =======================================
-        for pid in range(scenario.n_peds):
-            ped_i = scenario.world.crowds[pid]
-            if robot.lidar.range_min < np.linalg.norm(robot.pos - ped_i.pos) < robot.lidar.range_max:
-                output_file.write("%d %d %.3f %.3f %.3f %.3f\n" % (frame_id, pid,
-                                                                   ped_i.pos[0], ped_i.pos[1],
-                                                                   ped_i.vel[0], ped_i.vel[1]))
+        # for pid in range(scenario.n_peds):
+        #     ped_i = scenario.world.crowds[pid]
+        #     if robot.lidar.range_min < np.linalg.norm(robot.pos - ped_i.pos) < robot.lidar.range_max:
+        #         output_file.write("%d %d %.3f %.3f %.3f %.3f\n" % (frame_id, pid,
+        #                                                            ped_i.pos[0], ped_i.pos[1],
+        #                                                            ped_i.vel[0], ped_i.vel[1]))
         # =======================================
 
         # peds_t = []
@@ -166,6 +169,9 @@ def run():
         # ====================================
         if not scenario.world.pause:
             robot.tracks = robot.tracker.track(robot.detected_peds)
+            n_tracked_agents = len(robot.tracks)
+            tracks_loc = np.array([tr.kf.x[:2] for tr in robot.tracks])
+            tracks_vel = np.array([tr.kf.x[2:4] for tr in robot.tracks])
 
         # calc the occupancy map and crowd flow map
         # ====================================
@@ -181,12 +187,9 @@ def run():
         # classify the flow type of each agent
         # ================================
         if not scenario.world.pause:
-            n_tracked_agents = len(robot.tracks)
-            agents_loc = np.array([tr.kf.x[:2] for tr in robot.tracks])
-            agents_vel = np.array([tr.kf.x[2:4] for tr in robot.tracks])
             agents_vel_polar = np.array([[np.linalg.norm(tr.kf.x[2:4]), np.arctan2(tr.kf.x[3], tr.kf.x[2])]
                                         for tr in robot.tracks])
-            agents_flow_class = FlowClassifier().classify(agents_loc, agents_vel)
+            agents_flow_class = FlowClassifier().classify(tracks_loc, tracks_vel)
 
 
         # use `multiple gaussian` to extrapolate the flow at each pixel
@@ -194,7 +197,7 @@ def run():
         if not scenario.world.pause:        
             bgm = BivariateGaussianMixtureModel()
             for i in range(n_tracked_agents):
-                bgm.add_component(BivariateGaussian(agents_loc[i][0], agents_loc[i][1],
+                bgm.add_component(BivariateGaussian(tracks_loc[i][0], tracks_loc[i][1],
                                                     sigma_x=agents_vel_polar[i][0]/5 + 0.1, sigma_y=0.1, theta=agents_vel_polar[i][1]),
                                   weight=1, target=agents_flow_class[i].id)
             x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
@@ -208,7 +211,7 @@ def run():
         # K-nearest neighbor to
         # ================================
         # knn_regressor = neighbors.KNeighborsRegressor(n_neighbors=2, weights='distance', n_jobs=-1)
-        # knn_regressor.fit(agents_loc, agents_vel_polar)
+        # knn_regressor.fit(tracks_loc, agents_vel_polar)
         # x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
         # y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
         # xx, yy = np.meshgrid(np.arange(x_min, x_max, 1/robot.mapped_array_resolution),
@@ -223,7 +226,7 @@ def run():
         # cmap_light = ListedColormap(['orange', 'cyan', 'cornflowerblue'])
         # cmap_bold = ListedColormap(['darkorange', 'c', 'darkblue'])
         # plt.pcolormesh(xx, yy, crowd_flow_estimation[:, :, 1], cmap=cmap_light)
-        # plt.scatter(agents_loc[:, 0], agents_loc[:, 1],
+        # plt.scatter(tracks_loc[:, 0], tracks_loc[:, 1],
         #             c=flow_values[:, 1], cmap=cmap_bold, edgecolor='K', s=20)
         # plt.show()
         # ================================
@@ -254,10 +257,17 @@ def run():
 
         # Pairwise Distance
         if not scenario.world.pause:
-            pairwise_distribution.add_frame(agents_loc, agents_flow_class, dt)
-            pairwise_distribution.update_histogram(smooth=False)
+            pairwise_distribution.add_frame(tracks_loc, agents_flow_class, dt)
+            pairwise_distribution.update_histogram(smooth=True)
             pairwise_distribution.plot()
-            s = pairwise_distribution.get_sample()
+            for robot_hypo in robot.hypothesis_worlds:
+                synthetic_agents = pairwise_distribution.synthesis(tracks_loc,
+                                                                     walkable_map=robot_hypo.walkable_map,
+                                                                     blind_spot_map=robot.blind_spot_map,
+                                                                     crowd_flow_map=robot.crowd_flow_map)
+                robot_hypo.crowds = tracks_loc.tolist() + synthetic_agents
+                robot_hypo.crowds_type = ([0] * len(tracks_loc)) + ([1] * len(synthetic_agents))
+
 
         # if update_pom:
         #     pom_new = self.lidar.last_occupancy_gridmap.copy()

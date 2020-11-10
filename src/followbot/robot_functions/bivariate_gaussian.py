@@ -52,6 +52,8 @@ class BivariateGaussianMixtureModel:
 
     def classify_kNN(self, x, y, K=-1):
         # TODO: check if there is any component?
+        if not len(self.components):
+            return np.zeros(np.array(x).shape, dtype=int)
 
         # find the shape of inputs => shape of prob matrix
         probs_shape = [len(self.components)]

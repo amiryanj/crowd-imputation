@@ -11,11 +11,11 @@ class RobotWorld:
 
     def __init__(self):
         # crowds: pedestrians (both actual or imaginary)
-        self.crowds = {}
+        self.crowds = []
+        self.crowds_type = []
 
-        self.walkable = []  # would be a constant-matrix that is determined by the scenario maker
+        self.walkable_map = []  # would be a constant-matrix that is determined by the scenario maker
         self.occupancy_map = []  # probabilistic occupancy map
-        self.mapping_to_grid = []
 
     def update(self, lidar_data, tracked_peds):
         # TODO: data should be lidar_data or ...
