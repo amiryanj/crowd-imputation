@@ -106,7 +106,7 @@ class Visualizer:
 
     def draw_trigon(self, center, orien, radius, color, width=0, view_index=(0, 0)):
         center_uv = self.transform(center, view_index)
-        trigon_vertice_angles = np.array([orien, orien + np.deg2rad(135), orien - np.deg2rad(135)])
+        trigon_vertice_angles = np.array([orien, orien + np.deg2rad(90), orien - np.deg2rad(90)])
         verts = center_uv + np.stack([np.cos(trigon_vertice_angles), np.sin(trigon_vertice_angles)], axis=1) * radius
         verts = np.round(verts).astype(int)
 
@@ -172,7 +172,7 @@ class Visualizer:
         # Draw Pedestrians
         for ii in range(len(self.world.crowds)):
             self.draw_circle(self.world.crowds[ii].pos, 8, self.world.crowds[ii].color)
-            self.draw_trigon(self.world.crowds[ii].pos, self.world.crowds[ii].orien(), 8, LIGHT_GREY_COLOR)  # orien triangle
+            self.draw_trigon(self.world.crowds[ii].pos, self.world.crowds[ii].orien(), 7, LIGHT_GREY_COLOR)  # orien triangle
             self.draw_lines(self.world.crowds[ii].trajectory, DARK_GREEN_COLOR + (100,), 3)  # track of robot
             if self.world.crowds[ii].biped:  # if we use the biped model for pedestrians
                 ped_geo = self.world.crowds[ii].geometry()
@@ -188,7 +188,7 @@ class Visualizer:
             # draw a vector showing orientation of the robot
             u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
             # self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 3)
-            self.draw_trigon(robot.pos, np.arctan2(v, u), 8, CYAN_COLOR, width=0)
+            self.draw_trigon(robot.pos, np.arctan2(v, u), 7, CYAN_COLOR, width=0)
 
 
             # draw Lidar output as center_points
@@ -224,7 +224,7 @@ class Visualizer:
 
                 # Draw robot
                 self.draw_circle(robot.pos, 8, BLACK_COLOR, view_index=(ii + 1, 0))
-                self.draw_trigon(robot.pos, np.arctan2(v, u), 8, CYAN_COLOR, view_index=(ii + 1, 0))
+                self.draw_trigon(robot.pos, np.arctan2(v, u), 7, CYAN_COLOR, view_index=(ii + 1, 0))
                 if isinstance(robot, FollowerBot):
                     self.draw_circle(robot.leader_ped.pos, 11, PINK_COLOR, 5, view_index=(ii + 1, 0))
                 u, v = math.cos(robot.orien), math.sin(robot.orien)
