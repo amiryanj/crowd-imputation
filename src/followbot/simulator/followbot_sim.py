@@ -11,6 +11,7 @@ from sklearn import neighbors
 from followbot.gui.visualizer import *
 from followbot.robot_functions.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian, draw_bgmm
 from followbot.robot_functions.flow_classifier import FlowClassifier
+from followbot.robot_functions.pairwise_distribution import PairwiseDistribution
 from followbot.simulator.world import World
 from followbot.robot_functions.follower_bot import FollowerBot
 from followbot.robot_functions.tracking import PedestrianDetection
@@ -111,6 +112,7 @@ def run():
 
     frame_id = -1
     robot = scenario.world.robots[0]
+    pairwise_distribution = PairwiseDistribution()
 
     # ****************** Program Loop *******************
     while True:
@@ -175,28 +177,32 @@ def run():
         #     angle_between_robot_motion_and_ped = np.dot(robot.vel, v_ped) / (norm(robot.vel) * norm(v_ped) + 1E-6)
         #     robot.crowd_flow_map.set(tr.kf.x[:2], [norm(v_ped), angle_between_robot_motion_and_ped])
 
-        # estimate the flow at each pixel
+
+        # classify the flow type of each agent
         # ================================
-        agents_loc = np.array([tr.kf.x[:2] for tr in robot.tracks])
-        agents_vel = np.array([tr.kf.x[2:4] for tr in robot.tracks])
-        agents_vel_polar = np.array([[np.linalg.norm(tr.kf.x[2:4]), np.arctan2(tr.kf.x[3], tr.kf.x[2])]
-                                    for tr in robot.tracks])
-        agents_flow_class = FlowClassifier().classify(agents_loc, agents_vel)
+        if not scenario.world.pause:
+            n_tracked_agents = len(robot.tracks)
+            agents_loc = np.array([tr.kf.x[:2] for tr in robot.tracks])
+            agents_vel = np.array([tr.kf.x[2:4] for tr in robot.tracks])
+            agents_vel_polar = np.array([[np.linalg.norm(tr.kf.x[2:4]), np.arctan2(tr.kf.x[3], tr.kf.x[2])]
+                                        for tr in robot.tracks])
+            agents_flow_class = FlowClassifier().classify(agents_loc, agents_vel)
 
 
-        # use multiple gaussian to extrapolate the flow at each pixel
+        # use `multiple gaussian` to extrapolate the flow at each pixel
         # ================================
-        bgm = BivariateGaussianMixtureModel()
-        for i in range(len(agents_loc)):
-            bgm.add_component(BivariateGaussian(agents_loc[i][0], agents_loc[i][1],
-                                                sigma_x=agents_vel_polar[i][0]/5 + 0.1, sigma_y=0.1, theta=agents_vel_polar[i][1]),
-                              weight=1, target=agents_flow_class[i].id)
-        x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
-        y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
-        xx, yy = np.meshgrid(np.arange(x_min, x_max, 1/robot.mapped_array_resolution),
-                             np.arange(y_min, y_max, 1/robot.mapped_array_resolution))
-        robot.crowd_flow_map.data = bgm.classify_kNN(xx, yy).T
-        # draw_bgmm(bgm, xx, yy)  => for paper
+        if not scenario.world.pause:        
+            bgm = BivariateGaussianMixtureModel()
+            for i in range(n_tracked_agents):
+                bgm.add_component(BivariateGaussian(agents_loc[i][0], agents_loc[i][1],
+                                                    sigma_x=agents_vel_polar[i][0]/5 + 0.1, sigma_y=0.1, theta=agents_vel_polar[i][1]),
+                                  weight=1, target=agents_flow_class[i].id)
+            x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
+            y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
+            xx, yy = np.meshgrid(np.arange(x_min, x_max, 1/robot.mapped_array_resolution),
+                                 np.arange(y_min, y_max, 1/robot.mapped_array_resolution))
+            robot.crowd_flow_map.data = bgm.classify_kNN(xx, yy).T
+            # draw_bgmm(bgm, xx, yy)  => for paper
 
 
         # K-nearest neighbor to
@@ -222,19 +228,21 @@ def run():
         # plt.show()
         # ================================
 
+
         # calc the blind spot area of robot
         # ================================
-        robot.blind_spot_map.fill(1)  # everywhere is in blind_spot_map if it's not!
-        rays = robot.lidar.data.last_rotated_rays
-        for ii in range(len(rays)):
-            ray_i = rays[ii]
-            scan_i = robot.lidar.data.last_points[ii]
-            white_line = [robot.pos, scan_i]
-            line_len = np.linalg.norm(white_line[1] - white_line[0])
+        if not scenario.world.pause:
+            robot.blind_spot_map.fill(1)  # everywhere is in blind_spot_map if it's not!
+            rays = robot.lidar.data.last_rotated_rays
+            for ii in range(len(rays)):
+                ray_i = rays[ii]
+                scan_i = robot.lidar.data.last_points[ii]
+                white_line = [robot.pos, scan_i]
+                line_len = np.linalg.norm(white_line[1] - white_line[0])
 
-            for z in np.arange(0, line_len/robot.lidar.range_max, 0.01):
-                px, py = z * ray_i[1] + (1-z) * ray_i[0]
-                robot.blind_spot_map.set([px, py], 0)
+                for z in np.arange(0, line_len/robot.lidar.range_max, 0.01):
+                    px, py = z * ray_i[1] + (1-z) * ray_i[0]
+                    robot.blind_spot_map.set([px, py], 0)
 
         # plt.title(frame_id)
         # plt.imshow(np.rot90(robot.blind_spot_map.data))
@@ -244,6 +252,12 @@ def run():
         # plt.show()
         # =================================
 
+        # Pairwise Distance
+        if not scenario.world.pause:
+            pairwise_distribution.add_frame(agents_loc, agents_flow_class, dt)
+            pairwise_distribution.update_histogram(smooth=False)
+            pairwise_distribution.plot()
+            s = pairwise_distribution.get_sample()
 
         # if update_pom:
         #     pom_new = self.lidar.last_occupancy_gridmap.copy()
