@@ -3,7 +3,7 @@ from math import cos, sin, atan2
 import numpy as np
 import scipy
 
-from followbot.crowdsim.walk import MocapWalkingController
+from followbot.crowdsim.gait_sim import MocapGaitSimulator
 from followbot.util.basic_geometry import Circle, DoubleCircle
 
 eps = sys.float_info.epsilon
@@ -20,13 +20,13 @@ class Pedestrian:
         self.lateral_unitvec = lambda: (np.array([self.vel[1], -self.vel[0]]) + eps) / (np.linalg.norm(self.vel) + eps)
         self.trajectory = []
         self.biped = biped
-        self.mocap_walk = MocapWalkingController()
 
         # FIXME: there are 2 options to represent pedestrian:
         #  1: using circular agents for simple detection
         #  2: using 2 legs for use with DROW
 
         if biped:
+            self.mocap_walk = MocapGaitSimulator()
             self.leg_radius = 0.075
             self.leg_dist   = 0.25
             self.geometry = lambda: DoubleCircle(self.pos + self.lateral_unitvec() * self.leg_dist /2.,
@@ -51,3 +51,6 @@ class Pedestrian:
         left_leg_pos = self.pos + np.matmul(rot_mat, self.mocap_walk.left_leg)
         self.geometry = lambda: DoubleCircle(left_leg_pos, right_leg_pos, self.leg_radius)
 
+if __name__ == "__main__":
+    MocapGaitSimulator().test()
+    print(__file__)

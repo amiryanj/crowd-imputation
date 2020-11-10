@@ -1,12 +1,6 @@
-# Author: Javad Amirian
-# Email: amiryan.j@gmail.com
-
-
+import os
 import numpy as np
-import matplotlib.pyplot as plt
 from transforms3d.euler import euler2mat
-from mpl_toolkits.mplot3d import Axes3D
-
 
 class Joint:
     def __init__(self, name, direction, length, axis, dof, limits):
@@ -72,6 +66,9 @@ class Joint:
             child.set_motion(motion)
 
     def draw(self):
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+
         joints = self.to_dict()
         fig = plt.figure()
         ax = Axes3D(fig)
@@ -248,12 +245,13 @@ def parse_amc(file_path):
     return frames
 
 
-class MocapWalkingController:
+class MocapGaitSimulator:
     def __init__(self):
-        ## load mc data
-        asf_path = '/home/cyrus/workspace2/mocap/data-cmu/walk/07.asf'
-        amc_path = '/home/cyrus/workspace2/mocap/data-cmu/walk/07_01.amc'
-        print('parsing %s' % asf_path)
+        # load mc data
+        mocap_data_dir = os.path.abspath(os.path.join(__file__, '..', 'cmu-mocap', 'walk'))
+        asf_path = os.path.join(mocap_data_dir, '07.asf')
+        amc_path = os.path.join(mocap_data_dir, '07_01.amc')
+        print('parsing mocap file [%s]' % asf_path)
 
         self.joints = parse_asf(asf_path)
         self.motions = parse_amc(amc_path)
@@ -280,7 +278,7 @@ class MocapWalkingController:
         if self.progress_frame > self.one_period_duration:
             self.progress_frame = 0
 
-        ## Left leg
+        # Left leg
         root_coord = np.array(self.joints['root'].coordinate).reshape((1, 3)) * self.scale
         root_coord[0, 1] = 0  # the heights sounds Ok.
         left_leg = np.array([self.joints['lfemur'].coordinate, self.joints['ltibia'].coordinate]).squeeze() * self.scale
@@ -314,6 +312,8 @@ class MocapWalkingController:
 
 
 if __name__ == '__main__':
-    mocap_walk = MocapWalkingController()
+    print(__file__)
+    exit(1)
+    mocap_walk = MocapGaitSimulator()
     while True:
         mocap_walk.step()
