@@ -64,14 +64,25 @@ class MyRobot:
                                           min_y=self.real_world.world_dim[1][0], max_y=self.real_world.world_dim[1][1],
                                           resolution=self.mapped_array_resolution,  # per meter
                                           n_channels=1, dtype=np.float)
+
+        # blind spot map is 1 everywhere robot can not see by its lidar
         self.blind_spot_map = MappedArray(min_x=self.real_world.world_dim[0][0], max_x=self.real_world.world_dim[0][1],
                                           min_y=self.real_world.world_dim[1][0], max_y=self.real_world.world_dim[1][1],
                                           resolution=self.mapped_array_resolution,  # per meter
                                           n_channels=1, dtype=np.float)
+        walkable_map = MappedArray(min_x=self.real_world.world_dim[0][0], max_x=self.real_world.world_dim[0][1],
+                                   min_y=self.real_world.world_dim[1][0], max_y=self.real_world.world_dim[1][1],
+                                   resolution=self.mapped_array_resolution,  # per meter
+                                   n_channels=1, dtype=np.float)
+        walkable_map.fill(1)
+
         self.lidar_segments = []
         self.detected_peds = []
         self.tracks = []
         self.hypothesis_worlds = [RobotWorld()] * numHypothesisWorlds
+        for hypo_world in self.hypothesis_worlds:
+            hypo_world.walkable_map = walkable_map
+
         # ====================================
 
     def init(self, init_pos):
