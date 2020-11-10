@@ -13,6 +13,7 @@ class World:
         self.robots = []
         self.obstacles = []
         self.world_dim = world_dim
+        self.time = 0
 
         self.sim = umans_api.CrowdSimUMANS(sim_model)
         # self.sim = crowdsim.CrowdSim(sim_model) # Deprecated! -> use UMANS
@@ -84,7 +85,8 @@ class World:
         self.robots[index].goal = np.array(goal, dtype=np.float)
         self.sim.setGoal(self.n_peds + index, goal[0], goal[1])
 
-    def set_sim_time(self, t):
+    def set_time(self, t):
         self.sim.setTime(t)
+        self.time = t
 
 

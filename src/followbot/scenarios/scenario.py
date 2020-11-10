@@ -15,7 +15,7 @@ class Scenario(ABC):
         self.world = World
         self.visualizer = Visualizer
 
-        self.cur_t = -1
+        self.cur_t = 0
 
         self.n_robots = kwargs.get("numRobots", 1)       # to be used to initialize the world
         self.leader_id = kwargs.get("LeaderPedId", -1)
@@ -38,10 +38,14 @@ class Scenario(ABC):
 
     @abstractmethod
     def step(self, dt, save=False):
-        if not self.world.pause and save:
-            home = os.path.expanduser("~")
-            self.visualizer.save_screenshot(os.path.join(home, 'Videos/followbot/'))
+        if not self.world.pause:
+            self.cur_t += dt
+            self.world.time = self.cur_t
+            if save:
+                home = os.path.expanduser("~")
+                self.visualizer.save_screenshot(os.path.join(home, 'Videos/followbot/'))
         self.update_display()
+
 
     def update_display(self, delay_sec=0.01):
         toggle_pause = self.visualizer.update()

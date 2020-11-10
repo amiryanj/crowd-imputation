@@ -26,7 +26,8 @@ class CorridorScenario(SimulationScenario):
     -> The leader passes the corridor among crowd
     """
 
-    def __init__(self, n_peds_=32, n_robots_=1, biD_flow=False, group_size_choices=[1], corridor_wid=6, corridor_len=30):
+    def __init__(self, n_peds_=32, n_robots_=1, biD_flow=False, group_size_choices=[1], corridor_wid=6,
+                 corridor_len=30):
         super(CorridorScenario, self).__init__()
         self.corridor_wid = corridor_wid
         self.corridor_len = corridor_len
@@ -61,12 +62,14 @@ class CorridorScenario(SimulationScenario):
         group_centers = poisson_distrib.create_samples() + self.ped_radius * 2 \
                         + np.array([working_area[0][0], working_area[1][0]])
 
+        # Todo: delete the groups out of the corridor bottleneck
+
         # setup group-mates
         n_groups = len(group_centers)
         group_sizes = [random.choice(self.group_size_choices) for _ in range(n_groups)]
 
         group_size_cum = np.cumsum(group_sizes) - group_sizes[0]
-        group_ids = [[k+group_size_cum[ii] for k in range(group_sizes[ii])] for ii in range(n_groups)]
+        group_ids = [[k + group_size_cum[ii] for k in range(group_sizes[ii])] for ii in range(n_groups)]
 
         for gg, g_size in enumerate(group_sizes):
             px_g = group_centers[gg][0]
@@ -109,7 +112,7 @@ class CorridorScenario(SimulationScenario):
             else:
                 self.world.crowds[ped_ind].color = BLUE_COLOR
 
-        self.world.set_sim_time(0)
+        self.world.set_time(0)
 
     def step(self, dt, save=False):
         super(CorridorScenario, self).step(dt, save)

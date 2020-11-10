@@ -91,7 +91,7 @@ class RoundTrip(SimulationScenario):
         ped0_pos = self.world.crowds[0].pos
         self.world.set_robot_position(0, [ped0_pos[0] - 1.5, ped0_pos[1]])
         self.world.set_robot_leader(0, 0)
-        self.world.set_sim_time(0)
+        self.world.set_time(0)
 
     def set_goals_roundtrip(self, ped):
         goal = []
