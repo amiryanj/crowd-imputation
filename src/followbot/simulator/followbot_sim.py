@@ -12,14 +12,14 @@ from followbot.gui.visualizer import *
 from followbot.robot_functions.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian, draw_bgmm
 from followbot.robot_functions.flow_classifier import FlowClassifier
 from followbot.robot_functions.pairwise_distribution import PairwiseDistribution
-from followbot.simulator.world import World
-from followbot.robot_functions.follower_bot import FollowerBot
 from followbot.robot_functions.tracking import PedestrianDetection
 from followbot.robot_functions.robot import MyRobot
+from followbot.robot_functions.follower_bot import FollowerBot
 from followbot.scenarios.corridor_scenario import CorridorScenario
 from followbot.scenarios.roundtrip_scenario import RoundTrip
 from followbot.scenarios.static_crowd import StaticCorridorScenario
 from followbot.scenarios.real_scenario import RealScenario
+from followbot.simulator.world import World
 from followbot.util.basic_geometry import Line
 from followbot.util.transform import Transform
 # from followbot.crowd_synthesis.crowd_synthesis import CrowdSynthesizer
@@ -108,9 +108,9 @@ def run():
     # Todo: At the moment it only records the ground truth locations
     #  It can be the output of tracking module or even after using RWTH's DROW tracker
     # =======================================
-    output_dir = "/home/cyrus/workspace2/ros-catkin/src/followbot/src/followbot/temp/robot_obsvs"
-    output_filename = os.path.join(output_dir, type(scenario).__name__ + ".txt")
-    output_file = open(output_filename, 'a+')
+    # output_dir = "/home/cyrus/workspace2/ros-catkin/src/followbot/src/followbot/temp/robot_obsvs"
+    # output_filename = os.path.join(output_dir, type(scenario).__name__ + ".txt")
+    # output_file = open(output_filename, 'a+')
     # =======================================
 
     frame_id = -1
@@ -123,6 +123,9 @@ def run():
         frame_id = int(datetime.now().timestamp() * 1000) / 1000.  # Unix Time - in millisecond
 
         scenario.step(dt)
+        if scenario.world.pause:
+            continue
+
 
         # FixMe: This is for StdRobot
         # if not isinstance(robot, FollowerBot):
@@ -146,32 +149,31 @@ def run():
 
         # Casting LiDAR rays to get detections
         # ====================================
-        if not scenario.world.pause:
-            angles = np.arange(lidar.angle_min_radian(), lidar.angle_max_radian() - 1E-10, lidar.angle_increment_radian())
-            segments = ped_detector.segment_range(lidar.data.last_range_data, angles)
-            detections, walls = ped_detector.detect(segments, [0, 0])
-            robot.lidar_segments = segments
+        angles = np.arange(lidar.angle_min_radian(), lidar.angle_max_radian() - 1E-10, lidar.angle_increment_radian())
+        segments = ped_detector.segment_range(lidar.data.last_range_data, angles)
+        detections, walls = ped_detector.detect(segments, [0, 0])
+        robot.lidar_segments = segments
         # ====================================
 
         # Transform (rotate + translate) the detections, given the robot pose
         # ====================================
-        if not scenario.world.pause:
-            detections_tf = []
-            robot_rot = Rotation.from_euler('z', robot.orien, degrees=False)
-            robot_tf = Transform(np.array([robot.pos[0], robot.pos[1], 0]), robot_rot)
-            for det in detections:
-                tf_trans, tf_orien = robot_tf.apply(np.array([det[0], det[1], 0]), Rotation.from_quat([0, 0, 0, 1]))
-                detections_tf.append(np.array([tf_trans[0], tf_trans[1]]))
-            robot.detected_peds = detections_tf
+
+        detections_tf = []
+        robot_rot = Rotation.from_euler('z', robot.orien, degrees=False)
+        robot_tf = Transform(np.array([robot.pos[0], robot.pos[1], 0]), robot_rot)
+        for det in detections:
+            tf_trans, tf_orien = robot_tf.apply(np.array([det[0], det[1], 0]), Rotation.from_quat([0, 0, 0, 1]))
+            detections_tf.append(np.array([tf_trans[0], tf_trans[1]]))
+        robot.detected_peds = detections_tf
         # ====================================
 
         # Todo: robot_functions
         # ====================================
-        if not scenario.world.pause:
-            robot.tracks = robot.tracker.track(robot.detected_peds)
-            n_tracked_agents = len(robot.tracks)
-            tracks_loc = np.array([tr.kf.x[:2] for tr in robot.tracks])
-            tracks_vel = np.array([tr.kf.x[2:4] for tr in robot.tracks])
+        robot.tracks = robot.tracker.track(robot.detected_peds)
+        # robot should be added to the list of tracks, cuz it is impacting the flow
+        tracks_loc = np.array([tr.kf.x[:2] for tr in robot.tracks if not tr.coasted] + [robot.pos])
+        tracks_vel = np.array([tr.kf.x[2:4] for tr in robot.tracks if not tr.coasted] + [robot.vel])
+        n_tracked_agents = len(tracks_loc)
 
         # calc the occupancy map and crowd flow map
         # ====================================
@@ -186,26 +188,24 @@ def run():
 
         # classify the flow type of each agent
         # ================================
-        if not scenario.world.pause:
-            agents_vel_polar = np.array([[np.linalg.norm(tr.kf.x[2:4]), np.arctan2(tr.kf.x[3], tr.kf.x[2])]
-                                        for tr in robot.tracks])
-            agents_flow_class = FlowClassifier().classify(tracks_loc, tracks_vel)
+        agents_vel_polar = np.array([[np.linalg.norm(v), np.arctan2(v[1], v[0])]
+                                    for v in tracks_vel])
+        agents_flow_class = FlowClassifier().classify(tracks_loc, tracks_vel)
 
 
         # use `multiple gaussian` to extrapolate the flow at each pixel
         # ================================
-        if not scenario.world.pause:        
-            bgm = BivariateGaussianMixtureModel()
-            for i in range(n_tracked_agents):
-                bgm.add_component(BivariateGaussian(tracks_loc[i][0], tracks_loc[i][1],
-                                                    sigma_x=agents_vel_polar[i][0]/5 + 0.1, sigma_y=0.1, theta=agents_vel_polar[i][1]),
-                                  weight=1, target=agents_flow_class[i].id)
-            x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
-            y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
-            xx, yy = np.meshgrid(np.arange(x_min, x_max, 1/robot.mapped_array_resolution),
-                                 np.arange(y_min, y_max, 1/robot.mapped_array_resolution))
-            robot.crowd_flow_map.data = bgm.classify_kNN(xx, yy).T
-            # draw_bgmm(bgm, xx, yy)  => for paper
+        bgm = BivariateGaussianMixtureModel()
+        for i in range(n_tracked_agents):
+            bgm.add_component(BivariateGaussian(tracks_loc[i][0], tracks_loc[i][1],
+                                                sigma_x=agents_vel_polar[i][0]/5 + 0.1, sigma_y=0.1, theta=agents_vel_polar[i][1]),
+                              weight=1, target=agents_flow_class[i].id)
+        x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
+        y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
+        xx, yy = np.meshgrid(np.arange(x_min, x_max, 1/robot.mapped_array_resolution),
+                             np.arange(y_min, y_max, 1/robot.mapped_array_resolution))
+        robot.crowd_flow_map.data = bgm.classify_kNN(xx, yy).T
+        # draw_bgmm(bgm, xx, yy)  => for paper
 
 
         # K-nearest neighbor to
@@ -234,18 +234,17 @@ def run():
 
         # calc the blind spot area of robot
         # ================================
-        if not scenario.world.pause:
-            robot.blind_spot_map.fill(1)  # everywhere is in blind_spot_map if it's not!
-            rays = robot.lidar.data.last_rotated_rays
-            for ii in range(len(rays)):
-                ray_i = rays[ii]
-                scan_i = robot.lidar.data.last_points[ii]
-                white_line = [robot.pos, scan_i]
-                line_len = np.linalg.norm(white_line[1] - white_line[0])
+        robot.blind_spot_map.fill(1)  # everywhere is in blind_spot_map if it's not!
+        rays = robot.lidar.data.last_rotated_rays
+        for ii in range(len(rays)):
+            ray_i = rays[ii]
+            scan_i = robot.lidar.data.last_points[ii]
+            white_line = [robot.pos, scan_i]
+            line_len = np.linalg.norm(white_line[1] - white_line[0])
 
-                for z in np.arange(0, line_len/robot.lidar.range_max, 0.01):
-                    px, py = z * ray_i[1] + (1-z) * ray_i[0]
-                    robot.blind_spot_map.set([px, py], 0)
+            for z in np.arange(0, line_len/robot.lidar.range_max, 0.01):
+                px, py = z * ray_i[1] + (1-z) * ray_i[0]
+                robot.blind_spot_map.set([px, py], 0)
 
         # plt.title(frame_id)
         # plt.imshow(np.rot90(robot.blind_spot_map.data))
@@ -256,17 +255,16 @@ def run():
         # =================================
 
         # Pairwise Distance
-        if not scenario.world.pause:
-            pairwise_distribution.add_frame(tracks_loc, agents_flow_class, dt)
-            pairwise_distribution.update_histogram(smooth=True)
-            pairwise_distribution.plot()
-            for robot_hypo in robot.hypothesis_worlds:
-                synthetic_agents = pairwise_distribution.synthesis(tracks_loc,
-                                                                     walkable_map=robot_hypo.walkable_map,
-                                                                     blind_spot_map=robot.blind_spot_map,
-                                                                     crowd_flow_map=robot.crowd_flow_map)
-                robot_hypo.crowds = tracks_loc.tolist() + synthetic_agents
-                robot_hypo.crowds_type = ([0] * len(tracks_loc)) + ([1] * len(synthetic_agents))
+        pairwise_distribution.add_frame(tracks_loc, agents_flow_class, dt)
+        pairwise_distribution.update_histogram(smooth=True)
+        pairwise_distribution.plot()
+        for robot_hypo in robot.hypothesis_worlds:
+            synthetic_agents = pairwise_distribution.synthesis(tracks_loc,
+                                                                 walkable_map=robot_hypo.walkable_map,
+                                                                 blind_spot_map=robot.blind_spot_map,
+                                                                 crowd_flow_map=robot.crowd_flow_map)
+            robot_hypo.crowds = tracks_loc.tolist() + synthetic_agents
+            robot_hypo.crowds_type = ([0] * len(tracks_loc)) + ([1] * len(synthetic_agents))
 
 
         # if update_pom:
