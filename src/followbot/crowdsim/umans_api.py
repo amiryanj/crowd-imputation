@@ -52,15 +52,21 @@ class CrowdSimUMANS:
                 obstacle_file = os.path.join(os.path.dirname(config_file), child.attrib['file'])
                 self.obstacles = self.loadObstaclesXML(obstacle_file)
         except:
-            print('Failed to load obstacles')
+            print('Error: Failed to load obstacles')
 
         self.startSimulation(config_file)
         self.getSimulationTimeStep()
 
+    def __update_cache__(self):
+        agent_data = self.sim.getAgentPositions()
+        self.agent_data_cache.clear()
+        for agent in agent_data:
+            self.agent_data_cache[agent.id] = agent
+
     def startSimulation(self, configFile, numThreads=4):
         """
         :param numThreads: for parallel computing
-        :return: bool (True if the call has been success)
+        :return: bool (True if the call has been successful)
         """
 
         # self.cleanUp()
@@ -70,7 +76,7 @@ class CrowdSimUMANS:
     def initSimulation(self, numAgents):
         """ This method initiate a UMANS object with the given num_Agents. """
         for ii in range(numAgents):
-            id = self.addAgent(x=random.randrange(20), y=random.randrange(20),
+            id = self.addAgent(x=-1, y=-1,
                                # default values from UMANS
                                radius=0.24,
                                prefSpeed=1.3,
@@ -78,20 +84,12 @@ class CrowdSimUMANS:
                                maxAcceleration=5.0,
                                policyID=0, customID=-1)
 
-        agent_data = self.sim.getAgentPositions()
-        for agent in agent_data:
-            self.agent_data_cache[agent.id] = agent
-
     def getSimulationTimeStep(self):
         return self.sim.getSimulationTimeStep()
 
     def doSimulationSteps(self, nrSteps=1):
         self.sim.doSimulationSteps(nrSteps)
-        agent_data = self.sim.getAgentPositions()
-
-        self.agent_data_cache.clear()
-        for agent in agent_data:
-            self.agent_data_cache[agent.id] = agent
+        self.__update_cache__()
 
     def getAgentsData(self):
         return self.sim.getAgentPositions()
@@ -118,8 +116,8 @@ class CrowdSimUMANS:
                 obs_i.append([px, py])
             if len(obs_i):
                 obs_i.append(obs_i[0])
-                for jj in range(len(obs_i)-1):
-                    obstacles.append(Line(obs_i[jj], obs_i[jj+1]))
+                for jj in range(len(obs_i) - 1):
+                    obstacles.append(Line(obs_i[jj], obs_i[jj + 1]))
         return obstacles
 
     # functions that do nothing!
@@ -167,15 +165,20 @@ class CrowdSimUMANS:
 
     def doStep(self, dt):
         self.doSimulationSteps(1)
+
     # ===============================================
 
     def addAgent(self, x: float, y: float, radius: float,
                  prefSpeed: float, maxSpeed: float, maxAcceleration: float,
                  policyID: int = 0, customID: int = -1):
-        return self.sim.addAgent(x, y, radius, prefSpeed, maxSpeed, maxAcceleration, policyID, customID)
+        id = self.sim.addAgent(x, y, radius, prefSpeed, maxSpeed, maxAcceleration, policyID, customID)
+        self.__update_cache__()
+        return id
 
     def removeAgent(self, id: int):
-        return self.sim.removeAgent(id)
+        res = self.sim.removeAgent(id)
+        self.__update_cache__()
+        return res
 
     def getNumberOfAgents(self):
         return self.sim.getNumberOfAgents()

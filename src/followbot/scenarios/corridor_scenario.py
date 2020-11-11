@@ -36,12 +36,17 @@ class CorridorScenario(SimulationScenario):
 
     def setup_crowd_sim(self):
         # self.world.sim = crowdsim.CrowdSim("powerlaw")
-        self.world.sim.initSimulation(self.n_peds + 1)
+        self.world.sim.initSimulation(0)
         self.world.inertia_coeff = 0.1  # larger, more inertia, zero means no inertia
 
         for ii in range(self.n_peds):
-            self.world.crowds[ii].pref_speed = np.random.uniform(1.2, 1.6)
+            self.world.crowds[ii].pref_speed = np.random.uniform(1.2, 1.3)
             self.world.crowds[ii].radius = 0.25
+            self.world.sim.addAgent(x=-1, y=-1,
+                                    radius=self.world.crowds[ii].radius,
+                                    prefSpeed=self.world.crowds[ii].pref_speed,
+                                    maxSpeed=1.6,
+                                    maxAcceleration=5.0)
             # self.world.sim.setAgentRadius(ii, self.world.crowds[ii].radius)
             # self.world.sim.setAgentSpeed(ii, self.world.crowds[ii].pref_speed)
             # self.world.sim.setAgentNeighborDist(ii, 4)

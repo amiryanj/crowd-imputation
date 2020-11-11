@@ -18,7 +18,7 @@ class World:
         self.sim = umans_api.CrowdSimUMANS(sim_model)
         # self.sim = crowdsim.CrowdSim(sim_model) # Deprecated! -> use UMANS
 
-        self.sim.initSimulation(n_peds + n_robots)
+        # self.sim.initSimulation(n_peds + n_robots)
         self.inertia_coeff = 0.25  # for agent motions: larger, more inertia, zero means no inertia
 
         self.crowds = []
@@ -37,6 +37,8 @@ class World:
             # self.sim.setAgentTimeHorizon(ii, 2)
 
     def add_robot(self, robot):
+        self.sim.addAgent(x=-1, y=-1, radius=robot.radius,
+                          prefSpeed=robot.pref_speed, maxSpeed=robot.max_speed, maxAcceleration=1.0)
         robot.real_world = self
         self.robots.append(robot)
 
