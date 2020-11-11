@@ -8,6 +8,7 @@ from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
 from sklearn import neighbors
 
+from followbot.crowdsim.pedestrian import Pedestrian
 from followbot.gui.visualizer import *
 from followbot.robot_functions.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian, draw_bgmm
 from followbot.robot_functions.flow_classifier import FlowClassifier
@@ -26,6 +27,7 @@ from followbot.util.transform import Transform
 from numpy.linalg import norm as norm
 
 import matplotlib
+
 matplotlib.use('TkAgg')
 
 np.random.seed(1)
@@ -53,7 +55,6 @@ def run():
     # scenario = GroupCrowd()
     # scenario.setup()
     # =======================================
-    
 
     # =======================================
     # Older scenarios
@@ -73,7 +74,6 @@ def run():
                                      subViewColCount=1,
                                      caption=type(scenario).__name__)
 
-
     # =======================================
     # Choose the robot type
     # =======================================
@@ -89,7 +89,7 @@ def run():
     robot.init([-25, 1.5])
     scenario.world.set_robot_goal(0, [1000, 0])
     # =======================================
-    
+
     # Todo:
     #  capture the agents around the robot and extract the pattern
     #  1. Distance to (K)-nearest agent
@@ -125,7 +125,6 @@ def run():
         scenario.step(dt)
         if scenario.world.pause:
             continue
-
 
         # FixMe: This is for StdRobot
         # if not isinstance(robot, FollowerBot):
@@ -185,28 +184,26 @@ def run():
         #     angle_between_robot_motion_and_ped = np.dot(robot.vel, v_ped) / (norm(robot.vel) * norm(v_ped) + 1E-6)
         #     robot.crowd_flow_map.set(tr.kf.x[:2], [norm(v_ped), angle_between_robot_motion_and_ped])
 
-
         # classify the flow type of each agent
         # ================================
         agents_vel_polar = np.array([[np.linalg.norm(v), np.arctan2(v[1], v[0])]
-                                    for v in tracks_vel])
+                                     for v in tracks_vel])
         agents_flow_class = FlowClassifier().classify(tracks_loc, tracks_vel)
-
 
         # use `multiple gaussian` to extrapolate the flow at each pixel
         # ================================
         bgm = BivariateGaussianMixtureModel()
         for i in range(n_tracked_agents):
             bgm.add_component(BivariateGaussian(tracks_loc[i][0], tracks_loc[i][1],
-                                                sigma_x=agents_vel_polar[i][0]/5 + 0.1, sigma_y=0.1, theta=agents_vel_polar[i][1]),
+                                                sigma_x=agents_vel_polar[i][0] / 5 + 0.1, sigma_y=0.1,
+                                                theta=agents_vel_polar[i][1]),
                               weight=1, target=agents_flow_class[i].id)
         x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
         y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
-        xx, yy = np.meshgrid(np.arange(x_min, x_max, 1/robot.mapped_array_resolution),
-                             np.arange(y_min, y_max, 1/robot.mapped_array_resolution))
+        xx, yy = np.meshgrid(np.arange(x_min, x_max, 1 / robot.mapped_array_resolution),
+                             np.arange(y_min, y_max, 1 / robot.mapped_array_resolution))
         robot.crowd_flow_map.data = bgm.classify_kNN(xx, yy).T
-        # draw_bgmm(bgm, xx, yy)  => for paper
-
+        # draw_bgmm(bgm, xx, yy)  # => for paper
 
         # K-nearest neighbor to
         # ================================
@@ -220,7 +217,6 @@ def run():
         # crowd_flow_estimation = crowd_flow_estimation.reshape((xx.shape[0], xx.shape[1], -1))
         # robot.crowd_flow_map.data = crowd_flow_estimation[:, :, :].transpose((1,0,2))
 
-        # show
         # plt.figure()
         # plt.imshow(np.flipud(crowd_flow_estimation[:, :, 1]))
         # cmap_light = ListedColormap(['orange', 'cyan', 'cornflowerblue'])
@@ -230,7 +226,6 @@ def run():
         #             c=flow_values[:, 1], cmap=cmap_bold, edgecolor='K', s=20)
         # plt.show()
         # ================================
-
 
         # calc the blind spot area of robot
         # ================================
@@ -242,8 +237,8 @@ def run():
             white_line = [robot.pos, scan_i]
             line_len = np.linalg.norm(white_line[1] - white_line[0])
 
-            for z in np.arange(0, line_len/robot.lidar.range_max, 0.01):
-                px, py = z * ray_i[1] + (1-z) * ray_i[0]
+            for z in np.arange(0, line_len / robot.lidar.range_max, 0.01):
+                px, py = z * ray_i[1] + (1 - z) * ray_i[0]
                 robot.blind_spot_map.set([px, py], 0)
 
         # plt.title(frame_id)
@@ -259,13 +254,17 @@ def run():
         pairwise_distribution.update_histogram(smooth=True)
         pairwise_distribution.plot()
         for robot_hypo in robot.hypothesis_worlds:
-            synthetic_agents = pairwise_distribution.synthesis(tracks_loc,
-                                                                 walkable_map=robot_hypo.walkable_map,
-                                                                 blind_spot_map=robot.blind_spot_map,
-                                                                 crowd_flow_map=robot.crowd_flow_map)
-            robot_hypo.crowds = tracks_loc.tolist() + synthetic_agents
-            robot_hypo.crowds_type = ([0] * len(tracks_loc)) + ([1] * len(synthetic_agents))
-
+            if int((scenario.world.time - dt) * 10) % 10 == 0:
+                synthetic_agents = pairwise_distribution.synthesis(tracks_loc,
+                                                                   walkable_map=robot_hypo.walkable_map,
+                                                                   blind_spot_map=robot.blind_spot_map,
+                                                                   crowd_flow_map=robot.crowd_flow_map)
+                robot_hypo.crowds = [Pedestrian(tracks_loc[i], tracks_vel[i], False, synthetic=False, color=GREEN_COLOR)
+                                     for i in range(n_tracked_agents)] + synthetic_agents
+            else:
+                for ped in robot_hypo.crowds:
+                    if ped.synthetic:
+                        ped.pos = np.array(ped.pos) + np.array(ped.vel) * dt
 
         # if update_pom:
         #     pom_new = self.lidar.last_occupancy_gridmap.copy()
@@ -292,9 +291,5 @@ def run():
         # ====================================
 
 
-
 if __name__ == '__main__':
     run()
-
-
-

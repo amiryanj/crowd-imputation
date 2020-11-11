@@ -6,6 +6,9 @@ from scipy.stats import rv_histogram
 from scipy.ndimage import gaussian_filter, gaussian_filter1d
 import matplotlib.pyplot as plt
 
+from followbot.crowdsim.pedestrian import Pedestrian
+from followbot.gui.visualizer import SKY_BLUE_COLOR
+from followbot.robot_functions.flow_classifier import FlowClassifier
 from followbot.util.mapped_array import MappedArray
 
 
@@ -18,7 +21,7 @@ class PairwiseDistribution:
         # the pairwise distances in the pool are each assigned a weight that will get smaller as time goes
         # this permits the system to forget too old data
         self.pairwise_distance_weights = np.zeros((0), dtype=np.float64)
-        self.weight_decay_factor = 0.4  # per second
+        self.weight_decay_factor = 0.6  # per second
 
         # histogram
         self.rho_edges = np.linspace(0, 8, 17)
@@ -125,8 +128,13 @@ class PairwiseDistribution:
                     accept_suggested_loc = False  # REJECT
                     break
             if accept_suggested_loc:
-                all_agents.append(suggested_loc)
-                synthetic_agents.append(suggested_loc)
+                print(int(round(crowd_flow_map.get(suggested_loc))))
+                suggested_vel = FlowClassifier().preset_flow_classes[int(round(crowd_flow_map.get(suggested_loc)))].velocity
+                new_ped = Pedestrian(suggested_loc, suggested_vel, synthetic=True)
+                new_ped.color = SKY_BLUE_COLOR
+                synthetic_agents.append(new_ped)
+
+                all_agents.append(suggested_loc)  # cuz: this agent should be considered when synthesising next agent
         return synthetic_agents
 
     def plot(self):

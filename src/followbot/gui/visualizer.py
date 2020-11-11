@@ -256,8 +256,11 @@ class Visualizer:
                                    MAGENTA_COLOR, 2, view_index=(ii + 1, 0))
 
                 for jj in range(len(hypothesis.crowds)):
-                    if hypothesis.crowds_type[jj]:
-                        self.draw_circle(hypothesis.crowds[jj], 5, SKY_BLUE_COLOR, view_index=(ii + 1, 0))
+                    if hypothesis.crowds[jj].synthetic:
+                        self.draw_circle(hypothesis.crowds[jj].pos, 5, SKY_BLUE_COLOR, view_index=(ii + 1, 0))
+                        self.draw_line(hypothesis.crowds[jj].pos, hypothesis.crowds[jj].pos + hypothesis.crowds[jj].vel,
+                                       MAGENTA_COLOR, view_index=(ii + 1, 0))
+
 
 
             # ====================================

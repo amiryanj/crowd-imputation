@@ -51,6 +51,9 @@ class BivariateGaussianMixtureModel:
         self.targets = np.append(self.targets, target)
 
     def classify_kNN(self, x, y, K=-1):
+        # FixMe: Debug
+        print('Mixture of %d components:' % len(self.components), self.targets)
+
         # TODO: check if there is any component?
         if not len(self.components):
             return np.zeros(np.array(x).shape, dtype=int)
@@ -146,7 +149,7 @@ def draw_bgmm(mm: BivariateGaussianMixtureModel, query_x, query_y):
 
     plt.xlim([np.min(query_x), np.max(query_x)])
     plt.ylim([np.min(query_y), np.max(query_y)])
-    plt.show()
+    plt.pause(0.001)
 
 
 # test

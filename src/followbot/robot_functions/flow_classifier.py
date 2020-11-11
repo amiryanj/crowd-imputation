@@ -5,18 +5,19 @@ import numpy as np
 
 
 class FlowClass:
-    def __init__(self, id, name, color):
+    def __init__(self, id, name, color, velocity):
         self.id = id
         self.name = name
         self.color = color
+        self.velocity = velocity
 
 
 class FlowClassifier:
     def __init__(self):
         self.classes = []
-        self.preset_flow_classes = {0: FlowClass(0, 'still', 'g'),
-                                    1: FlowClass(1, 'to_right', 'r'),
-                                    2: FlowClass(2, 'to_left', 'b'),
+        self.preset_flow_classes = {0: FlowClass(0, 'still', 'g', velocity=np.zeros(2)),
+                                    1: FlowClass(1, 'to_right', 'r', velocity=np.array([1.2, 0])),
+                                    2: FlowClass(2, 'to_left', 'b', velocity=np.array([-1.2, 0])),
                                     }
 
     def classify(self, agents_locs, agents_vel):

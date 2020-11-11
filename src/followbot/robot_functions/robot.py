@@ -79,7 +79,7 @@ class MyRobot:
         self.lidar_segments = []
         self.detected_peds = []
         self.tracks = []
-        self.hypothesis_worlds = [RobotWorld()] * numHypothesisWorlds
+        self.hypothesis_worlds = [RobotWorld() for _ in range(numHypothesisWorlds)]
         for hypo_world in self.hypothesis_worlds:
             hypo_world.walkable_map = walkable_map
 

@@ -11,8 +11,7 @@ class RobotWorld:
 
     def __init__(self):
         # crowds: pedestrians (both actual or imaginary)
-        self.crowds = []
-        self.crowds_type = []
+        self.crowds = []  # a list of `Pedestrian`s
 
         self.walkable_map = []  # would be a constant-matrix that is determined by the scenario maker
         self.occupancy_map = []  # probabilistic occupancy map
