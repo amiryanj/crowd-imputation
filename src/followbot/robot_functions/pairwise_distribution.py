@@ -144,19 +144,20 @@ class PairwiseDistribution:
 
         self.axes[0, 0].clear()
         polar_plot = self.axes[0, 0].pcolormesh(self.theta_edges, self.rho_edges, self.polar_hist, cmap='Blues')
-        self.axes[0, 0].set_title("Polar Distance Dist.")
+        self.axes[0, 0].set_ylabel("Pairwise Dist", labelpad=40)
 
         self.axes[0, 1].clear()
-        self.axes[0, 1].set_title("Bearing Angle Dist.")
+        self.axes[0, 1].set_title("Bearing Angle")
         angle_axis = np.rad2deg(self.theta_edges[1:] + self.theta_edges[:-1]) * 0.5
         angle_plot = self.axes[0, 1].plot(angular_hist, angle_axis, 'r')
         self.axes[0, 1].fill_betweenx(angle_axis, 0, angular_hist)
-        self.axes[0, 1].set_xlim([0, max(1, max(angular_hist) + 0.1)])
+        self.axes[0, 1].set_xlim([0, max(angular_hist)+ 0.1])
         self.axes[0, 1].set_ylim([-91, 91])
         self.axes[0, 1].set_yticks([-90, -45, 0, 45, 90])
 
         self.axes[1, 0].clear()
         pcf_plot = self.axes[1, 0].plot((self.rho_edges[1:] + self.rho_edges[:-1]) * 0.5, dist_hist)
-        self.axes[1, 0].set_title("PCF")
+        self.axes[1, 0].set_ylabel("PCF")
+        self.axes[1, 0].grid()
 
         plt.pause(0.001)
