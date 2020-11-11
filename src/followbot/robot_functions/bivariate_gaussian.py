@@ -72,8 +72,8 @@ class BivariateGaussianMixtureModel:
             class_sum_probs[self.targets[i]] += probabilities[i]
 
         if K == -1:
-            class_probs_keys = np.stack(class_sum_probs.keys())
-            class_probs_values = np.stack(class_sum_probs.values())
+            class_probs_keys = np.stack(list(class_sum_probs.keys()))
+            class_probs_values = np.stack(list(class_sum_probs.values()))
             return class_probs_keys[np.argmax(class_probs_values, axis=0)]
 
         else:
