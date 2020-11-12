@@ -217,28 +217,59 @@ class DoubleCircle:  # to represent two legs of a pedestrian
         return final_ress, final_intpnts
 
     def intersect_many(self, lines):
-        circle1_ress, circle1_intpnts, t1 = intersect_circle_lines(self.center1, self.radius, lines)
-        circle2_ress, circle2_intpnts, t2 = intersect_circle_lines(self.center2, self.radius, lines)
+        circle1_ress, circle1_int_pnts, t1 = intersect_circle_lines(self.center1, self.radius, lines)
+        circle2_ress, circle2_int_pnts, t2 = intersect_circle_lines(self.center2, self.radius, lines)
 
-        final_ress, final_intpnts = circle2_ress.copy(), circle2_intpnts.copy()
-        final_ress = np.logical_or(circle1_ress , circle2_ress)
-        int_with_circle_1_inds = t1 < t2
-        final_intpnts[int_with_circle_1_inds] = circle1_intpnts[int_with_circle_1_inds]
+        final_int_pnts = circle2_int_pnts.copy()
 
-        return final_ress, final_intpnts
+        final_ress = np.logical_or(circle1_ress, circle2_ress)
+        not_int_with_c2 = np.any([t1 < t2, ~circle2_ress])
+        int_with_c1_idx = np.all([not_int_with_c2, circle1_ress], axis=0)
+        final_int_pnts[int_with_c1_idx] = circle1_int_pnts[int_with_c1_idx]
+
+        return final_ress, final_int_pnts
 
 
 # test functions
 if __name__ == "__main__":
-    # Test DoubleCircle
+    import matplotlib.pyplot as plt
 
-    double_circle = DoubleCircle(np.array([10, 0]), np.array([13, 0]), 1)
-    angles = np.deg2rad(np.arange(0, 90, 1))
-    lines = np.stack([np.zeros((90, 2)),
-                     np.stack([np.cos(angles) * 15, np.sin(angles) * 15]).T], axis=2)
-    lines = lines.transpose([0, 2, 1])
+    fig, ax = plt.subplots()
+    plt.xlim([0, 10])
+    plt.ylim([0, 10])
 
-    does_intersect, intersect_pnts = double_circle.intersect_many(lines)
-    does_intersect_Dep, intersect_pnts_Dep = double_circle.intersect_many_deprecated(lines)
+    print("Test DoubleCircle intersection with Lidar rays:")
+    double_circle = DoubleCircle(np.array([5, 3]), np.array([6, 6]), radius=1)
+
+    circle1 = plt.Circle(double_circle.center1, double_circle.radius, color='r')
+    circle2 = plt.Circle(double_circle.center2, double_circle.radius, color='r')
+    ax.add_artist(circle1)
+    ax.add_artist(circle2)
+
+    # setup rays
+    ray_resolution = 10
+    ray_length = 10
+    ray_angles = np.deg2rad(np.linspace(0, 90, 1 + 90 * ray_resolution))
+
+    # N x 2(bg, end) x 2(x, y)
+    rays = np.stack([np.zeros((len(ray_angles), 2)),
+                     np.stack([np.cos(ray_angles) * ray_length, np.sin(ray_angles) * ray_length]).T]
+                    , axis=2).transpose([0, 2, 1])
+
+    does_intersect, intersect_pnts = double_circle.intersect_many(rays)
+    # does_intersect_Dep, intersect_pnts_Dep = double_circle.intersect_many_deprecated(rays)
+
+    for i in range(len(ray_angles)):
+        if does_intersect[i]:
+            dot = plt.Circle(intersect_pnts[i], 0.05, color='g')
+            ax.add_artist(dot)
+            line = plt.Line2D([0, intersect_pnts[i, 0]], [0, intersect_pnts[i, 1]], alpha=0.1)
+            ax.add_artist(line)
+        else:
+            line = plt.Line2D([0, rays[i, 1, 0]], [0, rays[i, 1, 1]], alpha=0.3)
+            # ax.add_artist(line)
 
 
+    plt.show()
+
+    dummy = 0
