@@ -147,7 +147,7 @@ class SimulationNode:
 
     def callback_tracking(self, track_msg):
         # print(track_msg)
-        for track in track_msg.tracks:
+        for track in track_msg._tracks:
             p = [track.pose.pose.position.x, track.pose.pose.position.y]
             self.scenario.visualizer.draw_circle(p, 12, RED_COLOR, 3)
         pygame.display.update()

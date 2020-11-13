@@ -25,11 +25,11 @@ class RobotNode:
             rate.sleep()
 
     def callback_tracking(self, track_msg):
-        for track in track_msg.tracks:
+        for track in track_msg._tracks:
             if not track.track_id in self.tracks:
                 self.tracks[track.track_id] = []
             self.tracks[track.track_id].append([track.pose.pose.position.x, track.pose.pose.position.y])
-            # print(self.tracks)
+            # print(self._tracks)
         return
 
         try:

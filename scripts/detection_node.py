@@ -29,7 +29,7 @@ class SimpleDetection:
     def callback_scan(self, scan_msg):
         print('detection received new data ...')
         angles = np.arange(scan_msg.angle_min, scan_msg.angle_max, scan_msg.angle_increment)
-        segments = self.detector.segment_range(scan_msg.ranges, angles)
+        segments = self.detector.cluster_range_data(scan_msg.ranges, angles)
         detections, walls = self.detector.detect(segments, [0, 0])
         detections_msg = self.encode_msg(detections)
         self.detection_pub.publish(detections_msg)
