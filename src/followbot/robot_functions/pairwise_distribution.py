@@ -2,6 +2,7 @@
 # Email: amiryan.j@gmail.com
 
 import numpy as np
+from numpy.linalg import norm
 from scipy.stats import rv_histogram
 from scipy.ndimage import gaussian_filter, gaussian_filter1d
 import matplotlib.pyplot as plt
@@ -21,7 +22,8 @@ class PairwiseDistribution:
         # the pairwise distances in the pool are each assigned a weight that will get smaller as time goes
         # this permits the system to forget too old data
         self.pairwise_distance_weights = np.zeros((0), dtype=np.float64)
-        self.weight_decay_factor = 0.6  # per second
+        self.weight_decay_factor = 0.6  # (fading memory control) per second
+
 
         # histogram
         self.rho_edges = np.linspace(0, 8, 17)
@@ -123,6 +125,9 @@ class PairwiseDistribution:
             accept_suggested_loc = True
             for agent_i in all_agents:
                 link_i = suggested_loc - agent_i
+                if np.linalg.norm(link_i) < 0.5:  # this violate the min distance between 2 agents
+                    accept_suggested_loc = False  # REJECT
+                    break
                 link_i_likelihood = self.likelihood(link_i)  # multiplied by the size of array
                 if link_i_likelihood < 0.5:
                     accept_suggested_loc = False  # REJECT
@@ -152,10 +157,10 @@ class PairwiseDistribution:
 
         self.axes[0, 0].clear()
         polar_plot = self.axes[0, 0].pcolormesh(self.theta_edges, self.rho_edges, self.polar_hist, cmap='Blues')
-        self.axes[0, 0].set_ylabel("Pairwise Dist", labelpad=40)
+        self.axes[0, 0].set_ylabel("Dist. of Pairwise links", labelpad=40)
 
         self.axes[0, 1].clear()
-        self.axes[0, 1].set_title("Bearing Angle")
+        self.axes[0, 1].set_title("Link Angles")
         angle_axis = np.rad2deg(self.theta_edges[1:] + self.theta_edges[:-1]) * 0.5
         angle_plot = self.axes[0, 1].plot(angular_hist, angle_axis, 'r')
         self.axes[0, 1].fill_betweenx(angle_axis, 0, angular_hist)
