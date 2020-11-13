@@ -19,7 +19,7 @@ class GroupingBehavior:
 
         # parameters
         self.group_attraction_speed = 0.4
-        self.group_repulsion_speed = 0.3
+        self.group_repulsion_speed = 0.45
         self.max_distance_from_group = 1.2
         self.min_distance_to_other_group = 2
 

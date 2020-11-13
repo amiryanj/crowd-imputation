@@ -73,7 +73,7 @@ class CorridorScenario(SimulationScenario):
         n_groups = len(group_centers)
         group_sizes = [random.choice(self.group_size_choices) for _ in range(n_groups)]
 
-        group_size_cum = np.cumsum(group_sizes) - group_sizes[0]
+        group_size_cum = [0] + list(np.cumsum(group_sizes))
         group_ids = [[k + group_size_cum[ii] for k in range(group_sizes[ii])] for ii in range(n_groups)]
 
         for gg, g_size in enumerate(group_sizes):

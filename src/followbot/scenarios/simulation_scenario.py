@@ -59,6 +59,8 @@ class SimulationScenario(Scenario, ABC):
                 self.world.set_ped_position(ii, p_new)
                 self.world.set_ped_velocity(ii, v_new)
 
+                self.world.crowds[ii].step(dt)
+
             for jj in range(self.n_peds, self.n_peds + self.n_robots):
                 self.world.robots[jj - self.n_peds].vel = np.array(self.world.sim.getCenterVelocityNext(jj))
 
