@@ -9,7 +9,7 @@ class LiDAR2D:
         self.range_max = 8      # meter (actually this is the range typical of the sensor)
         # self.range_max = 25   #
 
-        self.fov = 340          # in degree
+        self.fov = 360          # in degree
         self.resolution = 2     # per degree
         self.angle_min_radian = lambda: - self.fov / 2 * np.pi / 180.
         self.angle_max_radian = lambda: + self.fov / 2 * np.pi / 180.
@@ -63,9 +63,12 @@ class LiDAR2D:
 
         # scan the pedestrians
         for kk, ped in enumerate(world.crowds):
-            dist = np.linalg.norm(ped.pos - self.robot_ptr.pos) - ped.radius - self.robot_ptr.radius
+            dist = np.linalg.norm(ped.pos - self.robot_ptr.pos) - ped.radius
+
+            # ignore the objects that are farther than max_range of the lidar from the robot
             if dist > self.range_max:
                 continue
+
             ped_geometry = ped.geometry()
             results, intersect_pts_ = ped_geometry.intersect_many(self.data.last_rotated_rays)
             is_not_nan = 1 - np.any(np.isnan(intersect_pts_), axis=1)

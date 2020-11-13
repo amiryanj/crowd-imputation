@@ -1,7 +1,10 @@
+import time
+
 import numpy as np
 
 from followbot.robot_functions.robot_world import RobotWorld
-from followbot.robot_functions.tracking import PedestrianDetection, MultiObjectTracking
+from followbot.robot_functions.human_detection import PedestrianDetection
+from followbot.robot_functions.tracking import MultiObjectTracking
 from followbot.robot_functions.lidar2d import LiDAR2D
 # from followbot.basics_geometry import Circle
 from followbot.util.mapped_array import MappedArray
@@ -30,8 +33,8 @@ def trapezoidal_motion_profile(loc, goal, pref_speed, deceleration_dist=1.0):
 
 
 class MyRobot:
-    def __init__(self, numHypothesisWorlds=1, world_ptr=None):
-        self.real_world = world_ptr  # pointer to world
+    def __init__(self, worldPtr, prefSpeed=1.0, numHypothesisWorlds=1):
+        self.real_world = worldPtr  # pointer to world
 
         # robot dynamic properties
         self.pos = np.array([0, 0], float)
@@ -40,9 +43,9 @@ class MyRobot:
         self.angular_vel = 0
 
         # robot static properties
-        self.radius = 0.4
-        self.pref_speed = 1.2
-        self.max_speed = 2.0
+        self.radius = 0.3
+        self.pref_speed = prefSpeed
+        self.max_speed = 1.0
 
         # child objects that do some function
         self.lidar = LiDAR2D(robot_ptr=self)
@@ -96,6 +99,9 @@ class MyRobot:
         if self.orien > np.pi: self.orien -= 2 * np.pi
         if self.orien < -np.pi: self.orien += 2 * np.pi
 
+        start = time.time()
         self.lidar.scan(self.real_world)
+        end = time.time()
+        print("scan time:", end - start)
         for bw in self.hypothesis_worlds:
-            bw.update(self.lidar.data.last_range_data, self.tracker.tracks)
+            bw.update(self.lidar.data.last_range_data, self.tracker._tracks)
