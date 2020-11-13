@@ -182,8 +182,9 @@ class Visualizer:
             self.draw_lines(self.world.crowds[ii].trajectory, DARK_GREEN_COLOR + (100,), 3)  # track of robot
             if self.world.crowds[ii].biped:  # if we use the biped model for pedestrians
                 ped_geo = self.world.crowds[ii].geometry()
-                self.draw_circle(ped_geo.center1, 4, CYAN_COLOR)
-                self.draw_circle(ped_geo.center2, 4, CYAN_COLOR)
+                self.draw_circle(ped_geo.center1, 4, SKY_BLUE_COLOR)
+                self.draw_circle(ped_geo.center2, 4, MAGENTA_COLOR)
+
         # -----------------------------
 
         # Draw robot(s)
@@ -197,10 +198,8 @@ class Visualizer:
             self.draw_trigon(robot.pos, np.arctan2(v, u), 7, CYAN_COLOR, width=0)
 
             # draw Lidar output as center_points
-            for pnt in robot.lidar.data.last_points:
-                if math.isnan(pnt[0]) or math.isnan(pnt[1]):
-                    raise ValueError('Nan Value in Lidar data!')
-                else:
+            for jj, pnt in enumerate(robot.lidar.data.last_points):
+                if robot.lidar.data.last_range_data[jj] < robot.lidar.range_max - 0.01:
                     self.draw_circle(pnt, 2, YELLOW_COLOR, gfx=False)
 
             # for seg in robot.lidar_segments:
@@ -242,8 +241,9 @@ class Visualizer:
                     self.draw_circle(det, 8, GREEN_COLOR, view_index=(ii + 1, 0))
 
                 # Draw lidar center_points
-                for pnt in robot.lidar.data.last_points:
-                    self.draw_circle(pnt, 2, YELLOW_COLOR, view_index=(ii + 1, 0), gfx=False)
+                for jj, pnt in enumerate(robot.lidar.data.last_points):
+                    if robot.lidar.data.last_range_data[jj] < robot.lidar.range_max - 0.01:
+                        self.draw_circle(pnt, 2, YELLOW_COLOR, view_index=(ii + 1, 0), gfx=False)
 
                 # draw tracks
                 for track in robot.tracks:
@@ -287,8 +287,9 @@ class Visualizer:
                 print('Simulation exited by user')
                 exit(1)
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                click_pnt = np.matmul(np.linalg.inv(self.scale[0][0]), (pygame.mouse.get_pos() - self.trans[0][0]))
-                # print('- ped:\n\t\tpos_x: %.3f\n\t\tpos_y: %.3f\n\t\torien: 0' % (click_pnt[0], click_pnt[1]))
+                click_loc = np.matmul(np.linalg.inv(self.scale[0][0]), (pygame.mouse.get_pos() - self.trans[0][0]))
+                # print('- ped:\n\t\tpos_x: %.3f\n\t\tpos_y: %.3f\n\t\torien: 0' % (click_loc[0], click_loc[1]))
+                print("click location: ", click_loc)
             if event.type == pygame.MOUSEWHEEL:
                 if event.y > 0:
                     self.scale *= 1.1

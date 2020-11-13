@@ -263,20 +263,21 @@ class MocapGaitSimulator:
         self.leg_radius = 4 * M2CM
         self.scale = 0.07  # Fixme
 
-        self.one_period_duration = 126  # FIXME
+        self.fps = 120
+        self.one_period_duration = 126
 
         pr = [0, 0]
         pl = [0, 0]
 
         left_x_y_pool = []
         counter = 0
-        self.progress_frame = 0
+        self.progress_time = 0
 
     def step(self, dt):
-        self.joints['root'].set_motion(self.motions[int(self.progress_frame)])
-        self.progress_frame += dt * self.one_period_duration
-        if self.progress_frame > self.one_period_duration:
-            self.progress_frame = 0
+        self.progress_time += dt  # * self.one_period_duration
+        if self.progress_time > self.one_period_duration / self.fps:
+            self.progress_time = 0
+        self.joints['root'].set_motion(self.motions[int(self.progress_time * self.fps)])
 
         # Left leg
         root_coord = np.array(self.joints['root'].coordinate).reshape((1, 3)) * self.scale
