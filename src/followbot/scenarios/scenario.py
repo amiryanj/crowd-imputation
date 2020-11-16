@@ -18,7 +18,6 @@ class Scenario(ABC):
         self.cur_t = 0
 
         self.n_robots = kwargs.get("numRobots", 1)       # to be used to initialize the world
-        self.leader_id = kwargs.get("LeaderPedId", -1)
 
         self.n_peds = 0  # will be read from dataset
 
