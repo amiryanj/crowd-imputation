@@ -27,7 +27,8 @@ class HermesScenario(RealScenario):
             # opentraj_root = config['Dataset']['OpenTrajRoot']
             annotation_file = config['Dataset']['Annotation']
             self.robot_replacement_id = config['Dataset']['HumanId']
-            # map_file = config['Dataset']['Map']
+            map_obstacles = config['Dataset']['Map']
+            self.fps = config['Dataset']['fps']
             # display_resolution = config['General']['resolution_dpm']
             # ========= Load dataset ===========
             # self.dataset = load_metafile(opentraj_root, dataset_metafile)
@@ -35,18 +36,21 @@ class HermesScenario(RealScenario):
         self.dataset = load_bottleneck(annotation_file)
         # rotate 90 degree
         transform = np.array([[0, 1, 0],
-                              [-1, 0, 0],
+                              [1, 0, 0],
                               [0, 0, 1]])
         self.dataset.apply_transformation(transform, inplace=True)
         self._init_data(biped, "")
 
-        exp_dimensions = re.split('-|\.', annotation_file)[-4:-1]
-        if '2D' in annotation_file:
-            line_objs = corridor_map(int(exp_dimensions[0]) / 100., int(exp_dimensions[0]) / 100.)
-        else:
-            line_objs = corridor_map(int(exp_dimensions[1]) / 100., int(exp_dimensions[2]) / 100.)
-        for line_obj in line_objs:
-            self.world.add_obstacle(line_obj)
+        # exp_dimensions = re.split('-|\.', annotation_file)[-4:-1]
+        for obs in map_obstacles:
+            self.world.add_obstacle(Line(obs[0:2], obs[2:4]))
+
+    # if '2D' in annotation_file:
+        #     line_objs = corridor_map(int(exp_dimensions[0]) / 100., int(exp_dimensions[0]) / 100.)
+        # else:
+        #     line_objs = corridor_map(int(exp_dimensions[1]) / 100., int(exp_dimensions[2]) / 100.)
+        # for line_obj in line_objs:
+        #     self.world.add_obstacle(line_obj)
 
 
 def corridor_map(width, bottleneck):

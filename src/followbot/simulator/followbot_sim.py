@@ -13,10 +13,12 @@ from followbot.gui.visualizer import *
 from followbot.robot_functions.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian, draw_bgmm
 from followbot.robot_functions.flow_classifier import FlowClassifier
 from followbot.robot_functions.pairwise_distribution import PairwiseDistribution
-from followbot.robot_functions.tracking import PedestrianDetection
+from followbot.robot_functions.human_detection import PedestrianDetection
 from followbot.robot_functions.robot import MyRobot
 from followbot.robot_functions.follower_bot import FollowerBot
+from followbot.robot_functions.robot_replace_human import RobotReplaceHuman
 from followbot.scenarios.corridor_scenario import CorridorScenario
+from followbot.scenarios.hermes_scenario import HermesScenario
 from followbot.scenarios.roundtrip_scenario import RoundTrip
 from followbot.scenarios.static_crowd import StaticCorridorScenario
 from followbot.scenarios.real_scenario import RealScenario
@@ -27,11 +29,10 @@ from followbot.util.transform import Transform
 from numpy.linalg import norm as norm
 
 import matplotlib
-
 matplotlib.use('TkAgg')
 
-np.random.seed(1)
-random.seed(1)
+np.random.seed(4)
+random.seed(4)
 
 
 def run():
@@ -48,8 +49,8 @@ def run():
     # scenario.setup(biD_flow=False)
 
     # # Bi-D flow of singles
-    scenario = CorridorScenario(biD_flow=False, group_size_choices=[2], corridor_len=60)
-    scenario.setup()
+    # scenario = CorridorScenario(biD_flow=False, group_size_choices=[2], corridor_len=60)
+    # scenario.setup()
 
     # # Bi-D flow of couples (love street!)
     # scenario = GroupCrowd()
@@ -63,7 +64,8 @@ def run():
     # scenario = setup_circle()     # FixMe
 
     # scenario = RealScenario()
-    # scenario.setup()
+    scenario = HermesScenario()
+    scenario.setup("/home/cyrus/workspace2/ros-catkin/src/followbot/config/followbot_sim/real_scenario_config.yaml")
 
     # scenario = RoundTrip()
     # scenario.setup('powerlaw', flow_2d=True)
@@ -77,17 +79,23 @@ def run():
     # =======================================
     # Choose the robot type
     # =======================================
-    # FixMe: uncomment to use FollowerBot
-    # robot = FollowerBot()
-    # scenario.world.add_robot(robot)
-    # robot.set_leader_ped(scenario.world.crowds[0])
+    if isinstance(scenario, RealScenario):
+        # Robot Replace Human
+        robot = RobotReplaceHuman(scenario.robot_poss, scenario.robot_vels, scenario.world, num_robot_hypothesis_worlds)
+        scenario.world.add_robot(robot)
+        robot.init()
+        dt = 1/scenario.fps
+        # robot = FollowerBot()  # deprecated ?
+        # scenario.world.add_robot(robot)
+        # robot.set_leader_ped(scenario.world.crowds[0])
 
-    # FixMe: uncomment to use Std Robot
-    robot = MyRobot(numHypothesisWorlds=num_robot_hypothesis_worlds, world_ptr=scenario.world)
-    scenario.world.add_robot(robot)
-    # Robot: starting in up side of the corridor, facing toward right end of the corridor
-    robot.init([-25, 1.5])
-    scenario.world.set_robot_goal(0, [1000, 0])
+    else:  # use Std Robot
+        robot = MyRobot(scenario.world, prefSpeed=0.8, numHypothesisWorlds=num_robot_hypothesis_worlds)
+        scenario.world.add_robot(robot)
+        dt = 0.1
+        # Robot: starting in up side of the corridor, facing toward right end of the corridor
+        robot.init([-25, 1.5])
+        scenario.world.set_robot_goal(0, [1000, 0])
     # =======================================
 
     # Todo:
@@ -102,9 +110,7 @@ def run():
     lidar = robot.lidar
     ped_detector = PedestrianDetection(robot.lidar.range_max, np.deg2rad(1 / robot.lidar.resolution))
 
-    dt = 0.1
-
-    # FixMe: Write robot observations to file  
+    # FixMe: Write robot observations to file
     # Todo: At the moment it only records the ground truth locations
     #  It can be the output of tracking module or even after using RWTH's DROW tracker
     # =======================================
@@ -114,15 +120,14 @@ def run():
     # =======================================
 
     frame_id = -1
-    robot = scenario.world.robots[0]
     pairwise_distribution = PairwiseDistribution()
 
     # ****************** Program Loop *******************
     while True:
         # frame_id += 1
-        frame_id = int(datetime.now().timestamp() * 1000) / 1000.  # Unix Time - in millisecond
 
         scenario.step(dt)
+        # print("Robot pos =", robot.pos)
         if scenario.world.pause:
             continue
 
@@ -133,10 +138,11 @@ def run():
 
         # Write detected pedestrians to the output file
         # =======================================
+        # time_stamp = int(datetime.now().timestamp() * 1000) / 1000.  # Unix Time - in millisecond
         # for pid in range(scenario.n_peds):
         #     ped_i = scenario.world.crowds[pid]
         #     if robot.lidar.range_min < np.linalg.norm(robot.pos - ped_i.pos) < robot.lidar.range_max:
-        #         output_file.write("%d %d %.3f %.3f %.3f %.3f\n" % (frame_id, pid,
+        #         output_file.write("%d %d %.3f %.3f %.3f %.3f\n" % (time_stamp, pid,
         #                                                            ped_i.pos[0], ped_i.pos[1],
         #                                                            ped_i.vel[0], ped_i.vel[1]))
         # =======================================
@@ -149,7 +155,7 @@ def run():
         # Casting LiDAR rays to get detections
         # ====================================
         angles = np.arange(lidar.angle_min_radian(), lidar.angle_max_radian() - 1E-10, lidar.angle_increment_radian())
-        segments = ped_detector.segment_range(lidar.data.last_range_data, angles)
+        segments = ped_detector.cluster_range_data(lidar.data.last_range_data, angles)
         detections, walls = ped_detector.detect(segments, [0, 0])
         robot.lidar_segments = segments
         # ====================================
@@ -168,7 +174,7 @@ def run():
 
         # Todo: robot_functions
         # ====================================
-        robot.tracks = robot.tracker.track(robot.detected_peds)
+        robot.tracks = robot.tracker.track(robot.detected_peds, scenario.world.time)
         # robot should be added to the list of tracks, cuz it is impacting the flow
         tracks_loc = np.array([tr.kf.x[:2] for tr in robot.tracks if not tr.coasted] + [robot.pos])
         tracks_vel = np.array([tr.kf.x[2:4] for tr in robot.tracks if not tr.coasted] + [robot.vel])
@@ -178,7 +184,7 @@ def run():
         # ====================================
         # robot.occupancy_map.fill(0)
         # robot.crowd_flow_map.fill(0)
-        # for tr in robot.tracks:
+        # for tr in robot._tracks:
         #     robot.occupancy_map.set(tr.kf.x[:2], 1)
         #     v_ped = tr.kf.x[2:4]
         #     angle_between_robot_motion_and_ped = np.dot(robot.vel, v_ped) / (norm(robot.vel) * norm(v_ped) + 1E-6)
@@ -194,6 +200,9 @@ def run():
         # ================================
         bgm = BivariateGaussianMixtureModel()
         for i in range(n_tracked_agents):
+            # FixMe: filter still agents
+            if norm(tracks_vel[i]) < 0.1:
+                continue
             bgm.add_component(BivariateGaussian(tracks_loc[i][0], tracks_loc[i][1],
                                                 sigma_x=agents_vel_polar[i][0] / 5 + 0.1, sigma_y=0.1,
                                                 theta=agents_vel_polar[i][1]),
@@ -254,17 +263,23 @@ def run():
         pairwise_distribution.update_histogram(smooth=True)
         pairwise_distribution.plot()
         for robot_hypo in robot.hypothesis_worlds:
-            if int((scenario.world.time - dt) * 10) % 10 == 0:
+
+            # initialize once only
+            if len(robot_hypo.crowds) == 0 and scenario.world.time > 0.5:
                 synthetic_agents = pairwise_distribution.synthesis(tracks_loc,
                                                                    walkable_map=robot_hypo.walkable_map,
                                                                    blind_spot_map=robot.blind_spot_map,
                                                                    crowd_flow_map=robot.crowd_flow_map)
                 robot_hypo.crowds = [Pedestrian(tracks_loc[i], tracks_vel[i], False, synthetic=False, color=GREEN_COLOR)
                                      for i in range(n_tracked_agents)] + synthetic_agents
+            # evolve (ToDo)
             else:
                 for ped in robot_hypo.crowds:
                     if ped.synthetic:
                         ped.pos = np.array(ped.pos) + np.array(ped.vel) * dt
+                        if robot.blind_spot_map.get(ped.pos) < 0.1:
+                            print("delete the synthetic agent")
+                            del ped
 
         # if update_pom:
         #     pom_new = self.lidar.last_occupancy_gridmap.copy()

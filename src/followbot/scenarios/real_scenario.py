@@ -23,6 +23,7 @@ class RealScenario(Scenario):
         # Replay Agents data
         self.dataset = None  # -> TrajDataset
         self.frames = []
+        self.fps = 1
 
         self.ped_poss = []
         self.ped_vels = []

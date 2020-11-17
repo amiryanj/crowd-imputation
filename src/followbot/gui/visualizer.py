@@ -106,7 +106,7 @@ class Visualizer:
 
     def draw_trigon(self, center, orien, radius, color, width=0, view_index=(0, 0)):
         center_uv = self.transform(center, view_index)
-        trigon_vertice_angles = np.array([orien, orien + np.deg2rad(90), orien - np.deg2rad(90)])
+        trigon_vertice_angles = np.array([-orien, -orien + np.deg2rad(90), -orien - np.deg2rad(90)])
         verts = center_uv + np.stack([np.cos(trigon_vertice_angles), np.sin(trigon_vertice_angles)], axis=1) * radius
         verts = np.round(verts).astype(int)
 
@@ -138,7 +138,7 @@ class Visualizer:
             for col_jj in range(self.subviews_array_size[1]):
                 for row_ii in range(self.subviews_array_size[0]):
                     center_of_screen = self.world.robots[0].pos.copy()
-                    center_of_screen[1] = 0
+                    # center_of_screen[1] = 0
                     self.trans[row_ii][col_jj] = np.array(self.subview_size, dtype=np.float) / 2. \
                                                  - center_of_screen * [self.scale[row_ii, col_jj, 0, 0],
                                                                        self.scale[row_ii][col_jj][1, 1]] \
@@ -216,7 +216,7 @@ class Visualizer:
                 cf_map_surf.set_alpha(60)
                 self.win.blit(cf_map_surf,
                               (self.trans[ii + 1, 0, 0] + self.scale[ii + 1, 0, 0, 0] * self.world_dim[0][0],
-                               self.trans[ii + 1, 0, 1] - self.scale[ii + 1, 0, 1, 1] * self.world_dim[1][0]))
+                               self.trans[ii + 1, 0, 1] + self.scale[ii + 1, 0, 1, 1] * self.world_dim[1][1]))
 
                 # show Blind-Spot-Map as a background
                 bs_map = np.clip(np.fliplr(robot.blind_spot_map.data), a_min=0, a_max=255)
@@ -226,7 +226,7 @@ class Visualizer:
                 bs_map_surf.set_alpha(40)
                 self.win.blit(bs_map_surf,
                               (self.trans[ii + 1, 0, 0] + self.scale[ii + 1, 0, 0, 0] * self.world_dim[0][0],
-                               self.trans[ii + 1, 0, 1] - self.scale[ii + 1, 0, 1, 1] * self.world_dim[1][0]))
+                               self.trans[ii + 1, 0, 1] + self.scale[ii + 1, 0, 1, 1] * self.world_dim[1][1]))
 
                 # Draw robot
                 self.draw_circle(robot.pos, 8, BLACK_COLOR, view_index=(ii + 1, 0))
@@ -286,10 +286,10 @@ class Visualizer:
                 pygame.quit()
                 print('Simulation exited by user')
                 exit(1)
-            elif event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
                 click_loc = np.matmul(np.linalg.inv(self.scale[0][0]), (pygame.mouse.get_pos() - self.trans[0][0]))
+                print("click location: [%.3f %.3f]" % (click_loc[0], click_loc[1]))
                 # print('- ped:\n\t\tpos_x: %.3f\n\t\tpos_y: %.3f\n\t\torien: 0' % (click_loc[0], click_loc[1]))
-                print("click location: ", click_loc)
             if event.type == pygame.MOUSEWHEEL:
                 if event.y > 0:
                     self.scale *= 1.1

@@ -44,6 +44,17 @@ class Pedestrian:
         # visualization features
         self.color = color  # for visualization
 
+    def set_new_position(self, pos):
+        self.pos = np.array(pos, np.float)
+        # append the position to pedestrian trajectory
+        # traj_ii = self.trajectory
+        if len(self.trajectory) and np.linalg.norm(self.trajectory[-1] - np.array(pos)) > 2.0:
+            self.trajectory.clear()
+        if len(self.trajectory) >= 150:
+            del self.trajectory[0]
+        self.trajectory.append(np.array(pos))
+
+
     def step(self, dt):
         if self.biped:
             self.mocap_walk.step(dt)

@@ -15,8 +15,11 @@ class World:
         self.world_dim = world_dim
         self.time = 0
 
-        self.sim = umans_api.CrowdSimUMANS(sim_model)
-        # self.sim = crowdsim.CrowdSim(sim_model) # Deprecated! -> use UMANS
+        if sim_model:
+            self.sim = umans_api.CrowdSimUMANS(sim_model)
+            # self.sim = crowdsim.CrowdSim(sim_model) # Deprecated! -> use UMANS
+        else:
+            self.sim = None
 
         # self.sim.initSimulation(n_peds + n_robots)
         self.inertia_coeff = 0.25  # for agent motions: larger, more inertia, zero means no inertia
@@ -37,58 +40,59 @@ class World:
             # self.sim.setAgentTimeHorizon(ii, 2)
 
     def add_robot(self, robot):
-        self.sim.addAgent(x=-1, y=-1, radius=robot.radius,
-                          prefSpeed=robot.pref_speed, maxSpeed=robot.max_speed, maxAcceleration=1.0)
+        if self.sim:
+            self.sim.addAgent(x=-1, y=-1, radius=robot.radius,
+                              prefSpeed=robot.pref_speed, maxSpeed=robot.max_speed, maxAcceleration=1.0)
         robot.real_world = self
         self.robots.append(robot)
 
     def add_obstacle(self, obj):
         self.obstacles.append(obj)
-        if hasattr(obj, 'line'):
-            try:
-                # this functionality is only for crowdsim and doesn't work with UMANS
-                self.sim.addObstacleCoords(obj.draw_line[0][0], obj.draw_line[0][1], obj.draw_line[1][0], obj.draw_line[1][1])
-            except Exception:
-                raise ValueError('obstacles should be defined in config file')
-        else:
-            print('Circle objects are not supported in crowd simulation!')
+        if self.sim:
+            if hasattr(obj, 'line'):
+                try:
+                    # this functionality is only for crowdsim and doesn't work with UMANS
+                    self.sim.addObstacleCoords(obj.draw_line[0][0], obj.draw_line[0][1], obj.draw_line[1][0], obj.draw_line[1][1])
+                except Exception:
+                    raise ValueError('obstacles should be defined in config file')
+            else:
+                print('Circle objects are not supported in crowd simulation!')
 
     def set_ped_position(self, index, pos):
-        self.crowds[index].pos = np.array(pos, dtype=np.float)
-        self.sim.setPosition(index, pos[0], pos[1])
-
-        # append the position to pedestrian trajectory
-        traj_ii = self.crowds[index].trajectory
-        if len(traj_ii) and np.linalg.norm(traj_ii[-1] - np.array(pos)) > 2.0:
-            traj_ii.clear()
-        if len(traj_ii) >= 150:
-            del traj_ii[0]
-        traj_ii.append(np.array(pos))
+        self.crowds[index].set_new_position(pos)
+        if self.sim:
+            self.sim.setPosition(index, pos[0], pos[1])
 
     def set_ped_velocity(self, index, vel):
+        if self.sim:
+            self.sim.setVelocity(index, vel[0], vel[1])
         self.crowds[index].vel = np.array(vel, dtype=np.float)
-        self.sim.setVelocity(index, vel[0], vel[1])
 
     def set_ped_goal(self, index, goal):
+        if self.sim:
+            self.sim.setGoal(index, goal[0], goal[1])
         self.crowds[index].goal = np.array(goal, dtype=np.float)
-        self.sim.setGoal(index, goal[0], goal[1])
 
     def set_robot_position(self, index, pos):
         """Notice: Robot is assumed to be the last agent in the CrowdSim agents"""
+        if self.sim:
+            self.sim.setPosition(self.n_peds + index, pos[0], pos[1])
         self.robots[index].pos = np.array(pos, dtype=np.float)
-        self.sim.setPosition(self.n_peds + index, pos[0], pos[1])
 
     def set_robot_velocity(self, index, vel):
         """Notice: Robot is assumed to be the last agent in the CrowdSim agents"""
+        if self.sim:
+            self.sim.setVelocity(self.n_peds + index, vel[0], vel[1])
         self.robots[index].vel = np.array(vel, dtype=np.float)
-        self.sim.setVelocity(self.n_peds + index, vel[0], vel[1])
 
     def set_robot_goal(self, index, goal):
+        if self.sim:
+            self.sim.setGoal(self.n_peds + index, goal[0], goal[1])
         self.robots[index].goal = np.array(goal, dtype=np.float)
-        self.sim.setGoal(self.n_peds + index, goal[0], goal[1])
 
     def set_time(self, t):
-        self.sim.setTime(t)
+        if self.sim:
+            self.sim.setTime(t)
         self.time = t
 
 
