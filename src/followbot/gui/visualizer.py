@@ -107,17 +107,15 @@ class Visualizer:
     def draw_trigon(self, center, orien, radius, color, width=0, view_index=(0, 0)):
         center_uv = self.transform(center, view_index)
         trigon_vertice_angles = np.array([-orien, -orien + np.deg2rad(90), -orien - np.deg2rad(90)])
-        verts = center_uv + np.stack([np.cos(trigon_vertice_angles), np.sin(trigon_vertice_angles)], axis=1) * radius
-        verts = np.round(verts).astype(int)
+        pnts = center_uv + np.stack([np.cos(trigon_vertice_angles), np.sin(trigon_vertice_angles)], axis=1) * radius
+        pnts = np.round(pnts).astype(int)
 
         if width <= 0:
-            pygame.gfxdraw.filled_trigon(self.win,
-                                         verts[0, 0], verts[0, 1], verts[1, 0], verts[1, 1], verts[2, 0], verts[2, 1],
-                                         color)
+            pygame.gfxdraw.filled_trigon(self.win, pnts[0, 0], pnts[0, 1], pnts[1, 0], pnts[1, 1],
+                                         pnts[2, 0], pnts[2, 1], color)
         else:
-            pygame.gfxdraw.trigon(self.win,
-                                  verts[0, 0], verts[0, 1], verts[1, 0], verts[1, 1], verts[2, 0], verts[2, 1],
-                                  color)
+            pygame.gfxdraw.trigon(self.win, pnts[0, 0], pnts[0, 1], pnts[1, 0], pnts[1, 1],
+                                  pnts[2, 0], pnts[2, 1], color)
 
     def draw_line(self, p1, p2, color, width=1, view_index=(0, 0)):
         p1_uv = self.transform(p1, view_index)
@@ -131,6 +129,12 @@ class Visualizer:
         # pygame.draw.lines(self.win, color, False, points_uv, width)
         pygame.draw.aalines(self.win, color, False, points_uv)  # antialias
 
+    def draw_image(self, im, alpha, view_index=(0, 0)):
+        im_surf = pygame.surfarray.make_surface(im)
+        im_surf.set_alpha(alpha)
+        self.win.blit(im_surf, (self.trans[view_index[0], view_index[1], 0] + self.scale[view_index[0], view_index[1], 0, 0] * self.world_dim[0][0],
+                      self.trans[view_index[0], view_index[1], 1] + self.scale[view_index[0], view_index[1], 1, 1] * self.world_dim[1][1]))
+
     # =========================================
     def update(self):
         # the scene will be centered on the (1st) robot position
@@ -138,7 +142,8 @@ class Visualizer:
             for col_jj in range(self.subviews_array_size[1]):
                 for row_ii in range(self.subviews_array_size[0]):
                     center_of_screen = self.world.robots[0].pos.copy()
-                    # center_of_screen[1] = 0
+                    center_of_screen[0] = np.mean(self.world_dim[0])
+                    center_of_screen[1] = np.mean(self.world_dim[1])
                     self.trans[row_ii][col_jj] = np.array(self.subview_size, dtype=np.float) / 2. \
                                                  - center_of_screen * [self.scale[row_ii, col_jj, 0, 0],
                                                                        self.scale[row_ii][col_jj][1, 1]] \
@@ -208,25 +213,25 @@ class Visualizer:
             # Robot Hypotheses
             # ====================================
             for ii, hypothesis in enumerate(robot.hypothesis_worlds):
-                # show Crowd-Flow-Map as a background image
-                cf_map = np.clip(np.fliplr(robot.crowd_flow_map.data[:, :]), a_min=0, a_max=255)
-                cf_map = imresize(cf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
-                cf_map = np.stack([255 - cf_map, np.zeros_like(cf_map), cf_map], axis=2)
-                cf_map_surf = pygame.surfarray.make_surface(cf_map)
-                cf_map_surf.set_alpha(60)
-                self.win.blit(cf_map_surf,
-                              (self.trans[ii + 1, 0, 0] + self.scale[ii + 1, 0, 0, 0] * self.world_dim[0][0],
-                               self.trans[ii + 1, 0, 1] + self.scale[ii + 1, 0, 1, 1] * self.world_dim[1][1]))
-
-                # show Blind-Spot-Map as a background
+                # show Blind-Spot-Map as a background image
                 bs_map = np.clip(np.fliplr(robot.blind_spot_map.data), a_min=0, a_max=255)
                 bs_map = imresize(bs_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
                 bs_map = np.stack([255 - bs_map, 255 - bs_map, 255 - bs_map], axis=2)
-                bs_map_surf = pygame.surfarray.make_surface(bs_map)
-                bs_map_surf.set_alpha(40)
-                self.win.blit(bs_map_surf,
-                              (self.trans[ii + 1, 0, 0] + self.scale[ii + 1, 0, 0, 0] * self.world_dim[0][0],
-                               self.trans[ii + 1, 0, 1] + self.scale[ii + 1, 0, 1, 1] * self.world_dim[1][1]))
+                self.draw_image(bs_map, 40, view_index=(ii + 1, 0))
+
+                # show Crowd-Flow-Map as a background image
+                if ii == 0:
+                    cf_map = np.clip(np.fliplr(robot.crowd_flow_map.data[:, :]), a_min=0, a_max=255)
+                    cf_map = imresize(cf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
+                    cf_map = np.stack([255 - cf_map, np.zeros_like(cf_map), cf_map], axis=2)
+                    self.draw_image(cf_map, 60, view_index=(ii + 1, 0))
+
+                # show Link-Pdf-Map as a background image
+                if ii == 1:
+                    link_pdf_map = np.clip(np.fliplr(robot.blind_spot_projector.cartesian_link_pdf_total.data), a_min=0, a_max=255)
+                    link_pdf_map = imresize(link_pdf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
+                    link_pdf_map = np.stack([link_pdf_map, link_pdf_map, np.zeros_like(link_pdf_map)], axis=2)
+                    self.draw_image(link_pdf_map, 100, view_index=(ii + 1, 0))
 
                 # Draw robot
                 self.draw_circle(robot.pos, 8, BLACK_COLOR, view_index=(ii + 1, 0))
@@ -236,10 +241,6 @@ class Visualizer:
                 u, v = math.cos(robot.orien), math.sin(robot.orien)
                 self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 5, view_index=(ii + 1, 0))
 
-                # Draw detected agents
-                for det in robot.detected_peds:
-                    self.draw_circle(det, 8, GREEN_COLOR, view_index=(ii + 1, 0))
-
                 # Draw lidar center_points
                 for jj, pnt in enumerate(robot.lidar.data.last_points):
                     if robot.lidar.data.last_range_data[jj] < robot.lidar.range_max - 0.01:
@@ -248,33 +249,22 @@ class Visualizer:
                 # draw tracks
                 for track in robot.tracks:
                     if track.coasted: continue
-                    self.draw_circle(track.position(), 4, BLACK_COLOR, view_index=(ii + 1, 0))
+                    self.draw_circle(track.position(), 8, GREEN_COLOR, view_index=(ii + 1, 0))
                     if len(track.recent_detections) >= 2:
                         self.draw_lines(track.recent_detections, WHITE_COLOR, 1, view_index=(ii + 1, 0))
 
                     self.draw_line(track.position(), track.position() + track.velocity(),
                                    MAGENTA_COLOR, 2, view_index=(ii + 1, 0))
 
+                # Draw detected agents
+                for det in robot.detected_peds:
+                    self.draw_circle(det, 4, BLACK_COLOR, view_index=(ii + 1, 0))
+
                 for jj in range(len(hypothesis.crowds)):
                     if hypothesis.crowds[jj].synthetic:
                         self.draw_circle(hypothesis.crowds[jj].pos, 5, SKY_BLUE_COLOR, view_index=(ii + 1, 0))
                         self.draw_line(hypothesis.crowds[jj].pos, hypothesis.crowds[jj].pos + hypothesis.crowds[jj].vel,
                                        MAGENTA_COLOR, view_index=(ii + 1, 0))
-
-
-
-            # ====================================
-
-            # Draw Occupancy Map of Robot
-            # ====================================
-            # if len(self.world.occupancy_map) > 1:
-            #     self.grid_map = np.rot90(self.world.occupancy_map.copy().astype(float))  # + self.world.walkable_map * 0.5)
-            #     cv2.namedWindow('grid', cv2.WINDOW_NORMAL)
-            #     cv2.imshow('grid', self.grid_map)
-            #     cv2.waitKey(2)
-            #    # plt.imshow(self.grid_map)
-            #    # plt.show()
-            # ====================================
 
         # pygame.display.flip()
         pygame.display.update()

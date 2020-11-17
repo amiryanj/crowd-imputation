@@ -120,7 +120,7 @@ def run():
     # =======================================
 
     frame_id = -1
-    pairwise_distribution = PairwiseDistribution()
+    robot.blind_spot_projector = PairwiseDistribution()
 
     # ****************** Program Loop *******************
     while True:
@@ -131,10 +131,6 @@ def run():
         if scenario.world.pause:
             continue
 
-        # FixMe: This is for StdRobot
-        # if not isinstance(robot, FollowerBot):
-        #     v_new_robot = scenario.world.sim.getCenterVelocityNext(scenario.n_peds)
-        #     robot.vel = np.array(v_new_robot)
 
         # Write detected pedestrians to the output file
         # =======================================
@@ -147,10 +143,6 @@ def run():
         #                                                            ped_i.vel[0], ped_i.vel[1]))
         # =======================================
 
-        # peds_t = []
-        # for pid in range(scenario.n_peds):
-        #     peds_t.append(ped_i.pos)
-        # pcf(peds_t)
 
         # Casting LiDAR rays to get detections
         # ====================================
@@ -162,7 +154,6 @@ def run():
 
         # Transform (rotate + translate) the detections, given the robot pose
         # ====================================
-
         detections_tf = []
         robot_rot = Rotation.from_euler('z', robot.orien, degrees=False)
         robot_tf = Transform(np.array([robot.pos[0], robot.pos[1], 0]), robot_rot)
@@ -214,28 +205,6 @@ def run():
         robot.crowd_flow_map.data = bgm.classify_kNN(xx, yy).T
         # draw_bgmm(bgm, xx, yy)  # => for paper
 
-        # K-nearest neighbor to
-        # ================================
-        # knn_regressor = neighbors.KNeighborsRegressor(n_neighbors=2, weights='distance', n_jobs=-1)
-        # knn_regressor.fit(tracks_loc, agents_vel_polar)
-        # x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
-        # y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
-        # xx, yy = np.meshgrid(np.arange(x_min, x_max, 1/robot.mapped_array_resolution),
-        #                      np.arange(y_min, y_max, 1/robot.mapped_array_resolution))
-        # crowd_flow_estimation = knn_regressor.predict(np.c_[xx.ravel(), yy.ravel()])
-        # crowd_flow_estimation = crowd_flow_estimation.reshape((xx.shape[0], xx.shape[1], -1))
-        # robot.crowd_flow_map.data = crowd_flow_estimation[:, :, :].transpose((1,0,2))
-
-        # plt.figure()
-        # plt.imshow(np.flipud(crowd_flow_estimation[:, :, 1]))
-        # cmap_light = ListedColormap(['orange', 'cyan', 'cornflowerblue'])
-        # cmap_bold = ListedColormap(['darkorange', 'c', 'darkblue'])
-        # plt.pcolormesh(xx, yy, crowd_flow_estimation[:, :, 1], cmap=cmap_light)
-        # plt.scatter(tracks_loc[:, 0], tracks_loc[:, 1],
-        #             c=flow_values[:, 1], cmap=cmap_bold, edgecolor='K', s=20)
-        # plt.show()
-        # ================================
-
         # calc the blind spot area of robot
         # ================================
         robot.blind_spot_map.fill(1)  # everywhere is in blind_spot_map if it's not!
@@ -249,27 +218,21 @@ def run():
             for z in np.arange(0, line_len / robot.lidar.range_max, 0.01):
                 px, py = z * ray_i[1] + (1 - z) * ray_i[0]
                 robot.blind_spot_map.set([px, py], 0)
-
-        # plt.title(frame_id)
-        # plt.imshow(np.rot90(robot.blind_spot_map.data))
-        # plt.show()
-        # plt.title(frame_id)
-        # plt.imshow(np.rot90(robot.crowd_flow_map.data[:, :, 1]))
-        # plt.show()
         # =================================
 
         # Pairwise Distance
-        pairwise_distribution.add_frame(tracks_loc, agents_flow_class, dt)
-        pairwise_distribution.update_histogram(smooth=True)
-        pairwise_distribution.plot()
+        # =================================
+        robot.blind_spot_projector.add_frame(tracks_loc, tracks_vel, agents_flow_class, dt)
+        robot.blind_spot_projector.update_histogram(smooth=True)
+        robot.blind_spot_projector.plot()
         for robot_hypo in robot.hypothesis_worlds:
 
             # initialize once only
-            if len(robot_hypo.crowds) == 0 and scenario.world.time > 0.5:
-                synthetic_agents = pairwise_distribution.synthesis(tracks_loc,
-                                                                   walkable_map=robot_hypo.walkable_map,
-                                                                   blind_spot_map=robot.blind_spot_map,
-                                                                   crowd_flow_map=robot.crowd_flow_map)
+            if scenario.world.time > 0.5:  # and len(robot_hypo.crowds) == 0
+                synthetic_agents = robot.blind_spot_projector.synthesis(tracks_loc, tracks_vel,
+                                                                        walkable_map=robot_hypo.walkable_map,
+                                                                        blind_spot_map=robot.blind_spot_map,
+                                                                        crowd_flow_map=robot.crowd_flow_map)
                 robot_hypo.crowds = [Pedestrian(tracks_loc[i], tracks_vel[i], False, synthetic=False, color=GREEN_COLOR)
                                      for i in range(n_tracked_agents)] + synthetic_agents
             # evolve (ToDo)
@@ -280,6 +243,8 @@ def run():
                         if robot.blind_spot_map.get(ped.pos) < 0.1:
                             print("delete the synthetic agent")
                             del ped
+        # pcf(peds_t)
+        # =================================
 
         # if update_pom:
         #     pom_new = self.lidar.last_occupancy_gridmap.copy()
@@ -293,17 +258,6 @@ def run():
         #         if 0 <= u < self.occupancy_map.shape[0] and 0 <= v < self.occupancy_map.shape[1]:
         #             self.occupancy_map[u - 2:u + 2, v - 2:v + 2] = 1
         # ================================
-
-        # ToDo:
-        #  Robot Beliefs
-        # ====================================
-        n_hypothesis = 2
-        # if scenario.visualizer.event == pygame.K_p:
-        # inds = np.where(scenario.ped_valid[scenario.cur_t])
-        # gt_pnts = scenario.ped_poss[scenario.cur_t, np.where(scenario.ped_valid[scenario.cur_t])]
-        # crowd_syn.analyze_and_plot(np.array(robot.detected_peds),
-        #                            gt_pnts.reshape((-1, 2)), n_hypothesis)
-        # ====================================
 
 
 if __name__ == '__main__':
