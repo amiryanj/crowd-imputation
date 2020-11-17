@@ -143,27 +143,28 @@ class MultiObjectTracking:
 
 
         # probability matrix between each new detection and each track
-        dist_d2t = pairwise_distances(detections, tracks_prior_positions, metric="euclidean")
+        if len(detections):
+            dist_d2t = pairwise_distances(detections, tracks_prior_positions, metric="euclidean")
 
-        # Hungarian algorithm, also known as the Munkres or Kuhn-Munkres algorithm.
-        # https://brc2.com/the-algorithm-workshop/
-        row_ind, col_ind = linear_sum_assignment(dist_d2t)
-        row_ind = row_ind.tolist()
-        col_ind = col_ind.tolist()
-        for ii, det in enumerate(detections):
-            if ii in row_ind and dist_d2t[ii, col_ind[row_ind.index(ii)]] < self.assignmentThreshold:
-                # assign detection to track
-                track_idx = col_ind[row_ind.index(ii)]
-                track_i = active_tracks[track_idx]  # Fixme: of course it points to the right track. no?
-                list_of_unassigned_tracks_idx.remove(track_idx)
-                track_i.recent_detections.append(track_i.kf.x[:2])
-            else:
-                # for detections without any track in a `epsilon` distance: create new track
-                track_i = KalmanBasedTrack(dt=0.1)
-                self._tracks.append(track_i)
-                track_i.initialize_track_state(det)
-            track_i.update(det, t)
-            track_i.update_recent_detections(True)
+            # Hungarian algorithm, also known as the Munkres or Kuhn-Munkres algorithm.
+            # https://brc2.com/the-algorithm-workshop/
+            row_ind, col_ind = linear_sum_assignment(dist_d2t)
+            row_ind = row_ind.tolist()
+            col_ind = col_ind.tolist()
+            for ii, det in enumerate(detections):
+                if ii in row_ind and dist_d2t[ii, col_ind[row_ind.index(ii)]] < self.assignmentThreshold:
+                    # assign detection to track
+                    track_idx = col_ind[row_ind.index(ii)]
+                    track_i = active_tracks[track_idx]  # Fixme: of course it points to the right track. no?
+                    list_of_unassigned_tracks_idx.remove(track_idx)
+                    track_i.recent_detections.append(track_i.kf.x[:2])
+                else:
+                    # for detections without any track in a `epsilon` distance: create new track
+                    track_i = KalmanBasedTrack(dt=0.1)
+                    self._tracks.append(track_i)
+                    track_i.initialize_track_state(det)
+                track_i.update(det, t)
+                track_i.update_recent_detections(True)
 
         # Todo: tracks that are not assigned with any detections
         unassigned_tracks = [active_tracks[i] for i in list_of_unassigned_tracks_idx]

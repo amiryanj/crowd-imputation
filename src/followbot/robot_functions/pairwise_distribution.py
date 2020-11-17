@@ -21,7 +21,7 @@ class PairwiseDistribution:
 
         # the pairwise distances in the pool are each assigned a weight that will get smaller as time goes
         # this permits the system to forget too old data
-        self.pairwise_distance_weights = np.zeros((0), dtype=np.float64)
+        self.pairwise_distance_weights = np.zeros(0, dtype=np.float64)
         self.weight_decay_factor = 0.6  # (fading memory control) per second
 
 
@@ -50,7 +50,7 @@ class PairwiseDistribution:
 
         if len(self.pairwise_distance_weights):
             self.pairwise_distance_weights *= (1 - self.weight_decay_factor) ** dt  # (t - self.last_t)
-            self.pairwise_distances = np.concatenate((self.pairwise_distances, np.array(new_pairs)), axis=0)
+            self.pairwise_distances = np.concatenate((self.pairwise_distances, np.array(new_pairs).reshape((-1, 2))), axis=0)
         else:
             self.pairwise_distances = np.array(new_pairs)
         self.pairwise_distance_weights = np.append(self.pairwise_distance_weights, np.ones(len(new_pairs)))

@@ -52,7 +52,7 @@ class BivariateGaussianMixtureModel:
 
     def classify_kNN(self, x, y, K=-1):
         # FixMe: Debug
-        print('Mixture of %d components:' % len(self.components), self.targets)
+        # print('Mixture of %d components:' % len(self.components), self.targets)
 
         # TODO: check if there is any component?
         if not len(self.components):
