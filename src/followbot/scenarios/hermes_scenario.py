@@ -20,7 +20,7 @@ class HermesScenario(RealScenario):
         super(HermesScenario, self).__init__()
 
 
-    def setup(self, config_file, biped=False):
+    def setup(self, config_file, biped):
         with open(config_file) as stream:
             config = yaml.load(stream, Loader=yaml.FullLoader)
             # biped = config['General']['biped']
@@ -29,9 +29,6 @@ class HermesScenario(RealScenario):
             self.robot_replacement_id = config['Dataset']['HumanId']
             map_obstacles = config['Dataset']['Map']
             self.fps = config['Dataset']['fps']
-            # display_resolution = config['General']['resolution_dpm']
-            # ========= Load dataset ===========
-            # self.dataset = load_metafile(opentraj_root, dataset_metafile)
 
         self.dataset = load_bottleneck(annotation_file)
         # rotate 90 degree

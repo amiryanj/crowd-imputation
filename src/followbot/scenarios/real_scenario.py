@@ -35,9 +35,7 @@ class RealScenario(Scenario):
         # The pedestrian with this id will be replaced by robot
         self.robot_replacement_id = -1
 
-    def setup(self,
-              config_file='/home/cyrus/workspace2/ros-catkin/src/followbot/config/followbot_sim/real_scenario_config.yaml',
-              biped=False):
+    def setup(self, config_file, biped):
         # ===========================================
         # ============= Load config file ============
         with open(config_file) as stream:
@@ -165,7 +163,7 @@ class RealScenario(Scenario):
                 self.world.set_ped_position(ii, self.ped_poss[new_t, ii])
                 self.world.set_ped_velocity(ii, self.ped_vels[new_t, ii])
 
-
+                self.world.crowds[ii].step(dt)
             self.step_robots(dt)
 
         super(RealScenario, self).step(save)

@@ -258,10 +258,10 @@ class MocapGaitSimulator:
         # joints['root'].draw()
 
         # ============================
-        M2CM = 0.01
-        self.fixed_height = 30 * M2CM  # the weight at which Lidar is installed
-        self.leg_radius = 4 * M2CM
-        self.scale = 0.07  # Fixme
+        cm2m = 0.01
+        self.fixed_height = 50 * cm2m  # the weight at which Lidar is installed
+        self.leg_radius = 4 * cm2m
+        self.scale = 0.055  # Fixme
 
         self.fps = 120
         self.one_period_duration = 126
@@ -313,8 +313,37 @@ class MocapGaitSimulator:
 
 
 if __name__ == '__main__':
-    print(__file__)
-    exit(1)
+    import matplotlib.pyplot as plt
+    import matplotlib
+    matplotlib.use('TkAgg')
+
+    fig, ax = plt.subplots()
+    left_leg_traj, right_leg_traj = [], []
     mocap_walk = MocapGaitSimulator()
     while True:
-        mocap_walk.step()
+        mocap_walk.step(0.1)
+        if len(left_leg_traj) > 6:
+            del right_leg_traj[0]
+            del left_leg_traj[0]
+        right_leg_traj.append(mocap_walk.right_leg)
+        left_leg_traj.append(mocap_walk.left_leg)
+
+        plt.cla()
+
+        plt.xlim([-1, 1])
+        plt.ylim([-1, 1])
+
+        circle_R = plt.Circle((mocap_walk.right_leg[0], mocap_walk.right_leg[1]), 0.07)
+        circle_L = plt.Circle((mocap_walk.left_leg[0], mocap_walk.left_leg[1]), 0.07)
+
+        ax.add_artist(circle_R)
+        ax.add_artist(circle_L)
+        plt.grid()
+
+        plt.plot(np.array(right_leg_traj)[:, 0], np.array(right_leg_traj)[:, 1], alpha=0.2)
+        plt.plot(np.array(left_leg_traj)[:, 0], np.array(left_leg_traj)[:, 1], alpha=0.2)
+        # plt.scatter(mocap_walk.right_leg[0], mocap_walk.right_leg[1], s=400)
+        # plt.scatter(mocap_walk.left_leg[0], mocap_walk.left_leg[1], s=400)
+        plt.pause(0.5)
+
+

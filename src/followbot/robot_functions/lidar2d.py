@@ -14,6 +14,7 @@ class LiDAR2D:
         self.angle_min_radian = lambda: - self.fov / 2 * np.pi / 180.
         self.angle_max_radian = lambda: + self.fov / 2 * np.pi / 180.
         self.angle_increment_radian = lambda: (1 / self.resolution) * np.pi / 180
+        self.num_pts = lambda: self.fov * self.resolution
 
         self.scanning_freq = 15.  # Hz
         self.time_increment = lambda: 1. / self.scanning_freq

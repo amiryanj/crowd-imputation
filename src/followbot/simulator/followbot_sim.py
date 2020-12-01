@@ -8,9 +8,11 @@ from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
 from sklearn import neighbors
 
+
 from followbot.crowdsim.pedestrian import Pedestrian
 from followbot.gui.visualizer import *
 from followbot.robot_functions.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian, draw_bgmm
+from followbot.robot_functions.dr_spaam_detector import DrSpaamDetector
 from followbot.robot_functions.flow_classifier import FlowClassifier
 from followbot.robot_functions.pairwise_distribution import PairwiseDistribution
 from followbot.robot_functions.human_detection import PedestrianDetection
@@ -33,6 +35,9 @@ matplotlib.use('TkAgg')
 
 np.random.seed(4)
 random.seed(4)
+
+# FixMe
+biped = True
 
 
 def run():
@@ -63,9 +68,9 @@ def run():
     # scenario = setup_corridor()   # FixMe
     # scenario = setup_circle()     # FixMe
 
-    # scenario = RealScenario()
     scenario = HermesScenario()
-    scenario.setup("/home/cyrus/workspace2/ros-catkin/src/followbot/config/followbot_sim/real_scenario_config.yaml")
+    scenario.setup(os.path.abspath(os.path.join(__file__, "../../../..",
+                                                "config/followbot_sim/real_scenario_config.yaml")), biped=biped)
 
     # scenario = RoundTrip()
     # scenario.setup('powerlaw', flow_2d=True)
@@ -107,8 +112,10 @@ def run():
     # crowd_syn = CrowdSynthesizer()
     # crowd_syn.extract_features(scenario.dataset)
 
-    lidar = robot.lidar
-    ped_detector = PedestrianDetection(robot.lidar.range_max, np.deg2rad(1 / robot.lidar.resolution))
+    if biped:  # use dr-spaam
+        detector = DrSpaamDetector(robot.lidar.num_pts(), np.degrees(robot.lidar.angle_increment_radian()), gpu=True)
+    else:
+        detector = PedestrianDetection(robot.lidar.range_max, np.deg2rad(1 / robot.lidar.resolution))
 
     # FixMe: Write robot observations to file
     # Todo: At the moment it only records the ground truth locations
@@ -146,11 +153,16 @@ def run():
 
         # Casting LiDAR rays to get detections
         # ====================================
-        angles = np.arange(lidar.angle_min_radian(), lidar.angle_max_radian() - 1E-10, lidar.angle_increment_radian())
-        segments = ped_detector.cluster_range_data(lidar.data.last_range_data, angles)
-        detections, walls = ped_detector.detect(segments, [0, 0])
-        robot.lidar_segments = segments
+        if biped:
+            detections, dets_cls = detector.detect(robot.lidar.data.last_range_data)
+        else:
+            angles = np.arange(robot.lidar.angle_min_radian(), robot.lidar.angle_max_radian() - 1E-10,
+                               robot.lidar.angle_increment_radian())
+            segments = detector.cluster_range_data(robot.lidar.data.last_range_data, angles)
+            detections, _ = detector.detect(segments, [0, 0])
+            robot.lidar_segments = segments
         # ====================================
+
 
         # Transform (rotate + translate) the detections, given the robot pose
         # ====================================

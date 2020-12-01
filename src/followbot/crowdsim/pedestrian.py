@@ -28,7 +28,7 @@ class Pedestrian:
 
         if biped:
             self.mocap_walk = MocapGaitSimulator()
-            self.leg_radius = 0.10
+            self.leg_radius = 0.06
             self.leg_dist   = 0.25
             self.geometry = lambda: DoubleCircle(self.pos + self.lateral_unitvec() * self.leg_dist /2.,
                                                  self.pos - self.lateral_unitvec() * self.leg_dist /2.,
@@ -64,6 +64,8 @@ class Pedestrian:
             left_leg_pos = self.pos + np.matmul(rot_mat, self.mocap_walk.left_leg)
             print("legs distance = ", np.linalg.norm(left_leg_pos - right_leg_pos))
             self.geometry = lambda: DoubleCircle(left_leg_pos, right_leg_pos, self.leg_radius)
+        else:
+            pass
 
 
 if __name__ == "__main__":

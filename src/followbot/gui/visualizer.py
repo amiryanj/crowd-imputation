@@ -142,7 +142,7 @@ class Visualizer:
             for col_jj in range(self.subviews_array_size[1]):
                 for row_ii in range(self.subviews_array_size[0]):
                     center_of_screen = self.world.robots[0].pos.copy()
-                    center_of_screen[0] = np.mean(self.world_dim[0])
+                    # center_of_screen[0] = np.mean(self.world_dim[0])
                     center_of_screen[1] = np.mean(self.world_dim[1])
                     self.trans[row_ii][col_jj] = np.array(self.subview_size, dtype=np.float) / 2. \
                                                  - center_of_screen * [self.scale[row_ii, col_jj, 0, 0],
