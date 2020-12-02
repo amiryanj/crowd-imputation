@@ -15,7 +15,7 @@ from followbot.crowdsim.grouping_behavior import GroupingBehavior
 from followbot.gui.visualizer import *
 from followbot.scenarios.scenario import Scenario
 from followbot.scenarios.simulation_scenario import SimulationScenario
-from followbot.simulator.world import World
+from followbot.scenarios.world import World
 from followbot.util.basic_geometry import Line
 
 

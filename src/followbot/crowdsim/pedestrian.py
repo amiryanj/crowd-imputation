@@ -62,7 +62,7 @@ class Pedestrian:
             rot_mat = np.array([[cos(self_orien), -sin(self_orien)], [sin(self_orien), cos(self_orien)]])
             right_leg_pos = self.pos + np.matmul(rot_mat, self.mocap_walk.right_leg)
             left_leg_pos = self.pos + np.matmul(rot_mat, self.mocap_walk.left_leg)
-            print("legs distance = ", np.linalg.norm(left_leg_pos - right_leg_pos))
+            # print("legs distance = ", np.linalg.norm(left_leg_pos - right_leg_pos))
             self.geometry = lambda: DoubleCircle(left_leg_pos, right_leg_pos, self.leg_radius)
         else:
             pass

@@ -2,6 +2,7 @@ import os
 import numpy as np
 from transforms3d.euler import euler2mat
 
+
 class Joint:
     def __init__(self, name, direction, length, axis, dof, limits):
         """
@@ -124,12 +125,12 @@ def read_line(stream, idx):
 
 
 def parse_asf(file_path):
-    '''read joint data only'''
+    """read joint data only"""
     with open(file_path) as f:
         content = f.read().splitlines()
 
     for idx, line in enumerate(content):
-        # meta infomation is ignored
+        # meta information is ignored
         if line == ':bonedata':
             content = content[idx + 1:]
             break
@@ -251,7 +252,7 @@ class MocapGaitSimulator:
         mocap_data_dir = os.path.abspath(os.path.join(__file__, '..', 'cmu-mocap', 'walk'))
         asf_path = os.path.join(mocap_data_dir, '07.asf')
         amc_path = os.path.join(mocap_data_dir, '07_01.amc')
-        print('parsing mocap file [%s]' % asf_path)
+        # print('parsing mocap file [%s]' % asf_path)
 
         self.joints = parse_asf(asf_path)
         self.motions = parse_amc(amc_path)

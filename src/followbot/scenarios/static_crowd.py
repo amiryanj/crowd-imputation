@@ -8,7 +8,7 @@ from math import cos, sin, sqrt
 from poisson_distribution import PoissonDistribution
 
 from followbot.scenarios.corridor_scenario import CorridorScenario, Visualizer
-from followbot.simulator.world import World
+from followbot.scenarios.world import World
 import followbot.crowdsim.crowdsim as crowdsim
 
 

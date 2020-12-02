@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 import pygame
 
-from followbot.simulator.world import World
+from followbot.scenarios.world import World
 from followbot.gui.visualizer import Visualizer
 import os.path
 import time
@@ -13,7 +13,7 @@ import time
 class Scenario(ABC):
     def __init__(self, **kwargs):
         self.world = World
-        self.visualizer = Visualizer
+        self.visualizer = None
 
         self.cur_t = 0
 
@@ -29,14 +29,14 @@ class Scenario(ABC):
     def step_crowd(self, dt):
         pass
 
-    def step_robots(self, dt):
+    def step_robots(self, dt, lidar_enabled):
         for jj, robot in enumerate(self.world.robots):
-            robot.step(dt)
+            robot.step(dt, lidar_enabled)
             self.world.set_robot_position(jj, robot.pos)
             self.world.set_robot_velocity(jj, robot.vel)
 
     @abstractmethod
-    def step(self, dt, save=False):
+    def step(self, dt, lidar_enabled, save=False):
         if not self.world.pause:
             self.cur_t += dt
             self.world.time = self.cur_t
@@ -47,7 +47,8 @@ class Scenario(ABC):
 
 
     def update_display(self, delay_sec=0.01):
-        toggle_pause = self.visualizer.update()
-        if toggle_pause == pygame.K_SPACE:
-            self.world.pause = not self.world.pause
-        time.sleep(delay_sec)
+        if self.visualizer:
+            toggle_pause = self.visualizer.update()
+            if toggle_pause == pygame.K_SPACE:
+                self.world.pause = not self.world.pause
+            time.sleep(delay_sec)

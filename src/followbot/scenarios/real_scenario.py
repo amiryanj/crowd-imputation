@@ -5,7 +5,7 @@ import os
 
 from followbot.scenarios.scenario import Scenario
 from followbot.util.basic_geometry import Line, Circle
-from followbot.simulator.world import World
+from followbot.scenarios.world import World
 from followbot.gui.visualizer import BLUE_COLOR
 from followbot.gui.visualizer import Visualizer
 
@@ -35,41 +35,51 @@ class RealScenario(Scenario):
         # The pedestrian with this id will be replaced by robot
         self.robot_replacement_id = -1
 
-    def setup(self, config_file, biped):
-        # ===========================================
-        # ============= Load config file ============
-        with open(config_file) as stream:
-            config = yaml.load(stream, Loader=yaml.FullLoader)
-            dataset_metafile = config['Dataset']['Metafile']
-            opentraj_root = config['Dataset']['OpenTrajRoot']
-            # annotation_file = config['Dataset']['Annotation']
-            # parser_type = config['Dataset']['Parser']
-            map_file = config['Dataset']['Map']
-            self.robot_replacement_id = config['Dataset']['HumanId']
-            # biped = config['General']['biped']
-            display_resolution = config['General']['resolution_dpm']
-            # ========= Load dataset ===========
-            # self.dataset = load_metafile(opentraj_root, dataset_metafile)
 
-        if not os.path.exists(dataset_metafile):
-            raise ValueError('Error! Annotation file does not exist')
+    def setup(self, **kwargs):
+        self.dataset = kwargs.get("dataset", None)
+        self.fps = kwargs.get("fps", 16)
+        self.robot_replacement_id = kwargs.get("robot_id", -1)
+        biped = kwargs.get("biped", False)
 
-        self.dataset = load_metafile(opentraj_root, metafile=dataset_metafile)
-        self.dataset.interpolate_frames()
+    # def setup(self, config_file, biped):
+    #     # ===========================================
+    #     # ============= Load config file ============
+    #     with open(config_file) as stream:
+    #         config = yaml.load(stream, Loader=yaml.FullLoader)
+    #         dataset_metafile = config['Dataset']['Metafile']
+    #         opentraj_root = config['Dataset']['OpenTrajRoot']
+    #         # annotation_file = config['Dataset']['Annotation']
+    #         # parser_type = config['Dataset']['Parser']
+    #         map_file = config['Dataset']['Map']
+    #         self.robot_replacement_id = config['Dataset']['HumanId']
+    #         # biped = config['General']['biped']
+    #         display_resolution = config['General']['resolution_dpm']
+    #         # ========= Load dataset ===========
+    #         # self.dataset = load_metafile(opentraj_root, dataset_metafile)
 
-        self._init_data(self.dataset, biped, map_file)
+        # if not os.path.exists(dataset_metafile):
+        #     raise ValueError('Error! Annotation file does not exist')
 
-    def _init_data(self, biped, map_file):
-        # get frame(pid)s where leader is present.
+        # self.dataset = load_metafile(opentraj_root, metafile=dataset_metafile)
+
+        # if kwargs.get("map_file"):
+        self.create_sim_frames(biped=biped, map_file="")
+
+    def create_sim_frames(self, **kwargs):
+        map_file = kwargs.get("map_file", "")
+        biped = kwargs.get("biped", False)
+
+        # get frames in which the leader is present.
         self.frames = self.dataset.data['frame_id'].loc[
             self.dataset.data['agent_id'] == self.robot_replacement_id].tolist()
+        self.frames = list(range(self.frames[0], self.frames[-1]+1))
 
         # get other agents that are present in selected frames
         all_ids = self.dataset.data['agent_id'].loc[self.dataset.data['frame_id'].isin(self.frames)].unique().tolist()
         all_ids.remove(self.robot_replacement_id)
         self.n_peds = len(all_ids)
 
-        self.frames = [i for i in range(self.frames[0], self.frames[-1])]
         self.ped_poss = np.ones((len(self.frames), self.n_peds, 2)) * -100
         self.ped_vels = np.zeros((len(self.frames), self.n_peds, 2))
         self.ped_valid = np.zeros((len(self.frames), self.n_peds), dtype=bool)
@@ -152,9 +162,9 @@ class RealScenario(Scenario):
     #     vel = dataset.id_v_dict[id][left_ind] * (1-alpha) + dataset.id_v_dict[id][right_ind] * alpha
     #     return pos, vel
 
-    def step(self, dt, save=False):
-        # def step_crowd(self):
-        if not self.world.pause and self.cur_t < len(self.frames) - 1:
+    def step(self, dt, lidar_enabled, save=False):
+        not_finished = self.cur_t < len(self.frames) - 1
+        if not self.world.pause and not_finished:
             new_t = int(self.cur_t + 1)
             self.cur_t = new_t
             self.world.set_time(new_t)
@@ -164,12 +174,16 @@ class RealScenario(Scenario):
                 self.world.set_ped_velocity(ii, self.ped_vels[new_t, ii])
 
                 self.world.crowds[ii].step(dt)
-            self.step_robots(dt)
+            self.step_robots(dt, lidar_enabled)
 
-        super(RealScenario, self).step(save)
+        super(RealScenario, self).step(save, lidar_enabled)
+        return not_finished
 
 
 if __name__ == '__main__':
     scenario = RealScenario()
-    scenario.setup()
-    print("Real scenario was set up successfully!")
+    try:
+        scenario.setup()
+        print("Real scenario was set up successfully!")
+    except Exception:
+        raise Exception("Failed to create the Real Scenario object.")

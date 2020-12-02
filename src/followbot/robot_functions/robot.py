@@ -92,16 +92,17 @@ class MyRobot:
         self.real_world.set_robot_position(0, [init_pos[0], init_pos[1]])
 
     # TODO: work with ROS
-    def step(self, dt):
+    def step(self, dt, lidar_enabled):
         # post-process of robot movement process
         self.pos += self.vel * dt
         self.orien += self.angular_vel * dt
         if self.orien > np.pi: self.orien -= 2 * np.pi
         if self.orien < -np.pi: self.orien += 2 * np.pi
 
-        start = time.time()
-        self.lidar.scan(self.real_world)
-        end = time.time()
-        print("scan time:", end - start)
-        for bw in self.hypothesis_worlds:
-            bw.update(self.lidar.data.last_range_data, self.tracker._tracks)
+        if lidar_enabled:
+            start = time.time()
+            self.lidar.scan(self.real_world)
+            end = time.time()
+            # print("scan time:", end - start)
+            for hw in self.hypothesis_worlds:
+                hw.update(self.lidar.data.last_range_data, self.tracker._tracks)

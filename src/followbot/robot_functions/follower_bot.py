@@ -38,5 +38,5 @@ class FollowerBot(MyRobot):
         self.leader_ped = leader_ped
         self.init(self.leader_ped.pos)
 
-    def step(self, dt):
-        super(FollowerBot, self).step(dt)
+    def step(self, dt, lidar_enabled):
+        super(FollowerBot, self).step(dt, lidar_enabled)

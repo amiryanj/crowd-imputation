@@ -36,8 +36,8 @@ class SimulationScenario(Scenario, ABC):
             except Exception:
                 raise ValueError('exception occurred in running crowd sim')
 
-    def step_robots(self, dt):
-        super(SimulationScenario, self).step_robots(dt)
+    def step_robots(self, dt, lidar_enabled):
+        super(SimulationScenario, self).step_robots(dt, lidar_enabled)
 
     def step(self, dt, save=False):
         if not self.world.pause:

@@ -19,27 +19,35 @@ class HermesScenario(RealScenario):
     def __init__(self):
         super(HermesScenario, self).__init__()
 
-
-    def setup(self, config_file, biped):
+    def setup_with_config_file(self, config_file):
         with open(config_file) as stream:
             config = yaml.load(stream, Loader=yaml.FullLoader)
-            # biped = config['General']['biped']
+            biped_mode = config['General']['biped']
             # opentraj_root = config['Dataset']['OpenTrajRoot']
+            robot_replacement_id = config['Dataset']['RobotId']
+            obstacles = config['Dataset']['Map']
+            fps = config['Dataset']['fps']
             annotation_file = config['Dataset']['Annotation']
-            self.robot_replacement_id = config['Dataset']['HumanId']
-            map_obstacles = config['Dataset']['Map']
-            self.fps = config['Dataset']['fps']
+            dataset = load_bottleneck(annotation_file)
 
-        self.dataset = load_bottleneck(annotation_file)
+        self.setup(dataset=dataset, fps=fps, robot_id=robot_replacement_id, obstacles=obstacles, biped=biped_mode)
+
+    def setup(self, **kwargs):
+        self.dataset = kwargs.get("dataset", None)
+        self.fps = kwargs.get("fps", 16)
+        self.robot_replacement_id = kwargs.get("robot_id", -1)
+        biped = kwargs.get("biped", False)
+
         # rotate 90 degree
         transform = np.array([[0, 1, 0],
                               [1, 0, 0],
                               [0, 0, 1]])
         self.dataset.apply_transformation(transform, inplace=True)
-        self._init_data(biped, "")
+        self.create_sim_frames(biped=biped)
 
         # exp_dimensions = re.split('-|\.', annotation_file)[-4:-1]
-        for obs in map_obstacles:
+        obstacles = kwargs.get("obstacles", [])
+        for obs in obstacles:
             self.world.add_obstacle(Line(obs[0:2], obs[2:4]))
 
     # if '2D' in annotation_file:
@@ -67,7 +75,8 @@ if __name__ == "__main__":
     matplotlib.use('TkAgg')
 
     scenario = HermesScenario()
-    scenario.setup("/home/cyrus/workspace2/ros-catkin/src/followbot/config/followbot_sim/real_scenario_config.yaml")
+    conf_file = "/home/cyrus/workspace2/ros-catkin/src/followbot/config/followbot_sim/real_scenario_config.yaml"
+    scenario.setup_with_config_file(conf_file)
     [xdim, ydim] = scenario.world.world_dim
 
     pause = np.zeros(1, dtype=int)
