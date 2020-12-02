@@ -2,6 +2,7 @@
 # Email: amiryan.j@gmail.com
 
 import numpy as np
+from matplotlib import gridspec
 from numpy.linalg import norm
 from scipy.stats import rv_histogram
 from scipy.ndimage import gaussian_filter, gaussian_filter1d
@@ -36,7 +37,7 @@ def polar2cartesian(r, t, grid, x, y, order=3):
 # TODO: This class will compute the distribution of pair-wise distances for each flow instance
 #  and will return a random sample on demand
 class PairwiseDistribution:
-    def __init__(self):
+    def __init__(self, max_distance=6, radial_resolution=2, angular_resolution=36):
         self.pairwise_distances = []
 
         # the pairwise distances in the pool are each assigned a weight that will get smaller as time goes
@@ -45,9 +46,8 @@ class PairwiseDistribution:
         self.weight_decay_factor = 0.25  # (fading memory control) per second
 
         # histogram
-        max_distance = 4  # meter
-        self.rho_edges = np.linspace(0, max_distance, 17)
-        self.theta_edges = np.linspace(-np.pi, np.pi, 37)
+        self.rho_edges = np.linspace(0, max_distance, max_distance * radial_resolution + 1)
+        self.theta_edges = np.linspace(-np.pi, np.pi, angular_resolution + 1)
         self.rho_bin_midpoints = self.rho_edges[:-1] + np.diff(self.rho_edges) / 2
         self.theta_bin_midpoints = self.theta_edges[:-1] + np.diff(self.theta_edges) / 2
         self.polar_link_pdf = np.zeros((len(self.rho_edges) - 1, len(self.theta_edges) - 1))
@@ -85,6 +85,11 @@ class PairwiseDistribution:
         non_decayed_distances = self.pairwise_distance_weights > 0.2
         self.pairwise_distances = self.pairwise_distances[non_decayed_distances]
         self.pairwise_distance_weights = self.pairwise_distance_weights[non_decayed_distances]
+
+    def add_links(self, links_polar):
+        self.pairwise_distances = np.concatenate((np.array(self.pairwise_distances).reshape(-1, 2),
+                                                  np.array(links_polar).reshape((-1, 2))), axis=0)
+        self.pairwise_distance_weights = np.append(self.pairwise_distance_weights, np.ones(len(links_polar)))
 
     def update_histogram(self, smooth=True):
         if not len(self.pairwise_distances):
@@ -225,36 +230,48 @@ class PairwiseDistribution:
                 agent_states.append(suggested_loc)  # cuz: this agent should be considered when synthesising next agent
         return synthetic_agents
 
-    def plot(self):
+    def plot(self, title=""):
         # Debug: plot polar heatmap
         angular_hist = np.sum(self.polar_link_pdf, axis=0)
         dist_hist = np.sum(self.polar_link_pdf, axis=1)
 
         if not len(self.axes):
-            self.fig, self.axes = plt.subplots(2, 2)
-            self.axes[0, 0].remove()
-            self.axes[0, 0] = self.fig.add_subplot(221, projection="polar")
-            self.axes[1, 0].remove()
-            self.axes[1, 1].remove()
-            self.axes[1, 0] = self.fig.add_subplot(212)
+            self.fig = plt.figure()
+            grid_spec = gridspec.GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[3, 1], wspace=0.05, hspace=0.20)
+            # self.fig, self.axes = plt.subplots(2, 2, gridspec_kw={'width_ratios': [5, 1], 'height_ratios': [5, 1]})
+            self.axes = [[None, None], None]
+            # self.axes[0, 0].remove()
+            # self.axes[0, 0] = self.fig.add_subplot(221, projection="polar")
+            self.axes[0][0] = plt.subplot(grid_spec[0, 0], projection='polar')
+            self.axes[0][1] = plt.subplot(grid_spec[0, 1])
+            self.axes[1] = plt.subplot(grid_spec[1, :])
+            # self.axes[1, 0].remove()
+            # self.axes[1, 1].remove()
+            # self.axes[1, 0] = self.fig.add_subplot(212)
 
-        self.axes[0, 0].clear()
-        polar_plot = self.axes[0, 0].pcolormesh(self.theta_edges, self.rho_edges, self.polar_link_pdf, cmap='Blues')
-        self.axes[0, 0].set_ylabel("Dist. of Pairwise links", labelpad=40)
+        self.axes[0][0].clear()
+        polar_plot = self.axes[0][0].pcolormesh(self.theta_edges, self.rho_edges, self.polar_link_pdf, vmin=0,
+                                                cmap='YlGnBu')
+        self.axes[0][0].set_ylabel("Polar Histogram of Links", labelpad=40)
+        if len(title):
+            self.axes[0][0].set_title(title, pad=20)
 
-        self.axes[0, 1].clear()
-        self.axes[0, 1].set_title("Link Angles")
-        angle_axis = np.rad2deg(self.theta_edges[1:] + self.theta_edges[:-1]) * 0.5
-        angle_plot = self.axes[0, 1].plot(angular_hist, angle_axis, 'r')
-        self.axes[0, 1].fill_betweenx(angle_axis, 0, angular_hist)
-        self.axes[0, 1].set_xlim([0, max(angular_hist)+ 0.1])
-        self.axes[0, 1].set_ylim([-91, 91])
-        self.axes[0, 1].set_yticks([-90, -45, 0, 45, 90])
+        self.axes[0][1].clear()
+        self.axes[0][1].set_title("Angles pdf", fontsize=10)
+        angle_plot = self.axes[0][1].plot(angular_hist, np.rad2deg(self.theta_bin_midpoints), 'r')
+        self.axes[0][1].fill_betweenx(np.rad2deg(self.theta_bin_midpoints), 0, angular_hist)
+        self.axes[0][1].set_xlim([0, max(angular_hist) * 1.1])
+        self.axes[0][1].set_ylim([-151, 151])
+        self.axes[0][1].set_yticks([-135, -90, -45, 0, 45, 90, 135])
 
-        self.axes[1, 0].clear()
-        pcf_plot = self.axes[1, 0].plot((self.rho_edges[1:] + self.rho_edges[:-1]) * 0.5, dist_hist)
-        self.axes[1, 0].set_ylabel("PCF")
-        self.axes[1, 0].grid()
+        self.axes[1].clear()
+        # pcf_plot = self.axes[1].plot(self.rho_bin_midpoints, dist_hist, 'r')
+        # self.axes[1].fill_between(self.rho_bin_midpoints, 0, dist_hist)
+        self.axes[1].bar(self.rho_bin_midpoints, dist_hist, width=np.diff(self.rho_edges)[0]*0.8)
+
+        self.axes[1].set_title("Length pdf  ", loc='right', fontsize=10, pad=-14)
+        self.axes[1].set_xlabel('$\it{m}$', labelpad=-5)
+        # self.axes[1].grid()
 
         plt.pause(0.001)
 

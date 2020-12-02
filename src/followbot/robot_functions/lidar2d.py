@@ -33,6 +33,7 @@ class LiDAR2D:
                 self.last_range_data = []
                 self.last_intensities = []
                 self.last_occupancy_gridmap = []
+                self.occlusion_hist = dict((ii, []) for ii in range(10))
         self.data = Data()
 
     def scan(self, world):
@@ -58,7 +59,7 @@ class LiDAR2D:
             results, intersect_pts_ = obs.intersect_many(self.data.last_rotated_rays)
             is_not_nan = 1 - np.any(np.isnan(intersect_pts_), axis=1)
             results = np.bitwise_and(results, is_not_nan)
-            intersect_pts = np.stack([res * intersect_pts_[ii] + (1-res) * (self.range_max + self.robot_ptr.pos)
+            intersect_pts = np.stack([res * intersect_pts_[ii] + (1-res) * (self.range_max/np.sqrt(2) + self.robot_ptr.pos)
                                       for ii, res in enumerate(results)])
             all_intersects.append(intersect_pts)
 
@@ -74,7 +75,7 @@ class LiDAR2D:
             results, intersect_pts_ = ped_geometry.intersect_many(self.data.last_rotated_rays)
             is_not_nan = 1 - np.any(np.isnan(intersect_pts_), axis=1)
             results = np.bitwise_and(results, is_not_nan)
-            intersect_pts = np.stack([res * intersect_pts_[ii] + (1-res) * (self.range_max + self.robot_ptr.pos)
+            intersect_pts = np.stack([res * intersect_pts_[ii] + (1-res) * (self.range_max/np.sqrt(2) + self.robot_ptr.pos)
                                       for ii, res in enumerate(results)])
             all_intersects.append(intersect_pts)
 
@@ -82,8 +83,25 @@ class LiDAR2D:
         all_intersects = np.stack(all_intersects)
         dists = all_intersects - self.data.last_rotated_rays[0, 0]
         dists = np.linalg.norm(dists, axis=2)
-        min_ind = np.argmin(dists, axis=0)
-        self.data.last_points = np.stack([all_intersects[ind, ii] for ii, ind in enumerate(min_ind)])
+        min_dist_idx = np.argmin(dists, axis=0)
+        self.data.last_points = np.stack([all_intersects[ind, ii] for ii, ind in enumerate(min_dist_idx)])
+
+        # Todo: add gaussian noise
+
+        # which agents are occluded
+        min_dist = np.min(dists, axis=0)
+        for ii in range(len(world.obstacles), len(dists)):
+            rays_might_have_hit_i = dists[ii] < (self.range_max - 1E-3)
+            rays_have_hit_i = np.bitwise_and((dists[ii] - 1E-3) < min_dist, rays_might_have_hit_i)
+            if np.sum(rays_might_have_hit_i) != 0:
+                occ_i = 1 - np.sum(rays_have_hit_i) / (np.sum(rays_might_have_hit_i) + 1E-9)
+                bin_idx = int(min(dists[ii]))
+            else:  # put it in the bin, out of lidar range (>8.0m)
+                occ_i = 1
+                bin_idx = int(round(self.range_max))
+
+            self.data.occlusion_hist[bin_idx].append(int(round(occ_i * 100)))
+
         self.data.last_range_data = np.sqrt(np.power(self.data.last_points[:, 0] - self.robot_ptr.pos[0], 2) +
                                             np.power(self.data.last_points[:, 1] - self.robot_ptr.pos[1], 2))
 
