@@ -14,6 +14,8 @@ class World:
         self.obstacles = []
         self.world_dim = world_dim
         self.time = 0
+        self.frame_id = 0
+        self.original_frame_id = 0
 
         if sim_model:
             self.sim = umans_api.CrowdSimUMANS(sim_model)

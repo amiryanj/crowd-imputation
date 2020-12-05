@@ -161,14 +161,14 @@ if __name__ == "__main__":
     sample_2d = lambda: (np.random.rand() * x_max, np.random.rand() * y_max)
 
     # setup 8 random agents
-    n_center_points = 8
+    n_points = 8
     bgmm = BivariateGaussianMixtureModel()
-    center_points = np.zeros((n_center_points, 2))
-    targets = np.random.choice(['b', 'r'], n_center_points)  # labels are chosen randomly either 0 or 1
-    for i in range(n_center_points):
+    points = np.zeros((n_points, 2))
+    targets = np.random.choice(['b', 'r'], n_points)  # labels are chosen randomly either 0 or 1
+    for i in range(n_points):
         pos = sample_2d()
         vel = [np.random.uniform(0.8, 1.5), np.random.uniform(-0.4, 0.4)]
-        center_points[i] = pos
+        points[i] = pos
         theta = np.arctan2(vel[1], vel[0])
         A = 1
 

@@ -12,7 +12,7 @@ from toolkit.core.trajdataset import merge_datasets
 
 matplotlib.use('TkAgg')
 
-from followbot.robot_functions.pairwise_distribution import PairwiseDistribution
+from followbot.robot_functions.social_ties import SocialTiePDF
 from toolkit.loaders.loader_hermes import load_bottleneck
 from toolkit.loaders.loader_metafile import load_eth, load_crowds
 from toolkit.loaders.loader_sdd import load_sdd, load_sdd_dir
@@ -152,7 +152,7 @@ for dataset in datasets:
     print("strong ties= [%d] , %.3f" % (n_strongs, n_strongs / (n_absents + n_strongs + 1E-6)))
     print("*******************************")
 
-    p = PairwiseDistribution(max_distance, radial_resolution=4, angular_resolution=36)
+    p = SocialTiePDF(max_distance, radial_resolution=4, angular_resolution=36)
     p.add_links(strong_ties)
     p.update_histogram(smooth=False)
 

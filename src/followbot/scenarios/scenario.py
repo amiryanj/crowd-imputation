@@ -15,8 +15,6 @@ class Scenario(ABC):
         self.world = World
         self.visualizer = None
 
-        self.cur_t = 0
-
         self.n_robots = kwargs.get("numRobots", 1)       # to be used to initialize the world
 
         self.n_peds = 0  # will be read from dataset
@@ -38,8 +36,8 @@ class Scenario(ABC):
     @abstractmethod
     def step(self, dt, lidar_enabled, save=False):
         if not self.world.pause:
-            self.cur_t += dt
-            self.world.time = self.cur_t
+            self.world.time += dt
+            self.world.frame_id += 1
             if save:
                 home = os.path.expanduser("~")
                 self.visualizer.save_screenshot(os.path.join(home, 'Videos/followbot/'))

@@ -34,9 +34,12 @@ def polar2cartesian(r, t, grid, x, y, order=3):
     return map_coordinates(grid, np.array([new_ir, new_it]), order=order, mode='wrap').reshape(new_r.shape).T
 
 
-# TODO: This class will compute the distribution of pair-wise distances for each flow instance
-#  and will return a random sample on demand
-class PairwiseDistribution:
+# Todo : Add Strong/Absent PDFs
+class SocialTiePDF:
+    """
+        This class will compute the probability distribution of social ties
+        and will return a random sample on demand
+    """
     def __init__(self, max_distance=6, radial_resolution=2, angular_resolution=36):
         self.pairwise_distances = []
 
@@ -59,6 +62,9 @@ class PairwiseDistribution:
         # plot
         self.fig = None
         self.axes = []
+
+    def load_prior_pdf_from_file(self, fname):
+        raise Exception('Todo: Implement here!')
 
     def add_frame(self, agents_loc, agents_vel, agents_flow_class, dt):
         new_pairs = []
