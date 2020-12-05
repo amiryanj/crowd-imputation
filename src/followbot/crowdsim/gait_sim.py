@@ -260,12 +260,12 @@ class MocapGaitSimulator:
 
         # ============================
         cm2m = 0.01
-        self.fixed_height = 50 * cm2m  # the weight at which Lidar is installed
+        self.fixed_height = 40 * cm2m  # the weight at which Lidar is installed
         self.leg_radius = 4 * cm2m
         self.scale = 0.055  # Fixme
 
         self.fps = 120
-        self.one_period_duration = 126
+        self.period_duration = 126 / self.fps
 
         pr = [0, 0]
         pl = [0, 0]
@@ -276,7 +276,7 @@ class MocapGaitSimulator:
 
     def step(self, dt):
         self.progress_time += dt  # * self.one_period_duration
-        if self.progress_time > self.one_period_duration / self.fps:
+        if self.progress_time > self.period_duration:
             self.progress_time = 0
         self.joints['root'].set_motion(self.motions[int(self.progress_time * self.fps)])
 

@@ -28,6 +28,7 @@ class Pedestrian:
 
         if biped:
             self.mocap_walk = MocapGaitSimulator()
+            self.mocap_walk.progress_time = np.random.uniform(0, self.mocap_walk.period_duration)
             self.leg_radius = 0.06
             self.leg_dist   = 0.25
             self.geometry = lambda: DoubleCircle(self.pos + self.lateral_unitvec() * self.leg_dist /2.,
