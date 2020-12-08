@@ -32,6 +32,8 @@ class RealScenario(Scenario):
         self.robot_poss = []
         self.robot_vels = []
 
+        self.video_files = []  # for debug!
+
         # The pedestrian with this id will be replaced by robot
         self.robot_replacement_id = -1
 
@@ -152,6 +154,7 @@ class RealScenario(Scenario):
                 self.world.add_obstacle(Circle([x, y], rad))
 
         self.world.set_time(0)
+        self.world.original_frame_id = self.frames[0]
 
     # def interpolate(self, dataset, id, frame):
     #     ts_id = dataset.id_t_dict[id]
@@ -163,11 +166,12 @@ class RealScenario(Scenario):
     #     return pos, vel
 
     def step(self, dt, lidar_enabled, save=False):
-        not_finished = self.cur_t < len(self.frames) - 1
+        not_finished = self.world.frame_id < len(self.frames) - 1
         if not self.world.pause and not_finished:
-            new_t = int(self.cur_t + 1)
-            self.cur_t = new_t
-            self.world.set_time(new_t)
+            self.world.time += dt
+            self.world.frame_id += 1
+            new_t = self.world.frame_id
+            self.world.original_frame_id = self.frames[new_t]
 
             for ii in range(self.n_peds):
                 self.world.set_ped_position(ii, self.ped_poss[new_t, ii])
@@ -176,7 +180,10 @@ class RealScenario(Scenario):
                 self.world.crowds[ii].step(dt)
             self.step_robots(dt, lidar_enabled)
 
-        super(RealScenario, self).step(save, lidar_enabled)
+            if save:
+                home = os.path.expanduser("~")
+                self.visualizer.save_screenshot(os.path.join(home, 'Videos/followbot/'))
+        self.update_display()
         return not_finished
 
 

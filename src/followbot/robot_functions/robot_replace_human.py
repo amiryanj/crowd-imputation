@@ -22,9 +22,9 @@ class RobotReplaceHuman(MyRobot):
         self.real_world.set_robot_position(0, self.robot_poss[0])
 
     def step(self, dt, lidar_enabled):
-        frame_id = self.real_world.time
+        frame_id = self.real_world.frame_id
         self.vel = (self.robot_poss[frame_id] - self.robot_poss[frame_id - 1]) / dt
         self.angular_vel = 0
-        self.orien = np.arctan2(self.robot_vels[self.real_world.time, 1], self.robot_vels[self.real_world.time, 0])
+        self.orien = np.arctan2(self.robot_vels[frame_id, 1], self.robot_vels[frame_id, 0])
         super(RobotReplaceHuman, self).step(dt, lidar_enabled)
 

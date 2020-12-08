@@ -40,10 +40,11 @@ class Visualizer:
         """
         pygame.init()
         pygame.font.init()  # you have to call this at the start, # if you want to use this module.
-        self.font = pygame.font.SysFont('Comic Sans MS', 30)
+        self.font = pygame.font.SysFont('Comic Sans MS', 20)
 
         win_size = (1200, 960)  # FixMe
-        self.win = pygame.display.set_mode(win_size)
+        flags = pygame.DOUBLEBUF  # | pygame.FULLSCREEN
+        self.win = pygame.display.set_mode(win_size, flags)
 
         # the display can be divided into an array of subviews
         self.subviews_array_size = np.array([subViewRowCount, subViewColCount]).astype(int)
@@ -74,8 +75,13 @@ class Visualizer:
                                 for __ in range(self.subviews_array_size[1])]
                                for _ in range(self.subviews_array_size[0])])
 
+        # for enabling drag screen by mouse
+        self.trans_offset_by_user = np.zeros(2, int)
+        self.drag_is_active = False
+        self.last_click_pt = None
+        # pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
+
         self.world = world
-        self.local_time = 0
         self.win.fill([255, 255, 255])
         pygame.display.set_caption(caption)
         self.grid_map = []
@@ -96,16 +102,23 @@ class Visualizer:
         :return: None
         """
         center_uv = self.transform(center, view_index)
+        if not -radius < center_uv[0] < self.win_size[0] + radius or\
+           not -radius < center_uv[1] < self.win_size[1] + radius:
+            return
         if gfx:
             if width <= 0:
                 pygame.gfxdraw.filled_circle(self.win, int(center_uv[0]), int(center_uv[1]), radius, color)
             else:
-                pygame.gfxdraw.circle(self.win, int(center_uv[0]), int(center_uv[1]), radius, color)
+                pygame.gfxdraw.aacircle(self.win, int(center_uv[0]), int(center_uv[1]), radius, color)
+                pygame.gfxdraw.filled_circle(self.win, int(center_uv[0]), int(center_uv[1]), radius, color)
         else:
             pygame.draw.circle(self.win, color, (int(center_uv[0]), int(center_uv[1])), radius, width)
 
     def draw_trigon(self, center, orien, radius, color, width=0, view_index=(0, 0)):
         center_uv = self.transform(center, view_index)
+        if not -radius < center_uv[0] < self.win_size[0] + radius or\
+           not -radius < center_uv[1] < self.win_size[1] + radius:
+            return
         trigon_vertice_angles = np.array([-orien, -orien + np.deg2rad(90), -orien - np.deg2rad(90)])
         pnts = center_uv + np.stack([np.cos(trigon_vertice_angles), np.sin(trigon_vertice_angles)], axis=1) * radius
         pnts = np.round(pnts).astype(int)
@@ -147,13 +160,14 @@ class Visualizer:
                     self.trans[row_ii][col_jj] = np.array(self.subview_size, dtype=np.float) / 2. \
                                                  - center_of_screen * [self.scale[row_ii, col_jj, 0, 0],
                                                                        self.scale[row_ii][col_jj][1, 1]] \
-                                                 + self.subview_size * np.array([col_jj, row_ii])
+                                                 + self.subview_size * np.array([col_jj, row_ii]) \
+                                                 + self.trans_offset_by_user
 
-        self.local_time += 1
         self.win.fill(WHITE_COLOR)
 
         # print time / and some other info in Main View
-        title_surface = self.font.render('t=%.2f' % self.world.time, False, (200, 0, 200))
+        title_surface = self.font.render('t=[%.2f] frame=[%d]' % (self.world.time, self.world.original_frame_id),
+                                         True, (200, 0, 200))
         self.win.blit(title_surface, (20, 20))
 
         # Draw lines between subviews
@@ -181,7 +195,7 @@ class Visualizer:
 
         # Draw Pedestrians
         for ii in range(len(self.world.crowds)):
-            self.draw_circle(self.world.crowds[ii].pos, 8, self.world.crowds[ii].color)
+            self.draw_circle(self.world.crowds[ii].pos, 8, self.world.crowds[ii].color, width=1)
             self.draw_trigon(self.world.crowds[ii].pos, self.world.crowds[ii].orien(), 7,
                              LIGHT_GREY_COLOR)  # orien triangle
             self.draw_lines(self.world.crowds[ii].trajectory, DARK_GREEN_COLOR + (100,), 3)  # track of robot
@@ -202,7 +216,7 @@ class Visualizer:
             # self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 3)
             self.draw_trigon(robot.pos, np.arctan2(v, u), 7, CYAN_COLOR, width=0)
 
-            # draw Lidar output as center_points
+            # draw Lidar output as points
             for jj, pnt in enumerate(robot.lidar.data.last_points):
                 if robot.lidar.data.last_range_data[jj] < robot.lidar.range_max - 0.01:
                     self.draw_circle(pnt, 2, YELLOW_COLOR, gfx=False)
@@ -217,34 +231,34 @@ class Visualizer:
                 bs_map = np.clip(np.fliplr(robot.blind_spot_map.data), a_min=0, a_max=255)
                 bs_map = imresize(bs_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
                 bs_map = np.stack([255 - bs_map, 255 - bs_map, 255 - bs_map], axis=2)
-                self.draw_image(bs_map, 40, view_index=(ii + 1, 0))
+                # self.draw_image(bs_map, 40, view_index=(ii + 1, 0))
 
                 # show Crowd-Flow-Map as a background image
                 if ii == 0:
                     cf_map = np.clip(np.fliplr(robot.crowd_flow_map.data[:, :]), a_min=0, a_max=255)
                     cf_map = imresize(cf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
                     cf_map = np.stack([255 - cf_map, np.zeros_like(cf_map), cf_map], axis=2)
-                    self.draw_image(cf_map, 60, view_index=(ii + 1, 0))
+                    # self.draw_image(cf_map, 60, view_index=(ii + 1, 0))
 
                 # show Link-Pdf-Map as a background image
                 if ii == 1:
                     link_pdf_map = np.clip(np.fliplr(robot.blind_spot_projector.cartesian_link_pdf_total.data), a_min=0, a_max=255)
                     link_pdf_map = imresize(link_pdf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
                     link_pdf_map = np.stack([link_pdf_map, link_pdf_map, np.zeros_like(link_pdf_map)], axis=2)
-                    self.draw_image(link_pdf_map, 100, view_index=(ii + 1, 0))
+                    # self.draw_image(link_pdf_map, 100, view_index=(ii + 1, 0))
 
                 # Draw robot
                 self.draw_circle(robot.pos, 8, BLACK_COLOR, view_index=(ii + 1, 0))
                 self.draw_trigon(robot.pos, np.arctan2(v, u), 7, CYAN_COLOR, view_index=(ii + 1, 0))
                 if isinstance(robot, FollowerBot):
                     self.draw_circle(robot.leader_ped.pos, 11, PINK_COLOR, 5, view_index=(ii + 1, 0))
-                u, v = math.cos(robot.orien), math.sin(robot.orien)
+                u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
                 self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 5, view_index=(ii + 1, 0))
 
-                # Draw lidar center_points
+                # Draw lidar points
                 for jj, pnt in enumerate(robot.lidar.data.last_points):
                     if robot.lidar.data.last_range_data[jj] < robot.lidar.range_max - 0.01:
-                        self.draw_circle(pnt, 2, YELLOW_COLOR, view_index=(ii + 1, 0), gfx=False)
+                        self.draw_circle(pnt, 1, YELLOW_COLOR, view_index=(ii + 1, 0), gfx=False)
 
                 # draw tracks
                 for track in robot.tracks:
@@ -276,10 +290,16 @@ class Visualizer:
                 pygame.quit()
                 print('Simulation exited by user')
                 exit(1)
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click press
                 click_loc = np.matmul(np.linalg.inv(self.scale[0][0]), (pygame.mouse.get_pos() - self.trans[0][0]))
+                self.drag_is_active = True
+                self.last_click_pt = np.array(pygame.mouse.get_pos())
                 print("click location: [%.3f %.3f]" % (click_loc[0], click_loc[1]))
                 # print('- ped:\n\t\tpos_x: %.3f\n\t\tpos_y: %.3f\n\t\torien: 0' % (click_loc[0], click_loc[1]))
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:  # Left click release
+                self.drag_is_active = False
+                self.trans_offset_by_user += np.array(pygame.mouse.get_pos()) - self.last_click_pt
+
             if event.type == pygame.MOUSEWHEEL:
                 if event.y > 0:
                     self.scale *= 1.1
@@ -289,7 +309,7 @@ class Visualizer:
                 return event.key
         return None
 
-    def save_screenshot(self, dir_name):
-        pygame.image.save(self.win, os.path.join(dir_name, 'win-%05d.jpg' % self.local_time))
+    def save_screenshot(self, out_dir):
+        pygame.image.save(self.win, os.path.join(out_dir, 'win-%05d.jpg' % self.local_time))
         if len(self.grid_map) > 1:
-            cv2.imwrite(os.path.join(dir_name, 'grid-%05d.png' % self.local_time), self.grid_map * 255)
+            cv2.imwrite(os.path.join(out_dir, 'grid-%05d.png' % self.local_time), self.grid_map * 255)

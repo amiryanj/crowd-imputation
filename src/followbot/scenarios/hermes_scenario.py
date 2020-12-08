@@ -29,6 +29,7 @@ class HermesScenario(RealScenario):
             fps = config['Dataset']['fps']
             annotation_file = config['Dataset']['Annotation']
             dataset = load_bottleneck(annotation_file)
+            self.video_files = config['Dataset']['Video']
 
         self.setup(dataset=dataset, fps=fps, robot_id=robot_replacement_id, obstacles=obstacles, biped=biped_mode)
 
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     matplotlib.use('TkAgg')
 
     scenario = HermesScenario()
-    conf_file = "/home/cyrus/workspace2/ros-catkin/src/followbot/config/followbot_sim/real_scenario_config.yaml"
+    conf_file = os.path.abspath(os.path.join(__file__, "../../../..", "config/followbot_sim/real_scenario_config.yaml"))
     scenario.setup_with_config_file(conf_file)
     [xdim, ydim] = scenario.world.world_dim
 

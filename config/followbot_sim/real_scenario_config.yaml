@@ -1,4 +1,5 @@
 General:
+   biped: True
    False: True
    resolution_dpm: 100
 
@@ -51,9 +52,16 @@ Dataset:
 #   Annotation: '/home/cyrus/workspace2/OpenTraj/datasets/HERMES/Corridor-2D/bo-360-120-120.txt'
 #   Annotation: '/home/cyrus/workspace2/OpenTraj/datasets/HERMES/Corridor-2D/boa-300-050-070.txt'
 #   Map: ''
+   Video:
+      - /media/cyrus/workspace/Seyfried/bo-videos/bo-360-075-075_cam1_iv5.wmv
+      - /media/cyrus/workspace/Seyfried/bo-videos/bo-360-075-075_cam2_iv5.wmv
    fps: 16.0
+   # **********************
+   # obstacles: line segments
    Map:
       - [-4.5, 0, 4.5, 0]
       - [-4.5, 3.6, 4.5, 3.6]
-   RobotId: 15
+   # Map: []
+
+   RobotId: 35
    Parser: ParserHermes

@@ -1,62 +1,51 @@
-import time
 import random
 from datetime import datetime
-import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
 from scipy.spatial.transform import Rotation
-from scipy.stats import multivariate_normal
-from sklearn.mixture import GaussianMixture
-from sklearn import neighbors
 from numpy.linalg import norm as norm
 
 from followbot.crowdsim.pedestrian import Pedestrian
 from followbot.gui.visualizer import *
-from followbot.robot_functions.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian, draw_bgmm
+from followbot.robot_functions.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian
 from followbot.robot_functions.dr_spaam_detector import DrSpaamDetector
 from followbot.robot_functions.flow_classifier import FlowClassifier
-from followbot.robot_functions.pairwise_distribution import PairwiseDistribution
+from followbot.robot_functions.social_ties import SocialTiePDF
 from followbot.robot_functions.human_detection import PedestrianDetection
 from followbot.robot_functions.robot import MyRobot
-from followbot.robot_functions.follower_bot import FollowerBot
 from followbot.robot_functions.robot_replace_human import RobotReplaceHuman
-from followbot.scenarios.corridor_scenario import CorridorScenario
+from followbot.util.video_player import DatasetVideoPlayer
 from followbot.scenarios.hermes_scenario import HermesScenario
-from followbot.scenarios.roundtrip_scenario import RoundTrip
-from followbot.scenarios.static_crowd import StaticCorridorScenario
 from followbot.scenarios.real_scenario import RealScenario
-from followbot.scenarios.world import World
-from followbot.util.basic_geometry import Line
 from followbot.util.transform import Transform
 # from followbot.crowd_synthesis.crowd_synthesis import CrowdSynthesizer
 
 import matplotlib
-
 matplotlib.use('TkAgg')
 
-np.random.seed(4)
-random.seed(4)
-
 # Config
-biped_mode = True
-lidar_enabled = True
+BIPED_MODE = True
+LIDAR_ENABLED = True
 write_trajectories = False
-visualizer_enabled = False
-tracking_enabled = False
-synthesis_enabled = False
-num_robot_hypothesis_worlds = 2
+VISUALIZER_ENABLED = True
+TRACKING_ENABLED = False
+SYNTHESIS_ENABLED = False
+NUM_HYPOTHESES = 2
+
+RAND_SEED = 4
+np.random.seed(RAND_SEED)
+random.seed(RAND_SEED)
 
 
 def exec_scenario(scenario):
-    if visualizer_enabled:
+    if VISUALIZER_ENABLED:
         scenario.visualizer = Visualizer(scenario.world, scenario.world.world_dim,
-                                         subViewRowCount=1 + num_robot_hypothesis_worlds,
+                                         subViewRowCount=1 + NUM_HYPOTHESES,
                                          subViewColCount=1,
                                          caption=type(scenario).__name__)
 
     # Choose the robot type
     if isinstance(scenario, RealScenario):
         robot = RobotReplaceHuman(scenario.robot_poss, scenario.robot_vels, scenario.world,
-                                  num_robot_hypothesis_worlds)
+                                  NUM_HYPOTHESES)
         scenario.world.add_robot(robot)
         robot.init()
         dt = 1 / scenario.fps
@@ -64,7 +53,7 @@ def exec_scenario(scenario):
         # robot.set_leader_ped(scenario.world.crowds[0])
 
     else:  # use Std Robot
-        robot = MyRobot(scenario.world, prefSpeed=0.8, numHypothesisWorlds=num_robot_hypothesis_worlds)
+        robot = MyRobot(scenario.world, prefSpeed=0.8, numHypothesisWorlds=NUM_HYPOTHESES)
         scenario.world.add_robot(robot)
         dt = 0.1
         # Robot: starting in up side of the corridor, facing toward right end of the corridor
@@ -82,7 +71,7 @@ def exec_scenario(scenario):
     # crowd_syn = CrowdSynthesizer()
     # crowd_syn.extract_features(scenario.dataset)
 
-    if biped_mode:  # use dr-spaam
+    if BIPED_MODE:  # use dr-spaam
         detector = DrSpaamDetector(robot.lidar.num_pts(),
                                    np.degrees(robot.lidar.angle_increment_radian()),
                                    gpu=True)
@@ -99,13 +88,13 @@ def exec_scenario(scenario):
     # =======================================
 
     frame_id = -1
-    robot.blind_spot_projector = PairwiseDistribution()
+    robot.blind_spot_projector = SocialTiePDF()
 
     # ****************** Program Loop *******************
     while True:
         frame_id += 1
 
-        not_finished = scenario.step(dt, lidar_enabled)
+        not_finished = scenario.step(dt, LIDAR_ENABLED)
         if not not_finished:
             break
         # print("Robot pos =", robot.pos)
@@ -126,9 +115,9 @@ def exec_scenario(scenario):
 
         # ***************************************************
         # ***************************************************
-        if tracking_enabled:
+        if TRACKING_ENABLED:
             # Detection (Base method / DR-SPAAM)
-            if biped_mode:
+            if BIPED_MODE:
                 detections, dets_cls = detector.detect(robot.lidar.data.last_range_data)
             else:
                 angles = np.arange(robot.lidar.angle_min_radian(), robot.lidar.angle_max_radian() - 1E-10,
@@ -172,7 +161,7 @@ def exec_scenario(scenario):
 
         # ***************************************************
         # ***************************************************
-        if synthesis_enabled:
+        if SYNTHESIS_ENABLED:
             # calc blind spots
             # ================================
             robot.blind_spot_map.fill(1)  # everywhere is in blind_spot_map if it's not!
@@ -265,14 +254,26 @@ if __name__ == '__main__':
     # _scenario = setup_corridor()   # FixMe
     # _scenario = setup_circle()     # FixMe
 
-    _scenario = HermesScenario()
-    _scenario.setup(os.path.abspath(os.path.join(__file__, "../../../..",
-                                                 "config/followbot_sim/real_scenario_config.yaml")), biped=biped_mode)
-
     # _scenario = RoundTrip()
     # _scenario.setup('powerlaw', flow_2d=True)
+
+    _scenario = HermesScenario()
+    _scenario.setup_with_config_file(os.path.abspath(os.path.join(__file__, "../../../..",
+                                                     "config/followbot_sim/real_scenario_config.yaml")))
+
     # =======================================
-    print(type(scenario).__name__)
-    for exec_frame in exec_scenario(_scenario):
+    if VISUALIZER_ENABLED:
+        video_player = DatasetVideoPlayer(_scenario.video_files)
+        video_player.set_frame_id(_scenario.world.original_frame_id)
+    print(type(_scenario).__name__)
+    for exec_frame, robot in exec_scenario(_scenario):
         print(exec_frame)
-        print(robot.lidar.data.last_range_data)
+        # if exec_frame != 0:
+        #     video_player.set_frame_id(exec_frame)
+        if VISUALIZER_ENABLED:
+            im = video_player.get_frame().__next__()
+            if im is not None:
+                cv2.imshow("im", im)
+            else:
+                print("problem with video")
+            cv2.waitKey(2)
