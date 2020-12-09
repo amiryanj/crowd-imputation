@@ -37,6 +37,7 @@ class CrowdSimUMANS:
         self.sim = umans.UMANS()
         self.agent_data_cache = {}
         self.obstacles = []
+        self.BASE_DELTA_TIME = 0.1  # Fixed
 
         if os.path.exists(config):
             config_file = config
@@ -164,7 +165,13 @@ class CrowdSimUMANS:
         return [self.agent_data_cache[id].velocity_x, self.agent_data_cache[id].velocity_y]
 
     def doStep(self, dt):
-        self.doSimulationSteps(1)
+        """
+        :param dt: delta_time for simulation.
+          **Note that the number can only be multiple of BASE_DELTA_TIME (0.1)**
+        :return: None
+        """
+        num_steps = round(dt / self.BASE_DELTA_TIME)
+        self.doSimulationSteps(num_steps)
 
     # ===============================================
 
