@@ -19,7 +19,7 @@ class SimulationNode:
         sim_model = rospy.get_param("~simulation/sim_model")
         flow_2d = rospy.get_param("~simulation/flow_2d")
         n_pedestrians = rospy.get_param("~simulation/n_pedestrians")
-        biped = rospy.get_param("~simulation/biped")
+        biped_mode = rospy.get_param("~simulation/biped_mode")
         robot_tf_topic = rospy.get_param("~publisher/robot_tf/topic")
         robot_vis_topic = rospy.get_param("~publisher/robot_vis/topic")
         objects_vis_topic = rospy.get_param("~publisher/objects_vis/topic")
@@ -28,7 +28,7 @@ class SimulationNode:
         # scenario.setup(sim_model, flow_2d=flow_2d)
 
         self.scenario = RealScenario()
-        self.scenario.setup(biped=biped)
+        self.scenario.setup(biped_mode=biped_mode)
         robot = self.scenario.world.robots[0]
 
         self.scan_pub = rospy.Publisher(scan_topic, LaserScan, queue_size=1)

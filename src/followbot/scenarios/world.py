@@ -6,7 +6,7 @@ from followbot.crowdsim.pedestrian import Pedestrian
 
 
 class World:
-    def __init__(self, n_peds, n_robots, world_dim, sim_model="RVO", biped=False):
+    def __init__(self, n_peds, n_robots, world_dim, sim_model="RVO", biped_mode=False):
         self.pause = False
         self.n_peds = n_peds
         self.n_robots = n_robots
@@ -28,7 +28,7 @@ class World:
 
         self.crowds = []
         for ii in range(n_peds):
-            ped_i = Pedestrian(biped=biped)
+            ped_i = Pedestrian(biped_mode=biped_mode)
             ped_i.id = ii
             ped_i.world = self  # set world ptr for agent
             self.crowds.append(ped_i)

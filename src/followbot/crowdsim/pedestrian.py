@@ -10,7 +10,7 @@ eps = sys.float_info.epsilon
 
 
 class Pedestrian:
-    def __init__(self, init_pos=[0, 0], init_vel=[0, 0], biped=False, synthetic=False, color=(0, 255, 0)):
+    def __init__(self, init_pos=[0, 0], init_vel=[0, 0], biped_mode=False, synthetic=False, color=(0, 255, 0)):
         self.id = -1  # to check if somebody is him!
         self.radius = 0.25
         self.pos = np.array(init_pos)
@@ -19,14 +19,14 @@ class Pedestrian:
         self.vel_unitvec = lambda: (self.vel + eps) / (np.linalg.norm(self.vel) + eps)
         self.lateral_unitvec = lambda: (np.array([self.vel[1], -self.vel[0]]) + eps) / (np.linalg.norm(self.vel) + eps)
         self.trajectory = []
-        self.biped = biped  # boolean
+        self.biped_mode = biped_mode  # boolean
         self.synthetic = synthetic  # boolean
 
         # FIXME: there are 2 options to represent pedestrian:
         #  1: using circular agents for simple detection
         #  2: using 2 legs for use with DROW
 
-        if biped:
+        if biped_mode:
             self.mocap_walk = MocapGaitSimulator()
             self.mocap_walk.progress_time = np.random.uniform(0, self.mocap_walk.period_duration)
             self.leg_radius = 0.06
@@ -57,7 +57,7 @@ class Pedestrian:
 
 
     def step(self, dt):
-        if self.biped:
+        if self.biped_mode:
             self.mocap_walk.step(dt)
             self_orien = self.orien() + np.pi/2
             rot_mat = np.array([[cos(self_orien), -sin(self_orien)], [sin(self_orien), cos(self_orien)]])

@@ -7,9 +7,13 @@ from sklearn.metrics import pairwise_distances
 
 
 class TrackBase:
-    def __init__(self):
+    def __init__(self, id):
+        """
+        :param id: Track id should be unique
+        """
+        self.id = id
+        self.last_obsv_timestamp = -1
         self.state = np.array([0, 0, 0, 0])
-        self.last_t = -1
 
     @abstractmethod
     def predict(self, t):
@@ -17,19 +21,20 @@ class TrackBase:
 
     @abstractmethod
     def update(self, detection, t):
-        self.state[2:4] = (detection - self.state[:2]) / (t - self.last_t)  # update velocity
+        self.state[2:4] = (detection - self.state[:2]) / (t - self.last_obsv_timestamp)  # update velocity
         self.state[:2] = detection      # update position
-        self.last_t = t
+        self.last_obsv_timestamp = t
 
-    def position(self):
+    def get_position(self):
         return self.state[:2]
 
-    def velocity(self):
+    def get_velocity(self):
         return self.state[2:4]
 
 
-class KalmanBasedTrack:
-    def __init__(self, dt):
+class KalmanBasedTrack(TrackBase):
+    def __init__(self, id, dt):
+        self.id = id
         # ======== Kalman Filter ================
         self.kf = KalmanFilter(dim_x=4, dim_z=2)
         self.kf.x = np.zeros((4, 1), dtype=float)  # position & velocity
@@ -54,33 +59,33 @@ class KalmanBasedTrack:
         # =======================================
 
         self.tentative = True  # not confirmed
-        self.recent_detections_bool = []
+        self.recent_assigned_detections = []  # this variable remembers assignment/un-assignment during last 10 frames
         self.recent_detections = []  # Todo: should be a mapping from time
         self.coasted = False  # decayed
-        self.last_time = -1
+        self.last_obsv_timestamp = -1
 
-    def initialize_track_state(self, measurement):
+    def init_track_state(self, measurement):
         self.kf.x = np.array([measurement[0], measurement[1], 0, 0])
         self.tentative = True
 
-    def update_recent_detections(self, val):
-        self.recent_detections_bool.append(val)
-        if len(self.recent_detections_bool) > 10:
-            self.recent_detections_bool.pop(0)
-            if sum(self.recent_detections_bool) < 5:
+    def update_recent_assignments(self, assigned_det: np.ndarray):
+        self.recent_assigned_detections.append(assigned_det)
+        if len(self.recent_assigned_detections) > 15:
+            self.recent_assigned_detections.pop(0)
+            if sum([not np.isnan(det[0]) for det in self.recent_assigned_detections]) < 5:
                 self.coasted = True
 
     def predict(self, t):
         self.kf.predict()
 
-    def update(self, measurement, t: float):
-        self.kf.update(measurement)
+    def update(self, detection, t):
+        self.kf.update(detection)
         self.tentative = True
 
-    def position(self):
+    def get_position(self):
         return self.kf.x[:2]
 
-    def velocity(self):
+    def get_velocity(self):
         return self.kf.x[2:]
 
 
@@ -97,8 +102,11 @@ class MultiObjectTracking:
         6. Deleting tracks if they have remained unassigned (coasted) for too long.
         ***************************************
     """
-    def __init__(self):
+    def __init__(self, sensor_fps):
         self._tracks = []
+        self._track_id_counter = 0  # track ids start from 1
+        self.last_timestamp = 0
+        self.sensor_dt = 1. / sensor_fps
 
         # parameters
         # =======================================
@@ -117,6 +125,10 @@ class MultiObjectTracking:
         self.confirmationThreshold = [6, 10]
         # -----------------------------------------
 
+    def _get_new_track_id_(self):
+        self._track_id_counter += 1
+        return self._track_id_counter
+
     def track(self, detections, t: float):
         """
         :param detections: new detections provided by object detector
@@ -126,13 +138,12 @@ class MultiObjectTracking:
 
         for track_i in self._tracks:
             # 1) ****** Predict the state of each track ******
-            # print('before predict = ', track_i.kf.x)
-            track_i.predict(t)
+            track_i.predict(t)  # todo: Warning: remove coasted tracks
 
         active_tracks = [tr for tr in self._tracks if not tr.coasted]
         if len(active_tracks) == 0 and len(detections) > 0:
-            track_0 = KalmanBasedTrack(dt=0.1)
-            track_0.initialize_track_state(detections[0])
+            track_0 = KalmanBasedTrack(self._get_new_track_id_(), self.sensor_dt)
+            track_0.init_track_state(detections[0])
             track_0.predict(t)
             # to assign this track to first detection
             self._tracks.append(track_0)
@@ -160,16 +171,16 @@ class MultiObjectTracking:
                     track_i.recent_detections.append(track_i.kf.x[:2])
                 else:
                     # for detections without any track in a `epsilon` distance: create new track
-                    track_i = KalmanBasedTrack(dt=0.1)
+                    track_i = KalmanBasedTrack(self._get_new_track_id_(), self.sensor_dt)
                     self._tracks.append(track_i)
-                    track_i.initialize_track_state(det)
+                    track_i.init_track_state(det)
+                track_i.update_recent_assignments(det)
                 track_i.update(det, t)
-                track_i.update_recent_detections(True)
 
         # Todo: tracks that are not assigned with any detections
         unassigned_tracks = [active_tracks[i] for i in list_of_unassigned_tracks_idx]
         for track_i in unassigned_tracks:
-            track_i.update_recent_detections(False)
+            track_i.update_recent_assignments(np.array([np.nan, np.nan]))
 
         # unassigned_detections = detections.copy()
 
@@ -198,11 +209,11 @@ class MultiObjectTracking:
         #     track_i.recent_detections_bool.append(True)
         #     self._tracks.append(track_i)
 
+        self.last_timestamp = t
         return self._tracks
 
 
-
-
+# @deprecated
 class BlindObjectTracking:
     """
             ref: https://mathworks.com/help/driving/ug/multiple-object-tracking-tutorial.html
@@ -252,7 +263,7 @@ class BlindObjectTracking:
         active_tracks = [tr for tr in self._tracks if not tr.coasted]
         if len(active_tracks) == 0 and len(detections) > 0:
             track_0 = KalmanBasedTrack(dt=0.1)
-            track_0.initialize_track_state(detections[0])
+            track_0.init_track_state(detections[0])
             track_0.predict(t)
             # to assign this track to first detection
             self._tracks.append(track_0)
@@ -280,24 +291,24 @@ class BlindObjectTracking:
                 # for detections without any track in a `epsilon` distance: create new track
                 track_i = KalmanBasedTrack(dt=0.1)
                 self._tracks.append(track_i)
-                track_i.initialize_track_state(det)
+                track_i.init_track_state(det)
             track_i.update(det, t)
-            track_i.update_recent_detections(True)
+            track_i.update_recent_assignments(det)
 
         # Todo: tracks that are not assigned with any detections
         unassigned_tracks = [active_tracks[i] for i in list_of_unassigned_tracks_idx]
         for track_i in unassigned_tracks:
-            track_i.update_recent_detections(False)
+            track_i.update_recent_assignments(np.array([np.nan, np.nan]))
 
         return self._tracks
 
 
 if __name__ == '__main__':
-    tracker = KalmanBasedTrack(dt=0.1)
-    tracker.initialize_track_state([0, 0])
+    tracker = KalmanBasedTrack(0, dt=0.1)
+    tracker.init_track_state([0, 0])
 
     for i in range(10):
         tracker.kf.predict()
         x, y = i * 0.1, i * 0.1
-        tracker.update([x, y], )
-        print(tracker.kf.x)
+        tracker.update([x, y], i/10.)
+        print(tracker.get_position(), tracker.get_velocity())

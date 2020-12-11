@@ -15,9 +15,6 @@ from toolkit.loaders.loader_metafile import load_metafile
 
 
 class RealScenario(Scenario):
-    def step_crowd(self, dt):
-        raise Exception("TODO")
-
     def __init__(self):
         super(RealScenario, self).__init__()
         # Replay Agents data
@@ -42,7 +39,7 @@ class RealScenario(Scenario):
         self.dataset = kwargs.get("dataset", None)
         self.fps = kwargs.get("fps", 16)
         self.robot_replacement_id = kwargs.get("robot_id", -1)
-        biped = kwargs.get("biped", False)
+        biped_mode = kwargs.get("biped_mdoe", False)
 
     # def setup(self, config_file, biped):
     #     # ===========================================
@@ -66,11 +63,11 @@ class RealScenario(Scenario):
         # self.dataset = load_metafile(opentraj_root, metafile=dataset_metafile)
 
         # if kwargs.get("map_file"):
-        self.create_sim_frames(biped=biped, map_file="")
+        self.create_sim_frames(biped_mode=biped_mode, map_file="")
 
     def create_sim_frames(self, **kwargs):
         map_file = kwargs.get("map_file", "")
-        biped = kwargs.get("biped", False)
+        biped_mode = kwargs.get("biped_mode", False)
 
         # get frames in which the leader is present.
         self.frames = self.dataset.data['frame_id'].loc[
@@ -113,7 +110,7 @@ class RealScenario(Scenario):
         y_dim = y_max - y_min
         world_dim = [[x_min, x_max], [y_min, y_max]]
 
-        self.world = World(self.n_peds, self.n_robots, world_dim, "", biped)
+        self.world = World(self.n_peds, self.n_robots, world_dim, "", biped_mode)
 
         robot_state_t0 = self.dataset.data[['pos_x', 'pos_y', 'vel_x', 'vel_y']] \
             .loc[self.dataset.data['agent_id'] == self.robot_replacement_id].to_numpy()

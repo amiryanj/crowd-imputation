@@ -8,8 +8,9 @@ from followbot.robot_functions.robot import MyRobot
 
 
 class RobotReplaceHuman(MyRobot):
-    def __init__(self, robot_poss, robot_vels, worldPtr, numHypothesisWorlds=1):
-        super(RobotReplaceHuman, self).__init__(worldPtr, 1, numHypothesisWorlds)
+    def __init__(self, sensor_fps, robot_poss, robot_vels, worldPtr, numHypothesisWorlds=1):
+        super(RobotReplaceHuman, self).__init__(worldPtr, prefSpeed=1, sensor_fps=sensor_fps,
+                                                numHypothesisWorlds=numHypothesisWorlds)
         self.replaced_ped_id = []  # will be used depending on the task
         self.robot_poss = robot_poss
         self.robot_vels = robot_vels

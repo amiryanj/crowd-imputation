@@ -2,7 +2,7 @@ simulation:
     sim_model: 'powerlaw'
     flow_2d: True
     n_pedestrians: 40
-    biped: True
+    biped_mode: True
 
 robot:
     distance_to_leader: 0.4 # meter

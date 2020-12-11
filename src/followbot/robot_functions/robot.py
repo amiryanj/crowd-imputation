@@ -33,7 +33,7 @@ def trapezoidal_motion_profile(loc, goal, pref_speed, deceleration_dist=1.0):
 
 
 class MyRobot:
-    def __init__(self, worldPtr, prefSpeed=1.0, numHypothesisWorlds=1):
+    def __init__(self, worldPtr, prefSpeed, sensor_fps, numHypothesisWorlds=1):
         self.real_world = worldPtr  # pointer to world
 
         # robot dynamic properties
@@ -50,7 +50,7 @@ class MyRobot:
         # child objects that do some function
         self.lidar = LiDAR2D(robot_ptr=self)
         self.ped_detector = PedestrianDetection(self.lidar.range_max, np.deg2rad(1 / self.lidar.resolution))
-        self.tracker = MultiObjectTracking()
+        self.tracker = MultiObjectTracking(sensor_fps)
 
         # Robot Goal: can be static/dynamic object: e.g. fixed point / leader person
         self.goal = [0, 0]
@@ -79,7 +79,7 @@ class MyRobot:
                                    n_channels=1, dtype=np.float)
         walkable_map.fill(1)
 
-        self.lidar_segments = []
+        self.lidar_clusters = []
         self.detected_peds = []
         self.tracks = []
         self.hypothesis_worlds = [RobotWorld() for _ in range(numHypothesisWorlds)]

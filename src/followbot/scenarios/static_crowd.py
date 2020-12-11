@@ -75,7 +75,7 @@ class StaticCorridorScenario(CorridorScenario):
         self.n_peds = len(ped_poss)  # the random algorithm may return a different number of agents than what is asked
 
         world_dim = [[0, self.corridor_len], [-self.corridor_len/2, self.corridor_len/2]]
-        self.world = World(self.n_peds, self.n_robots, world_dim, biped=False)
+        self.world = World(self.n_peds, self.n_robots, world_dim, biped_mode=False)
         self.world.sim.initSimulation(self.n_peds + 1)
 
         self.world.obstacles = self.world.sim.obstacles

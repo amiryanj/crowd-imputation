@@ -19,10 +19,15 @@ class HermesScenario(RealScenario):
     def __init__(self):
         super(HermesScenario, self).__init__()
 
-    def setup_with_config_file(self, config_file):
+    def setup_with_config_file(self, config_file, **kwargs):
+        """
+        :param config_file: address to config file which contains scenario parameters
+        :param kwargs: you can override the parameters in the config file , by passing them directly
+        :return:
+        """
         with open(config_file) as stream:
             config = yaml.load(stream, Loader=yaml.FullLoader)
-            biped_mode = config['General']['biped']
+            biped_mode = config['General']['biped_mode']
             # opentraj_root = config['Dataset']['OpenTrajRoot']
             robot_replacement_id = config['Dataset']['RobotId']
             obstacles = config['Dataset']['Map']
@@ -30,21 +35,26 @@ class HermesScenario(RealScenario):
             annotation_file = config['Dataset']['Annotation']
             dataset = load_bottleneck(annotation_file)
             self.video_files = config['Dataset']['Video']
+        # override parameters by user
+        dataset = kwargs.get("dataset", dataset)
+        fps = kwargs.get("fps", fps)
+        robot_replacement_id = kwargs.get("robot_id", robot_replacement_id)
+        biped_mode = kwargs.get("biped_mode", biped_mode)
 
-        self.setup(dataset=dataset, fps=fps, robot_id=robot_replacement_id, obstacles=obstacles, biped=biped_mode)
+        self.setup(dataset=dataset, fps=fps, robot_id=robot_replacement_id, obstacles=obstacles, biped_mode=biped_mode)
 
     def setup(self, **kwargs):
         self.dataset = kwargs.get("dataset", None)
         self.fps = kwargs.get("fps", 16)
         self.robot_replacement_id = kwargs.get("robot_id", -1)
-        biped = kwargs.get("biped", False)
+        biped_mode = kwargs.get("biped_mode", False)
 
         # rotate 90 degree
         transform = np.array([[0, 1, 0],
                               [1, 0, 0],
                               [0, 0, 1]])
         self.dataset.apply_transformation(transform, inplace=True)
-        self.create_sim_frames(biped=biped)
+        self.create_sim_frames(biped_mode=biped_mode)
 
         # exp_dimensions = re.split('-|\.', annotation_file)[-4:-1]
         obstacles = kwargs.get("obstacles", [])
@@ -57,6 +67,8 @@ class HermesScenario(RealScenario):
         #     line_objs = corridor_map(int(exp_dimensions[1]) / 100., int(exp_dimensions[2]) / 100.)
         # for line_obj in line_objs:
         #     self.world.add_obstacle(line_obj)
+    def step_crowd(self, dt):
+        raise Exception("Not implemented")
 
 
 def corridor_map(width, bottleneck):
@@ -68,6 +80,8 @@ def corridor_map(width, bottleneck):
     stand_t = Line((-4, width), (-4, width+1))
     lines = [wall_b, wall_t, bottleneck_b, bottleneck_t]
     return lines
+
+
 
 
 if __name__ == "__main__":

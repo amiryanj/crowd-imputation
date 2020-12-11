@@ -97,7 +97,7 @@ class CorridorScenario(SimulationScenario):
                      [-self.corridor_wid / 2, self.corridor_wid / 2]]
         ped_locs, ped_goals, self.group_ids = self.setup_agents(world_dim)
 
-        self.world = World(self.n_peds, self.n_robots, world_dim=world_dim, biped=False)
+        self.world = World(self.n_peds, self.n_robots, world_dim=world_dim, biped_mode=False)
         self.setup_crowd_sim()
         self.grouping_behavior_handler = GroupingBehavior(self.group_ids)
 

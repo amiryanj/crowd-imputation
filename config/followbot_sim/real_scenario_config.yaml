@@ -1,7 +1,6 @@
 General:
-   biped: True
-   False: True
    resolution_dpm: 100
+   biped_mode: True
 
 ## ETH Univ
 #Dataset:
@@ -63,5 +62,5 @@ Dataset:
       - [-4.5, 3.6, 4.5, 3.6]
    # Map: []
 
-   RobotId: 35
+   RobotId: 5
    Parser: ParserHermes

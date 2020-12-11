@@ -20,7 +20,7 @@ class RoundTrip(SimulationScenario):
     def setup(self, sim_model, flow_2d=True):  # 1D flow / 2D flow
         k_in_each_corridor = self.n_peds // 4
         world_dim = [[-self.outer_dim, self.outer_dim], [-self.outer_dim, self.outer_dim]]
-        self.world = World(self.n_peds, self.n_robots, sim_model, biped=True)
+        self.world = World(self.n_peds, self.n_robots, sim_model, biped_mode=True)
         # world.pref_speed = 1.5  # FIXME : set it for sim as well
 
         # NOTE Symmetric with center at (0, 0)
