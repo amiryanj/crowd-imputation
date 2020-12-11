@@ -4,6 +4,7 @@
 import numpy as np
 from dr_spaam.detector import Detector
 import dr_spaam.utils.utils as u
+import os
 default_ckpts = "/home/cyrus/workspace2/DROW/DR-SPAAM-Detector/ckpts/dr_spaam_e40.pth"
 
 
@@ -11,6 +12,8 @@ class DrSpaamDetector:
     def __init__(self, num_pts, ang_inc_degree=0.5, tracking=False, gpu=True, ckpt=default_ckpts):
         # Detector class wraps up preprocessing, inference, and postprocessing for DR-SPAAM.
         # Checkout the comment in the code for meanings of the parameters.
+        if not os.path.exists(ckpt):
+            raise ValueError("the checkpoint file for DR-SPAAM is not valid")
         self.detector = Detector(
             model_name="DR-SPAAM",
             ckpt_file=ckpt,
