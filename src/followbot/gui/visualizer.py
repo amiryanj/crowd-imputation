@@ -42,7 +42,7 @@ class Visualizer:
         pygame.font.init()  # you have to call this at the start, # if you want to use this module.
         self.font = pygame.font.SysFont('Comic Sans MS', 20)
 
-        win_size = (1200, 960)  # FixMe
+        win_size = (1200, 920)  # FixMe
         flags = pygame.DOUBLEBUF  # | pygame.FULLSCREEN
         self.win = pygame.display.set_mode(win_size, flags)
 
@@ -196,10 +196,13 @@ class Visualizer:
         # Draw Pedestrians
         for ii in range(len(self.world.crowds)):
             self.draw_circle(self.world.crowds[ii].pos, 8, self.world.crowds[ii].color, width=1)
+            self.draw_line(self.world.crowds[ii].pos, self.world.crowds[ii].pos + self.world.crowds[ii].vel * 0.5,
+                           MAGENTA_COLOR, 2)
             self.draw_trigon(self.world.crowds[ii].pos, self.world.crowds[ii].orien(), 7,
                              LIGHT_GREY_COLOR)  # orien triangle
             self.draw_lines(self.world.crowds[ii].trajectory, DARK_GREEN_COLOR + (100,), 3)  # track of robot
-            if self.world.crowds[ii].biped:  # if we use the biped model for pedestrians
+
+            if self.world.crowds[ii].biped_mode:  # if we use the biped model for pedestrians
                 ped_geo = self.world.crowds[ii].geometry()
                 self.draw_circle(ped_geo.center1, 4, SKY_BLUE_COLOR)
                 self.draw_circle(ped_geo.center2, 4, MAGENTA_COLOR)
@@ -231,21 +234,21 @@ class Visualizer:
                 bs_map = np.clip(np.fliplr(robot.blind_spot_map.data), a_min=0, a_max=255)
                 bs_map = imresize(bs_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
                 bs_map = np.stack([255 - bs_map, 255 - bs_map, 255 - bs_map], axis=2)
-                # self.draw_image(bs_map, 40, view_index=(ii + 1, 0))
+                self.draw_image(bs_map, 40, view_index=(ii + 1, 0))
 
                 # show Crowd-Flow-Map as a background image
                 if ii == 0:
                     cf_map = np.clip(np.fliplr(robot.crowd_flow_map.data[:, :]), a_min=0, a_max=255)
                     cf_map = imresize(cf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
                     cf_map = np.stack([255 - cf_map, np.zeros_like(cf_map), cf_map], axis=2)
-                    # self.draw_image(cf_map, 60, view_index=(ii + 1, 0))
+                    self.draw_image(cf_map, 60, view_index=(ii + 1, 0))
 
                 # show Link-Pdf-Map as a background image
                 if ii == 1:
-                    link_pdf_map = np.clip(np.fliplr(robot.blind_spot_projector.cartesian_link_pdf_total.data), a_min=0, a_max=255)
+                    link_pdf_map = np.clip(np.fliplr(robot.blind_spot_projector.social_ties_cartesian_pdf_aggregated.data), a_min=0, a_max=255)
                     link_pdf_map = imresize(link_pdf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
                     link_pdf_map = np.stack([link_pdf_map, link_pdf_map, np.zeros_like(link_pdf_map)], axis=2)
-                    # self.draw_image(link_pdf_map, 100, view_index=(ii + 1, 0))
+                    self.draw_image(link_pdf_map, 100, view_index=(ii + 1, 0))
 
                 # Draw robot
                 self.draw_circle(robot.pos, 8, BLACK_COLOR, view_index=(ii + 1, 0))
@@ -263,11 +266,11 @@ class Visualizer:
                 # draw tracks
                 for track in robot.tracks:
                     if track.coasted: continue
-                    self.draw_circle(track.position(), 8, GREEN_COLOR, view_index=(ii + 1, 0))
+                    self.draw_circle(track.get_position(), 8, GREEN_COLOR, view_index=(ii + 1, 0))
                     if len(track.recent_detections) >= 2:
                         self.draw_lines(track.recent_detections, WHITE_COLOR, 1, view_index=(ii + 1, 0))
 
-                    self.draw_line(track.position(), track.position() + track.velocity(),
+                    self.draw_line(track.get_position(), track.get_position() + track.get_velocity() * 0.5,
                                    MAGENTA_COLOR, 2, view_index=(ii + 1, 0))
 
                 # Draw detected agents
@@ -277,7 +280,7 @@ class Visualizer:
                 for jj in range(len(hypothesis.crowds)):
                     if hypothesis.crowds[jj].synthetic:
                         self.draw_circle(hypothesis.crowds[jj].pos, 5, SKY_BLUE_COLOR, view_index=(ii + 1, 0))
-                        self.draw_line(hypothesis.crowds[jj].pos, hypothesis.crowds[jj].pos + hypothesis.crowds[jj].vel,
+                        self.draw_line(hypothesis.crowds[jj].pos, hypothesis.crowds[jj].pos + hypothesis.crowds[jj].vel * 0.5,
                                        MAGENTA_COLOR, view_index=(ii + 1, 0))
 
         # pygame.display.flip()

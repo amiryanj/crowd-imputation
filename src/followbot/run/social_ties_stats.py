@@ -154,15 +154,15 @@ for dataset in datasets:
 
     p = SocialTiePDF(max_distance, radial_resolution=4, angular_resolution=36)
     p.add_links(strong_ties)
-    p.update_histogram(smooth=False)
+    p.update_pdf(smooth=False)
 
     # Compute Histogram
-    pk = p.polar_link_pdf.copy()
+    pk = p.strong_ties_pdf_polar.copy()
     # H_p = entropy(pk=pk.reshape(-1, 1)) / np.log(pk.size)
     # print("Entropy of Link Distribution(%) = ", H_p)
 
     # considering area of each bin
-    area_k = np.tile(np.pi * np.diff(p.rho_edges ** 2) / (len(p.theta_edges) - 1), (p.polar_link_pdf.shape[1], 1)).T
+    area_k = np.tile(np.pi * np.diff(p.rho_edges ** 2) / (len(p.theta_edges) - 1), (p.strong_ties_pdf_polar.shape[1], 1)).T
     H_p_w = -np.nansum(np.log(pk / area_k) * pk)
     H_p_max = np.log(np.sum(area_k))
     print("Entropy of Link Distribution(%) = ", H_p_w / H_p_max)

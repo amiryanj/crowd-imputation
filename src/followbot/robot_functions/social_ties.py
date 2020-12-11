@@ -16,7 +16,7 @@ from followbot.robot_functions.flow_classifier import FlowClassifier
 from followbot.util.mapped_array import MappedArray
 
 
-def polar2cartesian(r, t, grid, x, y, order=3):
+def polar2cartesian(r, t, grid, x, y, cval, order=3):
     X, Y = np.meshgrid(x, y)
 
     new_r = np.sqrt(X*X+Y*Y)
@@ -31,7 +31,8 @@ def polar2cartesian(r, t, grid, x, y, order=3):
     new_ir[new_r.ravel() > r.max()] = len(r)-1
     new_ir[new_r.ravel() < r.min()] = 0
 
-    return map_coordinates(grid, np.array([new_ir, new_it]), order=order, mode='wrap').reshape(new_r.shape).T
+    map2cart = map_coordinates(grid, np.array([new_ir, new_it]), order=order, cval=cval, mode='constant').reshape(new_r.shape).T
+    return map2cart
 
 
 # Todo : Add Strong/Absent PDFs
@@ -40,82 +41,111 @@ class SocialTiePDF:
         This class will compute the probability distribution of social ties
         and will return a random sample on demand
     """
-    def __init__(self, max_distance=6, radial_resolution=2, angular_resolution=36):
-        self.pairwise_distances = []
+    def __init__(self, max_distance=6, radial_resolution=4, angular_resolution=36):
+        self.strong_ties = []
+        self.absent_ties = []
 
         # the pairwise distances in the pool are each assigned a weight that will get smaller as time goes
         # this permits the system to forget too old data
         self.pairwise_distance_weights = np.zeros(0, dtype=np.float64)
         self.weight_decay_factor = 0.25  # (fading memory control) per second
 
-        # histogram
+        # histogram setup
         self.rho_edges = np.linspace(0, max_distance, max_distance * radial_resolution + 1)
         self.theta_edges = np.linspace(-np.pi, np.pi, angular_resolution + 1)
         self.rho_bin_midpoints = self.rho_edges[:-1] + np.diff(self.rho_edges) / 2
         self.theta_bin_midpoints = self.theta_edges[:-1] + np.diff(self.theta_edges) / 2
-        self.polar_link_pdf = np.zeros((len(self.rho_edges) - 1, len(self.theta_edges) - 1))
-        self.hist_cum = np.cumsum(np.ones(self.polar_link_pdf.size) / self.polar_link_pdf.size)
+        pdf_num_elements = len(self.rho_bin_midpoints) * len(self.theta_bin_midpoints)
+
+        self.strong_ties_pdf_polar = np.zeros((len(self.rho_bin_midpoints), len(self.theta_bin_midpoints)))
+        self.strong_ties_pdf_polar_cum = np.cumsum(np.ones(pdf_num_elements) / pdf_num_elements)
+
+        self.absent_ties_pdf_polar = np.zeros((len(self.rho_bin_midpoints), len(self.theta_bin_midpoints)))
+        self.absent_ties_pdf_polar_cum = np.cumsum(np.ones(pdf_num_elements) / pdf_num_elements)
 
         # cumulative distribution function of pairwise links in cartesian coord system
-        self.cartesian_link_pdf_total = MappedArray(0, 10, 0, 10, 1)
+        self.social_ties_cartesian_pdf_aggregated = np.zeros((1, 1))  # will be calculated later
 
-        # plot
+        # debug/visualization
         self.fig = None
         self.axes = []
 
-    def load_prior_pdf_from_file(self, fname):
+    def load_prior_pdfs_from_file(self, fname):
         raise Exception('Todo: Implement here!')
 
     def add_frame(self, agents_loc, agents_vel, agents_flow_class, dt):
-        new_pairs = []
+        new_strong_ties = []
+        new_absent_ties = []
         for ii in range(len(agents_loc)):
             for jj in range(len(agents_loc)):
                 if ii == jj: continue
+                dp = agents_loc[jj] - agents_loc[ii]
+                alpha = np.arctan2(dp[1], dp[0]) - np.arctan2(agents_vel[ii][1], agents_vel[ii][0])
+                if alpha > np.pi:
+                    alpha -= 2 * np.pi
+                # alpha = np.arctan2(dp[1], dp[0])
+                # alpha = np.arccos(np.dot(dp, agents_vel[ii]) / (norm(dp) * norm(agents_vel[ii]) + 1E-6))
                 if agents_flow_class[ii].id == agents_flow_class[jj].id:
-                    dp = agents_loc[jj] - agents_loc[ii]
-                    # alpha = np.arctan2(dp[1], dp[0])
-                    # alpha = np.arccos(np.dot(dp, agents_vel[ii]) / (norm(dp) * norm(agents_vel[ii]) + 1E-6))
-                    alpha = np.arctan2(dp[1], dp[0]) - np.arctan2(agents_vel[ii][1], agents_vel[ii][0])
-                    if alpha > np.pi: alpha -= 2 * np.pi
+                    new_strong_ties.append(np.array([norm(dp), alpha]))
+                else:
+                    new_absent_ties.append(np.array([norm(dp), alpha]))
 
-                    # if -np.pi / 2 < alpha <= np.pi / 2:  # FixMe
-                    new_pairs.append(np.array([norm(dp), alpha]))
-
-        if len(self.pairwise_distance_weights):
-            self.pairwise_distance_weights *= (1 - self.weight_decay_factor) ** dt  # (t - self.last_t)
-            self.pairwise_distances = np.concatenate((self.pairwise_distances, np.array(new_pairs).reshape((-1, 2))), axis=0)
+        if len(self.strong_ties):
+            self.strong_ties = np.concatenate((self.strong_ties, np.array(new_strong_ties).reshape((-1, 2))), axis=0)
         else:
-            self.pairwise_distances = np.array(new_pairs)
-        self.pairwise_distance_weights = np.append(self.pairwise_distance_weights, np.ones(len(new_pairs)))
+            self.strong_ties = np.array(new_strong_ties)
 
-        non_decayed_distances = self.pairwise_distance_weights > 0.2
-        self.pairwise_distances = self.pairwise_distances[non_decayed_distances]
-        self.pairwise_distance_weights = self.pairwise_distance_weights[non_decayed_distances]
+        if len(self.absent_ties):
+            self.absent_ties = np.concatenate((self.absent_ties, np.array(new_absent_ties).reshape((-1, 2))), axis=0)
+        else:
+            self.absent_ties = np.array(new_absent_ties)
+
+        # self.pairwise_distance_weights *= (1 - self.weight_decay_factor) ** dt  # (t - self.last_t)
+        # self.pairwise_distance_weights = np.append(self.pairwise_distance_weights, np.ones(len(new_strong_ties)))
+        # non_decayed_distances = self.pairwise_distance_weights > 0.2
+        # self.pairwise_distance_weights = self.pairwise_distance_weights[non_decayed_distances]
+        # self.strong_ties = self.strong_ties[non_decayed_distances]
 
     def add_links(self, links_polar):
-        self.pairwise_distances = np.concatenate((np.array(self.pairwise_distances).reshape(-1, 2),
-                                                  np.array(links_polar).reshape((-1, 2))), axis=0)
+        self.strong_ties = np.concatenate((np.array(self.strong_ties).reshape(-1, 2),
+                                           np.array(links_polar).reshape((-1, 2))), axis=0)
         self.pairwise_distance_weights = np.append(self.pairwise_distance_weights, np.ones(len(links_polar)))
 
-    def update_histogram(self, smooth=True):
-        if not len(self.pairwise_distances):
-            return  # no pairwise data is available
+    def update_pdf(self, smooth=True):
+        if len(self.strong_ties):
+            self.strong_ties_pdf_polar, _, _ = np.histogram2d(x=self.strong_ties[:, 0],  # r
+                                                              y=self.strong_ties[:, 1],  # theta (bearing angle)
+                                                              bins=[self.rho_edges, self.theta_edges],
+                                                              # weights=self.pairwise_distance_weights,
+                                                              density=True)
+            self.strong_ties_pdf_polar /= (np.sum(self.strong_ties_pdf_polar) + 1E-6)  # normalize
+            self.strong_ties_pdf_polar_cum = np.cumsum(self.strong_ties_pdf_polar.ravel())
 
-        self.polar_link_pdf, _, _ = np.histogram2d(x=self.pairwise_distances[:, 0],  # r
-                                                   y=self.pairwise_distances[:, 1],  # theta (bearing angle)
-                                                   bins=[self.rho_edges, self.theta_edges],
-                                                   weights=self.pairwise_distance_weights,
-                                                   density=True)
+            self.absent_ties_pdf_polar, _, _ = np.histogram2d(x=self.absent_ties[:, 0],  # r
+                                                              y=self.absent_ties[:, 1],  # theta (bearing angle)
+                                                              bins=[self.rho_edges, self.theta_edges],
+                                                              # weights=self.pairwise_distance_weights,
+                                                              density=True)
+            self.absent_ties_pdf_polar /= (np.sum(self.absent_ties_pdf_polar) + 1E-6)
+            self.absent_ties_pdf_polar_cum = np.cumsum(self.absent_ties_pdf_polar.ravel())
 
-        self.polar_link_pdf /= (np.sum(self.polar_link_pdf) + 1E-6)
-        self.hist_cum = np.cumsum(self.polar_link_pdf.ravel())
-        # self.hist_cum /= self.hist_cum[-1]
+            # normalizing the pdfs to have a mean=1: to get rid of padding when extrapolating to the whole map
+            self.strong_ties_pdf_polar /= np.mean(self.strong_ties_pdf_polar)
+            self.absent_ties_pdf_polar /= np.mean(self.absent_ties_pdf_polar)
+
         if smooth:
-            self.polar_link_pdf = gaussian_filter(self.polar_link_pdf, sigma=1)  # does not invalidate the distribution
+            # note: smoothing does not invalidate the distribution (sum=1)
+            self.strong_ties_pdf_polar = gaussian_filter(self.strong_ties_pdf_polar, sigma=1)
+            self.absent_ties_pdf_polar = gaussian_filter(self.absent_ties_pdf_polar, sigma=1)
+
+        # min dist compliance: the probability of being an agent closer to (0.5m) to another agent should be zero!
+        m = 2  # fixme
+        self.strong_ties_pdf_polar[:m, :] = 0
+        self.absent_ties_pdf_polar[:m, :] = 0
 
     def get_sample(self, n=1):
         rand_num = np.random.random(n)
-        value_bins = np.searchsorted(self.hist_cum, rand_num)
+        value_bins = np.searchsorted(self.strong_ties_pdf_polar_cum, rand_num)
 
         rho_idx, theta_idx = np.unravel_index(value_bins, (len(self.rho_bin_midpoints), len(self.theta_bin_midpoints)))
         random_from_cdf = np.column_stack((self.rho_bin_midpoints[rho_idx],
@@ -131,101 +161,101 @@ class SocialTiePDF:
         rho_idx = np.searchsorted(self.rho_edges, rho)
         theta_idx = np.searchsorted(self.theta_edges, theta)
         if rho_idx < len(self.rho_edges) - 1:
-            return self.polar_link_pdf[rho_idx][theta_idx] * self.polar_link_pdf.size * \
+            return self.strong_ties_pdf_polar[rho_idx][theta_idx] * self.strong_ties_pdf_polar.size * \
                    (1 + np.sqrt(rho))  # decrease the impact for longer links
         else:
             return 1  # very long links are not unlikely
+
+
+
+    def _aggregate_to_virtual_pdf_(self, pos_i, vel_i, crowd_flow_map: MappedArray):
+        # convert polar to cartesian by interpolation
+        # the resolution should be similar to the one of mapped_arrays
+        resol = crowd_flow_map.resolution
+        xx = np.linspace(-self.rho_edges[-1], self.rho_edges[-1], self.rho_edges[-1] * 2 * resol)
+        yy = np.linspace(-self.rho_edges[-1], self.rho_edges[-1], self.rho_edges[-1] * 2 * resol)
+
+        # Rotate the tie_pdf toward the face of each agent
+        orien_i = np.arctan2(vel_i[1], vel_i[0])
+
+        # the rotation is done by simply shifting the polar pdf
+        n_shifts = int(round(orien_i / np.diff(self.theta_edges[:2])[0]))
+        if n_shifts != 0:
+            # rotate the polar link distribution it toward agent face
+            rotated_strong_ties_pdf_polar = np.roll(self.strong_ties_pdf_polar, -n_shifts, axis=1)
+            rotated_absent_ties_pdf_polar = np.roll(self.absent_ties_pdf_polar, -n_shifts, axis=1)
+        else:
+            rotated_strong_ties_pdf_polar = self.strong_ties_pdf_polar
+            rotated_absent_ties_pdf_polar = self.absent_ties_pdf_polar
+
+        # convert polar to cartesian by interpolation
+        strong_ties_pdf_cartesian = polar2cartesian(self.rho_edges, self.theta_edges,
+                                                    rotated_strong_ties_pdf_polar, xx, yy, cval=1, order=2)
+        absent_ties_pdf_cartesian = polar2cartesian(self.rho_edges, self.theta_edges,
+                                                    rotated_absent_ties_pdf_polar, xx, yy, cval=1, order=2)
+        # after conversion there are some negative values!
+        strong_ties_pdf_cartesian = np.clip(strong_ties_pdf_cartesian, a_min=0, a_max=1000)
+        absent_ties_pdf_cartesian = np.clip(absent_ties_pdf_cartesian, a_min=0, a_max=1000)
+
+        agent_flow_class_id = crowd_flow_map.get(pos_i)
+        # this agent can have a strong link to a (virtual) agent in the areas with the same flow_class
+        # and can have absent link to a (virtual) agent in the areas with a different flow_class
+        flow_mate_area = np.zeros(crowd_flow_map.data.shape, np.uint8)
+        flow_mate_area[crowd_flow_map.data == agent_flow_class_id] = 1
+
+        # to multiply the current pdf (which is centered on agent[i]):
+        # we need to translate and (maybe) crop the pdf
+        src_shape = strong_ties_pdf_cartesian.shape
+        dst_shape = self.social_ties_cartesian_pdf_aggregated.data.shape
+        agent_origin_u, agent_origin_v = crowd_flow_map.map(pos_i[0], pos_i[1])
+        offset = [agent_origin_u - src_shape[0] // 2, agent_origin_v - src_shape[1] // 2]
+        crop = [[max(0, -offset[0]), max(0, offset[0] + src_shape[0] - dst_shape[0])],
+                [max(0, -offset[1]), max(0, offset[1] + src_shape[1] - dst_shape[1])]]
+
+        self.social_ties_cartesian_pdf_aggregated.data[offset[0] + crop[0][0]:offset[0] - crop[0][1] + src_shape[0],
+        offset[1] + crop[1][0]:offset[1] - crop[1][1] + src_shape[1]] \
+            = self.social_ties_cartesian_pdf_aggregated.data[
+              offset[0] + crop[0][0]:offset[0] - crop[0][1] + src_shape[0],
+              offset[1] + crop[1][0]:offset[1] - crop[1][1] + src_shape[1]] \
+              * (strong_ties_pdf_cartesian[crop[0][0]:src_shape[0] - crop[0][1], crop[1][0]:src_shape[1] - crop[1][1]]
+                 * flow_mate_area[offset[0] + crop[0][0]:offset[0] - crop[0][1] + src_shape[0],
+                   offset[1] + crop[1][0]:offset[1] - crop[1][1] + src_shape[1]]
+
+                 + absent_ties_pdf_cartesian[crop[0][0]:src_shape[0] - crop[0][1], crop[1][0]:src_shape[1] - crop[1][1]]
+                 * (1 - flow_mate_area[offset[0] + crop[0][0]:offset[0] - crop[0][1] + src_shape[0],
+                        offset[1] + crop[1][0]:offset[1] - crop[1][1] + src_shape[1]]))
+
+
+
 
     def synthesis(self, in_agent_locs, in_agent_vels,
                   walkable_map: MappedArray = None,
                   blind_spot_map: MappedArray = None,
                   crowd_flow_map: MappedArray = None):
-        agent_states = np.concatenate([in_agent_locs, in_agent_vels], axis=1).tolist()
+        synthetic_agents = []
+        all_agents = np.concatenate([in_agent_locs, in_agent_vels], axis=1).tolist()
 
-        # convert polar to cartesian using interpolation
-        # the resolution should be similar to the one of mapped_arrays
-        resol = blind_spot_map.resolution
-        xx = np.linspace(-self.rho_edges[-1], self.rho_edges[-1], self.rho_edges[-1] * 2 * resol)
-        yy = np.linspace(-self.rho_edges[-1], self.rho_edges[-1], self.rho_edges[-1] * 2 * resol)
-
-        # plt.figure()
         # plt.subplot(121)
         # plt.imshow(self.p_link_polar.T, interpolation='nearest')
-        #
         # plt.subplot(122)
         # plt.imshow(p_link_cartesian, interpolation='nearest')
-        # plt.show()
-        # exit(1)
+        # plt.pause()
 
         # accumulate all the
-        self.cartesian_link_pdf_total = blind_spot_map.copy_constructor()
-        self.cartesian_link_pdf_total.fill(0)
-        # plt.figure()
+        self.social_ties_cartesian_pdf_aggregated = blind_spot_map.copy_constructor()
+        self.social_ties_cartesian_pdf_aggregated.fill(1)
+        self.social_ties_cartesian_pdf_aggregated.data *= (1-blind_spot_map.data)
 
-        for ii, agent_i in enumerate(agent_states):
+        for ii, agent_i in enumerate(all_agents):
             pos_i = agent_i[0:2]
             vel_i = agent_i[2:4]
-            orien_i = np.arctan2(vel_i[1], vel_i[0])
-            n_shifts = int(round(orien_i / np.diff(self.theta_edges[:2])[0]))
-            if n_shifts != 0:
-                # rotate the polar link distribution it toward agent face
-                rotated_polar_link_prob = np.roll(self.polar_link_pdf, -n_shifts, axis=1)
-            else:
-                rotated_polar_link_prob = self.polar_link_pdf
-            p_link_cartesian = polar2cartesian(self.rho_edges, self.theta_edges, rotated_polar_link_prob, xx, yy, order=2)
-
-            src_shape = p_link_cartesian.shape
-            dst_shape = self.cartesian_link_pdf_total.data.shape
-            try:
-                ag_origin_u, ag_origin_v = blind_spot_map.map(pos_i[0], pos_i[1])
-                offset = [ag_origin_u - src_shape[0] // 2, ag_origin_v - src_shape[1] // 2]
-                crop = [[max(0, -offset[0]), max(0, offset[0]+src_shape[0] - dst_shape[0])],
-                        [max(0, -offset[1]), max(0, offset[1]+src_shape[1] - dst_shape[1])]]
-                self.cartesian_link_pdf_total.data[offset[0] + crop[0][0]:offset[0] - crop[0][1] + src_shape[0],
-                offset[1] + crop[1][0]:offset[1] - crop[1][1] + src_shape[1]] \
-                    = self.cartesian_link_pdf_total.data[offset[0] + crop[0][0]:offset[0] - crop[0][1] + src_shape[0],
-                      offset[1] + crop[1][0]:offset[1] - crop[1][1] + src_shape[1]] \
-                      + p_link_cartesian[crop[0][0]:src_shape[0] - crop[0][1],
-                        crop[1][0]:src_shape[1] - crop[1][1]]
-            except:
-                print("Bug in link probability calculation")
-
+            self._aggregate_to_virtual_pdf_(pos_i, vel_i, crowd_flow_map)
             # if ii > 1: break
 
-        # plt.pause(0.1)
-
-        synthetic_agents = []
-        n_tries = 12
+        n_tries = 5
         for i in range(n_tries):
-            suggested_loc = self.cartesian_link_pdf_total.sample_random_pos()
-
-        # for i in range(n_tries):
-        #     random_anchor = agent_states[np.random.randint(0, len(agent_states))]
-        #     random_displacement = self.get_sample(1).squeeze()
-        #     suggested_loc = random_anchor[:2] + random_displacement
-
-            #  check if the point falls inside the walkable_map area
-            # if walkable_map and not walkable_map.get(suggested_loc):
-            #     continue
-
-            #  check if it falls inside the blind spot area
-            if blind_spot_map and not blind_spot_map.get(suggested_loc):
-                continue
-
-            #  and also check if it falls in the same flow class area
-            # if crowd_flow_map.get(random_anchor) != crowd_flow_map.get(suggested_loc):
-            #     continue
-
+            suggested_loc = self.social_ties_cartesian_pdf_aggregated.sample_random_pos()
             accept_suggested_loc = True
-            for agent_i in agent_states:
-                link_i = np.array(suggested_loc) - np.array(agent_i[:2])
-                if np.linalg.norm(link_i) < 0.5:  # this violate the min distance between 2 agents
-                    accept_suggested_loc = False  # REJECT
-                    break
-            #     link_i_likelihood = self.likelihood(link_i)  # multiplied by the size of array
-            #     if link_i_likelihood < 0.5:
-            #         accept_suggested_loc = False  # REJECT
-            #         break
             if accept_suggested_loc:
                 print(int(round(crowd_flow_map.get(suggested_loc))))
                 suggested_vel = FlowClassifier().preset_flow_classes[int(round(crowd_flow_map.get(suggested_loc)))].velocity
@@ -233,13 +263,15 @@ class SocialTiePDF:
                 new_ped.color = SKY_BLUE_COLOR
                 synthetic_agents.append(new_ped)
 
-                agent_states.append(suggested_loc)  # cuz: this agent should be considered when synthesising next agent
+                all_agents.append(suggested_loc)  # cuz: this agent should be considered when synthesising next agent
+                self._aggregate_to_virtual_pdf_(suggested_loc, suggested_vel, crowd_flow_map)
         return synthetic_agents
+
 
     def plot(self, title=""):
         # Debug: plot polar heatmap
-        angular_hist = np.sum(self.polar_link_pdf, axis=0)
-        dist_hist = np.sum(self.polar_link_pdf, axis=1)
+        angular_hist = np.sum(self.strong_ties_pdf_polar, axis=0)
+        dist_hist = np.sum(self.strong_ties_pdf_polar, axis=1)
 
         if not len(self.axes):
             self.fig = plt.figure()
@@ -256,7 +288,7 @@ class SocialTiePDF:
             # self.axes[1, 0] = self.fig.add_subplot(212)
 
         self.axes[0][0].clear()
-        polar_plot = self.axes[0][0].pcolormesh(self.theta_edges, self.rho_edges, self.polar_link_pdf, vmin=0,
+        polar_plot = self.axes[0][0].pcolormesh(self.theta_edges, self.rho_edges, self.strong_ties_pdf_polar, vmin=0,
                                                 cmap='YlGnBu')
         self.axes[0][0].set_ylabel("Polar Histogram of Links", labelpad=40)
         if len(title):
