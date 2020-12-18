@@ -30,6 +30,7 @@ VIDEO_ENABLED = False
 TRACKING_ENABLED = True
 SYNTHESIS_ENABLED = True
 NUM_HYPOTHESES = 2
+EXP_DATA_PATH = os.path.abspath(__file__ + "../../../../../data/prior-social-ties")
 
 RAND_SEED = 4
 np.random.seed(RAND_SEED)
@@ -90,6 +91,10 @@ def exec_scenario(scenario):
 
     frame_id = -1
     robot.blind_spot_projector = SocialTiePDF()
+    try:
+        robot.blind_spot_projector.load_pdf(os.path.join(EXP_DATA_PATH, scenario.title + '.npz'), smooth=True)
+    except ValueError:
+        print("WARNING")
 
     # ****************** Program Loop *******************
     while True:
@@ -162,7 +167,7 @@ def exec_scenario(scenario):
         # ***************************************************
         # ***************************************************
         if SYNTHESIS_ENABLED:
-            # calc blind spots
+            # calc Blind Spots
             # ================================
             robot.blind_spot_map.fill(1)  # everywhere is in blind_spot_map if it's not!
             rays = robot.lidar.data.last_rotated_rays
@@ -177,20 +182,30 @@ def exec_scenario(scenario):
                     robot.blind_spot_map.set([px, py], 0)
             # =================================
 
+            # Classify Ties
+            # =================================
+            strong_ties_t, absent_ties_t, agents_flow_class = \
+                robot.blind_spot_projector.classify_ties(tracks_loc, tracks_vel)
+            robot.blind_spot_projector.add_strong_ties(strong_ties_t)
+            robot.blind_spot_projector.add_absent_ties(absent_ties_t)
+            robot.blind_spot_projector.update_pdf(smooth=True)
+
+            # agents_flow_class = FlowClassifier().classify(tracks_loc, tracks_vel)   # => fixme: @deprecated
+
             # flow estimation: by `multiple gaussian`
             # ================================
             agents_vel_polar = np.array([[np.linalg.norm(v), np.arctan2(v[1], v[0])] for v in tracks_vel])
-            agents_flow_class = FlowClassifier().classify(tracks_loc, tracks_vel)
             bgm = BivariateGaussianMixtureModel()
             for i in range(n_tracked_agents):
-                # FixMe: filter still agents
-                if norm(tracks_vel[i]) < 0.1:
+                if norm(tracks_vel[i]) < 0.1:  # filter still agents
                     continue
                 bgm.add_component(BivariateGaussian(tracks_loc[i][0], tracks_loc[i][1],
                                                     sigma_x=agents_vel_polar[i][0] / 5 + 0.1, sigma_y=0.1,
-                                                    theta=agents_vel_polar[i][1]),
-                                  weight=1, target=agents_flow_class[i].id)
-            x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
+                                                    theta=agents_vel_polar[i][1]), weight=1,
+                                  # target=agents_flow_class[i].id)
+                                  target=agents_flow_class[i])
+
+                x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
             y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
             xx, yy = np.meshgrid(np.arange(x_min, x_max, 1 / robot.mapped_array_resolution),
                                  np.arange(y_min, y_max, 1 / robot.mapped_array_resolution))
@@ -198,11 +213,11 @@ def exec_scenario(scenario):
             # draw_bgmm(bgm, xx, yy)  # => for paper
             # =================================
 
-            # Crowd Synthesis: Using Pairwise Distances
+            # Crowd Synthesis: Using Social Ties
             # =================================
             robot.blind_spot_projector.add_frame(tracks_loc, tracks_vel, agents_flow_class, dt)
             robot.blind_spot_projector.update_pdf(smooth=True)
-            robot.blind_spot_projector.plot()
+            robot.blind_spot_projector.plot(scenario.title)
             for robot_hypo in robot.hypothesis_worlds:
                 # initialize once
                 if scenario.world.time > 0.5:  # and len(robot_hypo.crowds) == 0
@@ -213,7 +228,7 @@ def exec_scenario(scenario):
                     robot_hypo.crowds = [Pedestrian(tracks_loc[i], tracks_vel[i], False, synthetic=False,
                                                     color=GREEN_COLOR)
                                          for i in range(n_tracked_agents)] + synthetic_agents
-                # evolve (ToDo)
+                # evolve (ToDo: use TrajPredictor)
                 else:
                     for ped in robot_hypo.crowds:
                         if ped.synthetic:
@@ -260,7 +275,8 @@ if __name__ == '__main__':
     _scenario = HermesScenario()
     _scenario.setup_with_config_file(os.path.abspath(os.path.join(__file__, "../../../..",
                                                      "config/followbot_sim/real_scenario_config.yaml")),
-                                     biped_mode=BIPED_MODE)
+                                     title="HERMES-bo-360-075-075", biped_mode=BIPED_MODE)
+    _scenario.title = _scenario.dataset.title
 
     # =======================================
     if VIDEO_ENABLED:

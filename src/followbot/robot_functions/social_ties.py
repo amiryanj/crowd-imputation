@@ -1,5 +1,6 @@
 # Author: Javad Amirian
 # Email: amiryan.j@gmail.com
+import os
 
 import numpy as np
 from matplotlib import gridspec
@@ -9,6 +10,7 @@ from scipy.ndimage import gaussian_filter, gaussian_filter1d
 from scipy.ndimage import map_coordinates
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
+from sklearn.metrics import euclidean_distances
 
 from followbot.crowdsim.pedestrian import Pedestrian
 from followbot.gui.visualizer import SKY_BLUE_COLOR
@@ -41,7 +43,9 @@ class SocialTiePDF:
         This class will compute the probability distribution of social ties
         and will return a random sample on demand
     """
-    def __init__(self, max_distance=6, radial_resolution=4, angular_resolution=36):
+    def __init__(self, max_distance=5, radial_resolution=4, angular_resolution=36):
+        self.num_prior_strong_ties = 0
+        self.num_prior_absent_ties = 0
         self.strong_ties = []
         self.absent_ties = []
 
@@ -55,13 +59,9 @@ class SocialTiePDF:
         self.theta_edges = np.linspace(-np.pi, np.pi, angular_resolution + 1)
         self.rho_bin_midpoints = self.rho_edges[:-1] + np.diff(self.rho_edges) / 2
         self.theta_bin_midpoints = self.theta_edges[:-1] + np.diff(self.theta_edges) / 2
-        pdf_num_elements = len(self.rho_bin_midpoints) * len(self.theta_bin_midpoints)
 
         self.strong_ties_pdf_polar = np.zeros((len(self.rho_bin_midpoints), len(self.theta_bin_midpoints)))
-        self.strong_ties_pdf_polar_cum = np.cumsum(np.ones(pdf_num_elements) / pdf_num_elements)
-
         self.absent_ties_pdf_polar = np.zeros((len(self.rho_bin_midpoints), len(self.theta_bin_midpoints)))
-        self.absent_ties_pdf_polar_cum = np.cumsum(np.ones(pdf_num_elements) / pdf_num_elements)
 
         # cumulative distribution function of pairwise links in cartesian coord system
         self.social_ties_cartesian_pdf_aggregated = np.zeros((1, 1))  # will be calculated later
@@ -73,6 +73,43 @@ class SocialTiePDF:
     def load_prior_pdfs_from_file(self, fname):
         raise Exception('Todo: Implement here!')
 
+    # No history: at the moment just working for Hermes
+    def classify_ties(self, agents_loc, agents_vel):
+        n = len(agents_loc)
+        strong_ties = []
+        absent_ties = []
+        agent_flow_ids = np.zeros(n, dtype=np.uint8)
+        if n == 0: return [], [], agent_flow_ids
+
+        # simple classification of flows
+        agent_flow_ids[agents_vel[:, 0] > 0.1] = 1
+        agent_flow_ids[agents_vel[:, 0] < -0.1] = 2
+        if n == 1: return [], [], agent_flow_ids
+
+        oriens = np.arctan2(agents_vel[:, 1], agents_vel[:, 0])
+        tiled_locs = np.tile(agents_loc, (n, 1, 1))
+        D = tiled_locs - tiled_locs.transpose((1, 0, 2))
+        tie_angles = np.arctan2(D[:, :, 1], D[:, :, 0])
+        tie_lengths = np.linalg.norm(D, axis=2)
+
+        max_tie_length = 4
+        for ii in range(n):
+            if norm(agents_vel[ii]) < 0.1:
+                continue
+            for jj in range(n):
+                if ii == jj or tie_lengths[ii, jj] > max_tie_length:
+                    continue
+                rotated_tie_angle = tie_angles[ii, jj] - oriens[ii]
+                rotated_tie_angle = (rotated_tie_angle + np.pi) % (2 * np.pi) - np.pi
+                tie_polar = [tie_lengths[ii, jj], rotated_tie_angle]
+                if agent_flow_ids[ii] == agent_flow_ids[jj]:
+                    strong_ties.append(tie_polar)
+                else:
+                    absent_ties.append(tie_polar)
+
+        return strong_ties, absent_ties, agent_flow_ids
+
+
     def add_frame(self, agents_loc, agents_vel, agents_flow_class, dt):
         new_strong_ties = []
         new_absent_ties = []
@@ -80,12 +117,12 @@ class SocialTiePDF:
             for jj in range(len(agents_loc)):
                 if ii == jj: continue
                 dp = agents_loc[jj] - agents_loc[ii]
+                # alpha = np.arctan2(dp[1], dp[0])
+                # alpha = np.arccos(np.dot(dp, agents_vel[ii]) / (norm(dp) * norm(agents_vel[ii]) + 1E-6))
                 alpha = np.arctan2(dp[1], dp[0]) - np.arctan2(agents_vel[ii][1], agents_vel[ii][0])
                 if alpha > np.pi:
                     alpha -= 2 * np.pi
-                # alpha = np.arctan2(dp[1], dp[0])
-                # alpha = np.arccos(np.dot(dp, agents_vel[ii]) / (norm(dp) * norm(agents_vel[ii]) + 1E-6))
-                if agents_flow_class[ii].id == agents_flow_class[jj].id:
+                if agents_flow_class[ii] == agents_flow_class[jj]:
                     new_strong_ties.append(np.array([norm(dp), alpha]))
                 else:
                     new_absent_ties.append(np.array([norm(dp), alpha]))
@@ -106,66 +143,60 @@ class SocialTiePDF:
         # self.pairwise_distance_weights = self.pairwise_distance_weights[non_decayed_distances]
         # self.strong_ties = self.strong_ties[non_decayed_distances]
 
-    def add_links(self, links_polar):
+    def add_strong_ties(self, ties_polar):
         self.strong_ties = np.concatenate((np.array(self.strong_ties).reshape(-1, 2),
-                                           np.array(links_polar).reshape((-1, 2))), axis=0)
-        self.pairwise_distance_weights = np.append(self.pairwise_distance_weights, np.ones(len(links_polar)))
+                                           np.array(ties_polar).reshape((-1, 2))), axis=0)
+        # self.pairwise_distance_weights = np.append(self.pairwise_distance_weights, np.ones(len(links_polar)))
 
-    def update_pdf(self, smooth=True):
+    def add_absent_ties(self, ties_polar):
+        self.absent_ties = np.concatenate((np.array(self.absent_ties).reshape(-1, 2),
+                                           np.array(ties_polar).reshape((-1, 2))), axis=0)
+        # self.pairwise_distance_weights = np.append(self.pairwise_distance_weights, np.ones(len(links_polar)))
+
+    def smooth_pdf(self, sigma=1):
+        self.strong_ties_pdf_polar = gaussian_filter(self.strong_ties_pdf_polar, sigma=sigma)
+        self.absent_ties_pdf_polar = gaussian_filter(self.absent_ties_pdf_polar, sigma=sigma)
+
+    def update_pdf(self):
         if len(self.strong_ties):
-            self.strong_ties_pdf_polar, _, _ = np.histogram2d(x=self.strong_ties[:, 0],  # r
-                                                              y=self.strong_ties[:, 1],  # theta (bearing angle)
-                                                              bins=[self.rho_edges, self.theta_edges],
-                                                              # weights=self.pairwise_distance_weights,
-                                                              density=True)
-            self.strong_ties_pdf_polar /= (np.sum(self.strong_ties_pdf_polar) + 1E-6)  # normalize
-            self.strong_ties_pdf_polar_cum = np.cumsum(self.strong_ties_pdf_polar.ravel())
+            new_strong_ties_pdf_polar, _, _ = np.histogram2d(x=self.strong_ties[:, 0],  # r
+                                                             y=self.strong_ties[:, 1],  # theta (bearing angle)
+                                                             bins=[self.rho_edges, self.theta_edges],
+                                                             # weights=self.pairwise_distance_weights,
+                                                             density=True)
 
-            self.absent_ties_pdf_polar, _, _ = np.histogram2d(x=self.absent_ties[:, 0],  # r
-                                                              y=self.absent_ties[:, 1],  # theta (bearing angle)
-                                                              bins=[self.rho_edges, self.theta_edges],
-                                                              # weights=self.pairwise_distance_weights,
-                                                              density=True)
-            self.absent_ties_pdf_polar /= (np.sum(self.absent_ties_pdf_polar) + 1E-6)
-            self.absent_ties_pdf_polar_cum = np.cumsum(self.absent_ties_pdf_polar.ravel())
+            # clear previous ties (that are already counted in the histogram)
+            # and keep the total number of prior ties
+            self.strong_ties_pdf_polar = self.strong_ties_pdf_polar * self.num_prior_strong_ties + \
+                                         new_strong_ties_pdf_polar * len(self.strong_ties)
 
-            # normalizing the pdfs to have a mean=1: to get rid of padding when extrapolating to the whole map
-            self.strong_ties_pdf_polar /= np.mean(self.strong_ties_pdf_polar)
-            self.absent_ties_pdf_polar /= np.mean(self.absent_ties_pdf_polar)
+        if len(self.absent_ties):
+            new_absent_ties_pdf_polar, _, _ = np.histogram2d(x=self.absent_ties[:, 0],  # r
+                                                             y=self.absent_ties[:, 1],  # theta (bearing angle)
+                                                             bins=[self.rho_edges, self.theta_edges],
+                                                             # weights=self.pairwise_distance_weights,
+                                                             density=True)
 
-        if smooth:
-            # note: smoothing does not invalidate the distribution (sum=1)
-            self.strong_ties_pdf_polar = gaussian_filter(self.strong_ties_pdf_polar, sigma=1)
-            self.absent_ties_pdf_polar = gaussian_filter(self.absent_ties_pdf_polar, sigma=1)
+            # clear previous ties (that are already counted in the histogram)
+            # and keep the total number of prior ties
+            self.absent_ties_pdf_polar = self.absent_ties_pdf_polar * self.num_prior_absent_ties + \
+                                         new_absent_ties_pdf_polar * len(self.absent_ties)
+
+        self.num_prior_strong_ties += len(self.strong_ties)
+        self.num_prior_absent_ties += len(self.absent_ties)
+        self.strong_ties = []
+        self.absent_ties = []
+        # normalize
+        self.strong_ties_pdf_polar /= (np.sum(self.strong_ties_pdf_polar) + 1E-6)
+        self.absent_ties_pdf_polar /= (np.sum(self.absent_ties_pdf_polar) + 1E-6)
+        # normalizing the pdfs to have a mean=1: to get rid of padding when extrapolating to the whole map
+        self.strong_ties_pdf_polar /= (np.mean(self.strong_ties_pdf_polar) + 1E-6)
+        self.absent_ties_pdf_polar /= (np.mean(self.absent_ties_pdf_polar) + 1E-6)
 
         # min dist compliance: the probability of being an agent closer to (0.5m) to another agent should be zero!
-        m = 2  # fixme
+        m = 2  # fixme: depends on the resolution
         self.strong_ties_pdf_polar[:m, :] = 0
         self.absent_ties_pdf_polar[:m, :] = 0
-
-    def get_sample(self, n=1):
-        rand_num = np.random.random(n)
-        value_bins = np.searchsorted(self.strong_ties_pdf_polar_cum, rand_num)
-
-        rho_idx, theta_idx = np.unravel_index(value_bins, (len(self.rho_bin_midpoints), len(self.theta_bin_midpoints)))
-        random_from_cdf = np.column_stack((self.rho_bin_midpoints[rho_idx],
-                                           self.theta_bin_midpoints[theta_idx]))
-
-        return random_from_cdf
-
-    def likelihood(self, link):
-        if link[0] < 0:
-            link = -link.copy()
-        rho = np.linalg.norm(link)
-        theta = np.arctan2(link[1], link[0])
-        rho_idx = np.searchsorted(self.rho_edges, rho)
-        theta_idx = np.searchsorted(self.theta_edges, theta)
-        if rho_idx < len(self.rho_edges) - 1:
-            return self.strong_ties_pdf_polar[rho_idx][theta_idx] * self.strong_ties_pdf_polar.size * \
-                   (1 + np.sqrt(rho))  # decrease the impact for longer links
-        else:
-            return 1  # very long links are not unlikely
-
 
 
     def _aggregate_to_virtual_pdf_(self, pos_i, vel_i, crowd_flow_map: MappedArray):
@@ -181,7 +212,7 @@ class SocialTiePDF:
         # the rotation is done by simply shifting the polar pdf
         n_shifts = int(round(orien_i / np.diff(self.theta_edges[:2])[0]))
         if n_shifts != 0:
-            # rotate the polar link distribution it toward agent face
+            # rotate the polar tie distribution it toward agent face
             rotated_strong_ties_pdf_polar = np.roll(self.strong_ties_pdf_polar, -n_shifts, axis=1)
             rotated_absent_ties_pdf_polar = np.roll(self.absent_ties_pdf_polar, -n_shifts, axis=1)
         else:
@@ -193,13 +224,13 @@ class SocialTiePDF:
                                                     rotated_strong_ties_pdf_polar, xx, yy, cval=1, order=2)
         absent_ties_pdf_cartesian = polar2cartesian(self.rho_edges, self.theta_edges,
                                                     rotated_absent_ties_pdf_polar, xx, yy, cval=1, order=2)
-        # after conversion there are some negative values!
+        # after conversion there are some negative values => clip them to zero!
         strong_ties_pdf_cartesian = np.clip(strong_ties_pdf_cartesian, a_min=0, a_max=1000)
         absent_ties_pdf_cartesian = np.clip(absent_ties_pdf_cartesian, a_min=0, a_max=1000)
 
         agent_flow_class_id = crowd_flow_map.get(pos_i)
-        # this agent can have a strong link to a (virtual) agent in the areas with the same flow_class
-        # and can have absent link to a (virtual) agent in the areas with a different flow_class
+        # this agent can have a strong tie to a (virtual) agent in the areas with the same flow_class
+        # and can have absent tie to a (virtual) agent in the areas with a different flow_class
         flow_mate_area = np.zeros(crowd_flow_map.data.shape, np.uint8)
         flow_mate_area[crowd_flow_map.data == agent_flow_class_id] = 1
 
@@ -226,8 +257,6 @@ class SocialTiePDF:
                         offset[1] + crop[1][0]:offset[1] - crop[1][1] + src_shape[1]]))
 
 
-
-
     def synthesis(self, in_agent_locs, in_agent_vels,
                   walkable_map: MappedArray = None,
                   blind_spot_map: MappedArray = None,
@@ -244,15 +273,15 @@ class SocialTiePDF:
         # accumulate all the
         self.social_ties_cartesian_pdf_aggregated = blind_spot_map.copy_constructor()
         self.social_ties_cartesian_pdf_aggregated.fill(1)
-        self.social_ties_cartesian_pdf_aggregated.data *= (1-blind_spot_map.data)
+        self.social_ties_cartesian_pdf_aggregated.data *= blind_spot_map.data
 
         for ii, agent_i in enumerate(all_agents):
             pos_i = agent_i[0:2]
             vel_i = agent_i[2:4]
             self._aggregate_to_virtual_pdf_(pos_i, vel_i, crowd_flow_map)
-            # if ii > 1: break
+            # if ii > 1: break  # debug
 
-        n_tries = 5
+        n_tries = 5  # fixme
         for i in range(n_tries):
             suggested_loc = self.social_ties_cartesian_pdf_aggregated.sample_random_pos()
             accept_suggested_loc = True
@@ -269,49 +298,113 @@ class SocialTiePDF:
 
 
     def plot(self, title=""):
-        # Debug: plot polar heatmap
-        angular_hist = np.sum(self.strong_ties_pdf_polar, axis=0)
-        dist_hist = np.sum(self.strong_ties_pdf_polar, axis=1)
 
-        if not len(self.axes):
-            self.fig = plt.figure()
-            grid_spec = gridspec.GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[3, 1], wspace=0.05, hspace=0.20)
-            # self.fig, self.axes = plt.subplots(2, 2, gridspec_kw={'width_ratios': [5, 1], 'height_ratios': [5, 1]})
-            self.axes = [[None, None], None]
+        if not len(self.axes):  # First time initialization
+            self.fig = plt.figure(figsize=(12, 6))
+            grid_spec = gridspec.GridSpec(2, 4, height_ratios=[3, 1], width_ratios=[1, 3, 3, 1], wspace=0.15, hspace=0.2)
+            self.axes = [[None, None, None, None], [None, None]]
             # self.axes[0, 0].remove()
             # self.axes[0, 0] = self.fig.add_subplot(221, projection="polar")
-            self.axes[0][0] = plt.subplot(grid_spec[0, 0], projection='polar')
-            self.axes[0][1] = plt.subplot(grid_spec[0, 1])
-            self.axes[1] = plt.subplot(grid_spec[1, :])
+            self.axes[0][0] = plt.subplot(grid_spec[0, 0])
+            self.axes[0][1] = plt.subplot(grid_spec[0, 1], projection='polar')
+            self.axes[0][2] = plt.subplot(grid_spec[0, 2], projection='polar')
+            self.axes[0][3] = plt.subplot(grid_spec[0, 3])
+            self.axes[1][0] = plt.subplot(grid_spec[1, :2])
+            self.axes[1][1] = plt.subplot(grid_spec[1, 2:])
             # self.axes[1, 0].remove()
             # self.axes[1, 1].remove()
             # self.axes[1, 0] = self.fig.add_subplot(212)
 
-        self.axes[0][0].clear()
-        polar_plot = self.axes[0][0].pcolormesh(self.theta_edges, self.rho_edges, self.strong_ties_pdf_polar, vmin=0,
-                                                cmap='YlGnBu')
-        self.axes[0][0].set_ylabel("Polar Histogram of Links", labelpad=40)
-        if len(title):
-            self.axes[0][0].set_title(title, pad=20)
+        angle_y_ticks = [-135, -90, -45, 0, 45, 90, 135]
+
+        # Strong Ties
+        # ===================================
+        strong_angular_pdf = np.nansum(self.strong_ties_pdf_polar, axis=0)
+        strong_length_pdf = np.nansum(self.strong_ties_pdf_polar, axis=1)
 
         self.axes[0][1].clear()
-        self.axes[0][1].set_title("Angles pdf", fontsize=10)
-        angle_plot = self.axes[0][1].plot(angular_hist, np.rad2deg(self.theta_bin_midpoints), 'r')
-        self.axes[0][1].fill_betweenx(np.rad2deg(self.theta_bin_midpoints), 0, angular_hist)
-        self.axes[0][1].set_xlim([0, max(angular_hist) * 1.1])
-        self.axes[0][1].set_ylim([-151, 151])
-        self.axes[0][1].set_yticks([-135, -90, -45, 0, 45, 90, 135])
+        polar_plot = self.axes[0][1].pcolormesh(self.theta_edges, self.rho_edges, self.strong_ties_pdf_polar, vmin=0,
+                                                cmap='YlGnBu')
+        # self.axes[0][1].set_ylabel("Polar Histogram of Strong Ties", labelpad=40)
 
-        self.axes[1].clear()
-        # pcf_plot = self.axes[1].plot(self.rho_bin_midpoints, dist_hist, 'r')
-        # self.axes[1].fill_between(self.rho_bin_midpoints, 0, dist_hist)
-        self.axes[1].bar(self.rho_bin_midpoints, dist_hist, width=np.diff(self.rho_edges)[0]*0.8)
+        # Marginal PDF: Tie Angles
+        self.axes[0][0].clear()
+        self.axes[0][0].set_title("Tie Angle PDF", fontsize=10)
+        strong_angle_plot = self.axes[0][0].plot(strong_angular_pdf, np.rad2deg(self.theta_bin_midpoints), 'r')
+        self.axes[0][0].fill_betweenx(np.rad2deg(self.theta_bin_midpoints), 0, strong_angular_pdf)
+        self.axes[0][0].set_xlim([0, max(strong_angular_pdf) * 1.1])
+        self.axes[0][0].set_ylim([-151, 151])
+        self.axes[0][0].set_yticks(angle_y_ticks)
+        self.axes[0][0].set_yticklabels(["$%d^\circ$" %deg for deg in angle_y_ticks])
+        self.axes[0][0].invert_xaxis()
 
-        self.axes[1].set_title("Length pdf  ", loc='right', fontsize=10, pad=-14)
-        self.axes[1].set_xlabel('$\it{m}$', labelpad=-5)
-        # self.axes[1].grid()
+        # Marginal PDF: Tie Length
+        self.axes[1][0].clear()
+        # pcf_plot = self.axes[1][0].plot(self.rho_bin_midpoints, dist_hist, 'r')
+        # self.axes[1][0].fill_between(self.rho_bin_midpoints, 0, dist_hist)
+        self.axes[1][0].bar(self.rho_bin_midpoints, strong_length_pdf, width=np.diff(self.rho_edges)[0] * 0.8)
+
+        self.axes[1][0].set_title("Tie Length PDF  ", loc='right', fontsize=10, pad=-14)
+        # self.axes[1][0].set_xlabel('$\it{m}$', labelpad=-5)
+        self.axes[1][0].set_xlabel('Strong Ties', labelpad=2)
+        # self.axes[1][0].grid()
+
+        # ===================================+++
+        absent_angular_pdf = np.nansum(self.absent_ties_pdf_polar, axis=0)
+        absent_length_pdf = np.nansum(self.absent_ties_pdf_polar, axis=1)
+
+        # Absent Ties
+        self.axes[0][2].clear()
+        polar_plot = self.axes[0][2].pcolormesh(self.theta_edges, self.rho_edges, self.absent_ties_pdf_polar, vmin=0,
+                                                cmap='YlOrRd')
+        # self.axes[0][2].set_ylabel("Polar Histogram of Absent Ties", labelpad=40)
+        # if len(title): self.axes[0][2].set_title(title, pad=20)
+
+        # Marginal PDF: Tie Angles
+        self.axes[0][3].clear()
+        self.axes[0][3].set_title("Tie Angle PDF", fontsize=10)
+        absent_angle_plot = self.axes[0][3].plot(absent_angular_pdf, np.rad2deg(self.theta_bin_midpoints), 'b')
+        self.axes[0][3].fill_betweenx(np.rad2deg(self.theta_bin_midpoints), 0, absent_angular_pdf, color='darkred')
+        self.axes[0][3].set_xlim([0, max(absent_angular_pdf) * 1.1])
+        self.axes[0][3].set_ylim([-151, 151])
+        self.axes[0][3].set_yticks(angle_y_ticks)
+        self.axes[0][3].set_yticklabels(["$%d^\circ$" % deg for deg in angle_y_ticks])
+        self.axes[0][3].yaxis.tick_right()
+
+        # Marginal PDF: Tie Length
+        self.axes[1][1].clear()
+        self.axes[1][1].bar(self.rho_bin_midpoints, absent_length_pdf, width=np.diff(self.rho_edges)[0] * 0.8, color='darkred')
+
+        self.axes[1][1].set_title("Tie Length PDF  ", loc='right', fontsize=10, pad=-14)
+        # self.axes[1][1].set_xlabel('$\it{m}$', labelpad=-5)
+        self.axes[1][1].set_xlabel('Absent Ties', labelpad=2)
+        self.axes[1][1].yaxis.tick_right()
+        # ===================================+++
+
+        if len(title):
+            self.fig.suptitle(title)
 
         plt.pause(0.001)
+
+
+    def save_pdf(self, fname):
+        """save the distributions to file"""
+        np.savez(fname,
+                 strong_ties_pdf_polar=self.strong_ties_pdf_polar,
+                 absent_ties_pdf_polar=self.absent_ties_pdf_polar,
+                 num_prior_strong_ties=self.num_prior_strong_ties,
+                 num_prior_absent_ties=self.num_prior_absent_ties)
+
+    def load_pdf(self, fname):
+        """load the distributions from file"""
+        if not os.path.exists(fname):
+            raise ValueError("Could not find the data file for prior social ties")
+        npzfile = np.load(fname)
+        self.num_prior_strong_ties = npzfile['num_prior_strong_ties']
+        self.num_prior_absent_ties = npzfile['num_prior_absent_ties']
+        self.strong_ties_pdf_polar = npzfile['strong_ties_pdf_polar']
+        self.absent_ties_pdf_polar = npzfile['absent_ties_pdf_polar']
+
 
 
 if __name__ == "__main__":

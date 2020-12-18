@@ -57,10 +57,14 @@ Dataset:
    fps: 16.0
    # **********************
    # obstacles: line segments
-   Map:
+   Obstacles:
       - [-4.5, 0, 4.5, 0]
       - [-4.5, 3.6, 4.5, 3.6]
-   # Map: []
+   WorldBoundary:
+      x_min: -7
+      x_max: 7
+      y_min: 0
+      y_max: 3.6
 
    RobotId: 5
    Parser: ParserHermes

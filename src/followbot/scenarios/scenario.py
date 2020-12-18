@@ -13,6 +13,7 @@ import time
 class Scenario(ABC):
     def __init__(self, **kwargs):
         self.world = World
+        self.title = kwargs.get("title", "")
         self.visualizer = None
 
         self.n_robots = kwargs.get("numRobots", 1)       # to be used to initialize the world

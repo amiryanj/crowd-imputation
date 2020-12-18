@@ -30,58 +30,57 @@ class HermesScenario(RealScenario):
             biped_mode = config['General']['biped_mode']
             # opentraj_root = config['Dataset']['OpenTrajRoot']
             robot_replacement_id = config['Dataset']['RobotId']
-            obstacles = config['Dataset']['Map']
+            obstacles = config['Dataset']['Obstacles']
             fps = config['Dataset']['fps']
             annotation_file = config['Dataset']['Annotation']
-            dataset = load_bottleneck(annotation_file)
+            title = config['Dataset']['Title'] if 'Title' in config['Dataset'] else ''
+            dataset = load_bottleneck(annotation_file, title=title)
             self.video_files = config['Dataset']['Video']
-        # override parameters by user
+            world_x_min = config['Dataset']['WorldBoundary']['x_min']
+            world_x_max = config['Dataset']['WorldBoundary']['x_max']
+            world_y_min = config['Dataset']['WorldBoundary']['y_min']
+            world_y_max = config['Dataset']['WorldBoundary']['y_max']
+
+        # override parameters by direct arguments
+        self.title = kwargs.get("title", title)
         dataset = kwargs.get("dataset", dataset)
         fps = kwargs.get("fps", fps)
         robot_replacement_id = kwargs.get("robot_id", robot_replacement_id)
         biped_mode = kwargs.get("biped_mode", biped_mode)
 
-        self.setup(dataset=dataset, fps=fps, robot_id=robot_replacement_id, obstacles=obstacles, biped_mode=biped_mode)
+        self.setup(dataset=dataset, fps=fps, robot_id=robot_replacement_id, biped_mode=biped_mode,
+                   obstacles=obstacles, world_boundary=[[world_x_min, world_x_max], [world_y_min, world_y_max]])
 
     def setup(self, **kwargs):
         self.dataset = kwargs.get("dataset", None)
+        self.title = kwargs.get("title", "")
         self.fps = kwargs.get("fps", 16)
         self.robot_replacement_id = kwargs.get("robot_id", -1)
         biped_mode = kwargs.get("biped_mode", False)
 
-        # rotate 90 degree
+        # rotate xy points by 90 degree
         transform = np.array([[0, 1, 0],
                               [1, 0, 0],
                               [0, 0, 1]])
         self.dataset.apply_transformation(transform, inplace=True)
-        self.create_sim_frames(biped_mode=biped_mode)
 
-        # exp_dimensions = re.split('-|\.', annotation_file)[-4:-1]
+        world_boundary = kwargs.get("world_boundary", [])
+        if not len(world_boundary):
+            x_min = self.dataset.data["pos_x"].min()
+            x_max = self.dataset.data["pos_x"].max()
+            y_min = self.dataset.data["pos_y"].min()
+            y_max = self.dataset.data["pos_y"].max()
+            world_boundary = [[x_min, x_max], [y_min, y_max]]
+
+        self.create_sim_frames(biped_mode=biped_mode, world_boundary=world_boundary)
+
+        # Any obstacle?
         obstacles = kwargs.get("obstacles", [])
         for obs in obstacles:
             self.world.add_obstacle(Line(obs[0:2], obs[2:4]))
 
-    # if '2D' in annotation_file:
-        #     line_objs = corridor_map(int(exp_dimensions[0]) / 100., int(exp_dimensions[0]) / 100.)
-        # else:
-        #     line_objs = corridor_map(int(exp_dimensions[1]) / 100., int(exp_dimensions[2]) / 100.)
-        # for line_obj in line_objs:
-        #     self.world.add_obstacle(line_obj)
     def step_crowd(self, dt):
         raise Exception("Not implemented")
-
-
-def corridor_map(width, bottleneck):
-    wall_b = Line((-4, 0), (4, 0))
-    wall_t = Line((-4, width), (4, width))
-    bottleneck_b = Line((4, -1), (4, (width - bottleneck)/2.))
-    bottleneck_t = Line((4, width+1), (4, (width + bottleneck) / 2.))
-    stand_b = Line((-4, 0), (-4, -1))
-    stand_t = Line((-4, width), (-4, width+1))
-    lines = [wall_b, wall_t, bottleneck_b, bottleneck_t]
-    return lines
-
-
 
 
 if __name__ == "__main__":

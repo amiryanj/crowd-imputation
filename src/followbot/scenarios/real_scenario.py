@@ -37,33 +37,19 @@ class RealScenario(Scenario):
 
     def setup(self, **kwargs):
         self.dataset = kwargs.get("dataset", None)
+        self.title = kwargs.get("title", "")
         self.fps = kwargs.get("fps", 16)
         self.robot_replacement_id = kwargs.get("robot_id", -1)
         biped_mode = kwargs.get("biped_mdoe", False)
 
-    # def setup(self, config_file, biped):
-    #     # ===========================================
-    #     # ============= Load config file ============
-    #     with open(config_file) as stream:
-    #         config = yaml.load(stream, Loader=yaml.FullLoader)
-    #         dataset_metafile = config['Dataset']['Metafile']
-    #         opentraj_root = config['Dataset']['OpenTrajRoot']
-    #         # annotation_file = config['Dataset']['Annotation']
-    #         # parser_type = config['Dataset']['Parser']
-    #         map_file = config['Dataset']['Map']
-    #         self.robot_replacement_id = config['Dataset']['HumanId']
-    #         # biped = config['General']['biped']
-    #         display_resolution = config['General']['resolution_dpm']
-    #         # ========= Load dataset ===========
-    #         # self.dataset = load_metafile(opentraj_root, dataset_metafile)
-
-        # if not os.path.exists(dataset_metafile):
-        #     raise ValueError('Error! Annotation file does not exist')
-
-        # self.dataset = load_metafile(opentraj_root, metafile=dataset_metafile)
+        x_min = min(self.dataset.data["pos_x"])
+        x_max = max(self.dataset.data["pos_x"])
+        y_min = min(self.dataset.data["pos_y"])
+        y_max = max(self.dataset.data["pos_y"])
+        world_boundary = [[x_min, x_max], [y_min, y_max]]
 
         # if kwargs.get("map_file"):
-        self.create_sim_frames(biped_mode=biped_mode, map_file="")
+        self.create_sim_frames(world_boundary=world_boundary, map_file="", biped_mode=biped_mode)
 
     def create_sim_frames(self, **kwargs):
         map_file = kwargs.get("map_file", "")
@@ -102,15 +88,10 @@ class RealScenario(Scenario):
 
         # ==================================
         # ========== Setup world ===========
-        x_min = min(self.dataset.data["pos_x"])
-        x_max = max(self.dataset.data["pos_x"])
-        y_min = min(self.dataset.data["pos_y"])
-        y_max = max(self.dataset.data["pos_y"])
-        x_dim = x_max - x_min
-        y_dim = y_max - y_min
-        world_dim = [[x_min, x_max], [y_min, y_max]]
 
-        self.world = World(self.n_peds, self.n_robots, world_dim, "", biped_mode)
+        world_boundary = kwargs.get("world_boundary")
+        simulation_model = ""
+        self.world = World(self.n_peds, self.n_robots, world_boundary, simulation_model, biped_mode)
 
         robot_state_t0 = self.dataset.data[['pos_x', 'pos_y', 'vel_x', 'vel_y']] \
             .loc[self.dataset.data['agent_id'] == self.robot_replacement_id].to_numpy()
