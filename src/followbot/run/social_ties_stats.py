@@ -22,8 +22,9 @@ from followbot.run.followbot_sim import EXP_DATA_PATH
 
 datasets = []
 OPENTRAJ_ROOT = "/home/cyrus/workspace2/OpenTraj"
-output_dir = "/home/cyrus/Dropbox/FollowBot/exp/links"
-VISUALIZE = False
+output_dir = "/home/cyrus/Dropbox/FollowBot/exp/pdf"
+save_links_dir = "/home/cyrus/Dropbox/FollowBot/exp/links"
+VISUALIZE = True
 
 # ======== load dataset =========
 # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/ETH/seq_eth/obsmat.txt')
@@ -42,27 +43,27 @@ datasets.append(zara01)
 # datasets.append(merge_datasets([zara01, zara02], new_title="Zara"))
 
 # SDD datasets
-scenes = [['bookstore', 'video0'], ['bookstore', 'video1'], ['coupa', 'video0']]
-sdd_scales_yaml_file = os.path.join(OPENTRAJ_ROOT, 'datasets/SDD', 'estimated_scales.yaml')
-with open(sdd_scales_yaml_file, 'r') as f:
-    scales_yaml_content = yaml.load(f, Loader=yaml.FullLoader)
-for scene_i in scenes:
-    scale = scales_yaml_content[scene_i[0]][scene_i[1]]['scale']
-    sdd_dataset_i = load_sdd(os.path.join(OPENTRAJ_ROOT, "datasets/SDD", scene_i[0], scene_i[1], "annotations.txt"),
-                             scene_id="SDD-"+scene_i[0]+scene_i[1], title="SDD-"+scene_i[0]+"-"+scene_i[1][-1], # use_kalman=True,
-                             scale=scale, drop_lost_frames=False, sampling_rate=6)  # original fps=30
-    datasets.append(sdd_dataset_i)
+# scenes = [['bookstore', 'video0'], ['bookstore', 'video1'], ['coupa', 'video0']]
+# sdd_scales_yaml_file = os.path.join(OPENTRAJ_ROOT, 'datasets/SDD', 'estimated_scales.yaml')
+# with open(sdd_scales_yaml_file, 'r') as f:
+#     scales_yaml_content = yaml.load(f, Loader=yaml.FullLoader)
+# for scene_i in scenes:
+#     scale = scales_yaml_content[scene_i[0]][scene_i[1]]['scale']
+#     sdd_dataset_i = load_sdd(os.path.join(OPENTRAJ_ROOT, "datasets/SDD", scene_i[0], scene_i[1], "annotations.txt"),
+#                              scene_id="SDD-"+scene_i[0]+scene_i[1], title="SDD-"+scene_i[0]+"-"+scene_i[1][-1], # use_kalman=True,
+#                              scale=scale, drop_lost_frames=False, sampling_rate=6)  # original fps=30
+#     datasets.append(sdd_dataset_i)
 
 
 # 1d HERMES
 # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-1D/uo-180-180-180.txt')
-annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-1D/uo-300-300-300.txt')
-datasets.append(load_bottleneck(annot_file, title="HERMES-" + os.path.basename(annot_file)[:-4]))
+# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-1D/uo-300-300-300.txt')
+# datasets.append(load_bottleneck(annot_file, title="HERMES-" + os.path.basename(annot_file)[:-4]))
 
 # 2d HERMES
-annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-050-050.txt')
+# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-050-050.txt')
 # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-160-160.txt')
-# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-075-075.txt')
+annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-075-075.txt')
 # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bot-360-250-250.txt')
 datasets.append(load_bottleneck(annot_file, title="HERMES-" + os.path.basename(annot_file)[:-4]))
 # -------------------------------
@@ -86,12 +87,14 @@ for dataset in datasets:
 
     # algorithm thresholds
     max_distance = 5
-    thre_length = 0.3
+    thre_length = 0.5
     thre_angle = np.pi / 8
+    prev_t = fps//2
 
     # visualize stuff
     if VISUALIZE:
-        plt.figure(figsize=(5, 10))
+        _, ax = plt.subplots()
+        ax.set_aspect(aspect='equal')
 
     for t in tqdm.trange(int(len(frames) * 0.7)):
         frame_data = frames[t]
@@ -127,15 +130,15 @@ for dataset in datasets:
                     all_ties[IJ_idx] = []
                 rotated_link_angle = (link_angles[ii, jj] - oriens_t[ii] + np.pi) % (2 * np.pi) - np.pi
                 all_ties[IJ_idx].append([link_lengths[ii, jj], rotated_link_angle])
-                if len(all_ties[IJ_idx]) >= fps:  # this agent is here for at least 1 sec
-                    d_len = all_ties[IJ_idx][-1][0] - all_ties[IJ_idx][-fps][0]
-                    d_angle = all_ties[IJ_idx][-1][1] - all_ties[IJ_idx][-fps][1]
-
+                if len(all_ties[IJ_idx]) >= prev_t:  # this agent is here for at least 1 sec
+                    d_tie_len = all_ties[IJ_idx][-1][0] - all_ties[IJ_idx][-prev_t][0]
+                    d_tie_angle = all_ties[IJ_idx][-1][1] - all_ties[IJ_idx][-prev_t][1]
+                    d_tie_angle = (d_tie_angle + np.pi) % (2 * np.pi) - np.pi
+                    d_orien = (oriens_t[ii] - oriens_t[jj] + np.pi) % (2 * np.pi) - np.pi
                     if all_ties[IJ_idx][-1][0] > max_distance:
                         continue
 
-                    if abs(d_len) < thre_length and abs(d_angle) < thre_angle \
-                            and abs(oriens_t[ii] - oriens_t[jj]) < np.pi / 4:
+                    if abs(d_tie_len) < thre_length and abs(d_tie_angle) < thre_angle and abs(d_orien) < np.pi / 4:
                         strong_ties.append(all_ties[IJ_idx][-1])
                         if VISUALIZE:
                             plt.plot([poss_t[ii, 0], poss_t[jj, 0]], [poss_t[ii, 1], poss_t[jj, 1]], 'g')
@@ -145,8 +148,14 @@ for dataset in datasets:
                             plt.plot([poss_t[ii, 0], poss_t[jj, 0]], [poss_t[ii, 1], poss_t[jj, 1]], 'r--', alpha=0.2)
 
         if VISUALIZE:
-            plt.pause(0.01)
+            plt.plot([poss_t[:, 0], poss_t[:, 0] + vels_t[:, 0] * 0.5],
+                     [poss_t[:, 1], poss_t[:, 1] + vels_t[:, 1] * 0.5],
+                     '-b', alpha=0.7)
+
         frame_id = frame_data["frame_id"].unique()
+        if VISUALIZE:
+            plt.pause(0.01)
+            plt.savefig(os.path.join(save_links_dir, dataset.title + '-%04d.png' % frame_id))
         # print("frame_id:", frame_id)
 
     # count the percent
@@ -188,6 +197,7 @@ for dataset in datasets:
     # p.load_pdf(os.path.join(EXP_DATA_PATH, dataset.title))
 
     # print(p.polar_link_pdf)
+    plt.close()
     p.plot(dataset.title)
     plt.savefig(os.path.join(output_dir, '%s-link-pdf.pdf' % dataset.title), dpi=300, bbox_inches='tight')
     plt.savefig(os.path.join(output_dir, '%s-link-pdf.png' % dataset.title), dpi=300, bbox_inches='tight')

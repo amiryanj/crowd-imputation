@@ -31,19 +31,19 @@ class MappedArray:
         self.map = lambda x, y: (int(round((x - min_x) / x_range * self.data.shape[0])),
                                  int(round((y - min_y) / y_range * self.data.shape[1])))
         self.inv_map = lambda u, v: (u / self.data.shape[0] * x_range + min_x,
-                                     v / self.data.shape[0] * y_range + min_y)
+                                     v / self.data.shape[1] * y_range + min_y)
 
     def copy_constructor(self):
         return copy.deepcopy(self)
 
     def set(self, pos, val):
         u, v = self.map(pos[0], pos[1])
-        if 0 < u < self.data.shape[0] and 0 < v < self.data.shape[1]:
+        if 0 <= u < self.data.shape[0] and 0 <= v < self.data.shape[1]:
             self.data[u, v] = val
 
     def get(self, pos):
         u, v = self.map(pos[0], pos[1])
-        if 0 < u < self.data.shape[0] and 0 < v < self.data.shape[1]:
+        if 0 <= u < self.data.shape[0] and 0 <= v < self.data.shape[1]:
             return self.data[u, v]
         return 0
 
@@ -55,4 +55,15 @@ class MappedArray:
         data_cum = np.cumsum(self.data.ravel()) / np.sum(self.data)
         value_bins = np.searchsorted(data_cum, rand_num)
         u_idx, v_idx = np.unravel_index(value_bins, (len(self.x_edges), len(self.y_edges)))
-        return self.inv_map(u_idx[0], v_idx[0])
+        u_idx, v_idx = u_idx[0], v_idx[0]
+
+        # find local maximum
+        padding_width = 8
+        padded_data = np.pad(self.data, ((padding_width, padding_width), (padding_width, padding_width)))
+        data_roi = padded_data[u_idx:u_idx+2*padding_width+1, v_idx:v_idx+2*padding_width+1]
+        du, dv = np.unravel_index(np.argmax(data_roi), data_roi.shape)
+        du, dv = du - padding_width, dv - padding_width
+        if self.data[u_idx, v_idx] < self.data[u_idx+du, v_idx+dv]:
+            u_idx, v_idx = u_idx + du, v_idx + dv
+
+        return self.inv_map(u_idx, v_idx)

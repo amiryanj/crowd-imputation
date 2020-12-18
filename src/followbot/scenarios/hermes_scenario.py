@@ -58,12 +58,6 @@ class HermesScenario(RealScenario):
         self.robot_replacement_id = kwargs.get("robot_id", -1)
         biped_mode = kwargs.get("biped_mode", False)
 
-        # rotate xy points by 90 degree
-        transform = np.array([[0, 1, 0],
-                              [1, 0, 0],
-                              [0, 0, 1]])
-        self.dataset.apply_transformation(transform, inplace=True)
-
         world_boundary = kwargs.get("world_boundary", [])
         if not len(world_boundary):
             x_min = self.dataset.data["pos_x"].min()

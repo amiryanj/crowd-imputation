@@ -1,7 +1,7 @@
 # Author: Javad Amirian
 # Email: amiryan.j@gmail.com
 import os
-
+import cv2
 import numpy as np
 from matplotlib import gridspec
 from numpy.linalg import norm
@@ -18,10 +18,14 @@ from followbot.robot_functions.flow_classifier import FlowClassifier
 from followbot.util.mapped_array import MappedArray
 
 
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+
 def polar2cartesian(r, t, grid, x, y, cval, order=3):
     X, Y = np.meshgrid(x, y)
 
-    new_r = np.sqrt(X*X+Y*Y)
+    new_r = np.sqrt(X * X + Y * Y)
     new_t = np.arctan2(Y, X)
 
     ir = interp1d(r, np.arange(len(r)), bounds_error=False)
@@ -30,10 +34,11 @@ def polar2cartesian(r, t, grid, x, y, cval, order=3):
     new_ir = ir(new_r.ravel())
     new_it = it(new_t.ravel())
 
-    new_ir[new_r.ravel() > r.max()] = len(r)-1
+    new_ir[new_r.ravel() > r.max()] = len(r) - 1
     new_ir[new_r.ravel() < r.min()] = 0
 
-    map2cart = map_coordinates(grid, np.array([new_ir, new_it]), order=order, cval=cval, mode='constant').reshape(new_r.shape).T
+    map2cart = map_coordinates(grid, np.array([new_ir, new_it]), order=order, cval=cval, mode='reflect').reshape(
+        new_r.shape).T
     return map2cart
 
 
@@ -43,7 +48,8 @@ class SocialTiePDF:
         This class will compute the probability distribution of social ties
         and will return a random sample on demand
     """
-    def __init__(self, max_distance=5, radial_resolution=4, angular_resolution=36):
+
+    def __init__(self, max_distance=2.5, radial_resolution=4, angular_resolution=36):
         self.num_prior_strong_ties = 0
         self.num_prior_absent_ties = 0
         self.strong_ties = []
@@ -108,7 +114,6 @@ class SocialTiePDF:
                     absent_ties.append(tie_polar)
 
         return strong_ties, absent_ties, agent_flow_ids
-
 
     def add_frame(self, agents_loc, agents_vel, agents_flow_class, dt):
         new_strong_ties = []
@@ -198,7 +203,6 @@ class SocialTiePDF:
         self.strong_ties_pdf_polar[:m, :] = 0
         self.absent_ties_pdf_polar[:m, :] = 0
 
-
     def _aggregate_to_virtual_pdf_(self, pos_i, vel_i, crowd_flow_map: MappedArray):
         # convert polar to cartesian by interpolation
         # the resolution should be similar to the one of mapped_arrays
@@ -216,8 +220,14 @@ class SocialTiePDF:
             rotated_strong_ties_pdf_polar = np.roll(self.strong_ties_pdf_polar, -n_shifts, axis=1)
             rotated_absent_ties_pdf_polar = np.roll(self.absent_ties_pdf_polar, -n_shifts, axis=1)
         else:
-            rotated_strong_ties_pdf_polar = self.strong_ties_pdf_polar
-            rotated_absent_ties_pdf_polar = self.absent_ties_pdf_polar
+            rotated_strong_ties_pdf_polar = self.strong_ties_pdf_polar.copy()
+            rotated_absent_ties_pdf_polar = self.absent_ties_pdf_polar.copy()
+
+        rotated_strong_ties_pdf_polar = sigmoid(rotated_strong_ties_pdf_polar)
+        rotated_absent_ties_pdf_polar = sigmoid(rotated_absent_ties_pdf_polar)
+
+        rotated_strong_ties_pdf_polar /= np.nanmedian(rotated_strong_ties_pdf_polar)
+        rotated_absent_ties_pdf_polar /= np.nanmedian(rotated_absent_ties_pdf_polar)
 
         # convert polar to cartesian by interpolation
         strong_ties_pdf_cartesian = polar2cartesian(self.rho_edges, self.theta_edges,
@@ -256,12 +266,11 @@ class SocialTiePDF:
                  * (1 - flow_mate_area[offset[0] + crop[0][0]:offset[0] - crop[0][1] + src_shape[0],
                         offset[1] + crop[1][0]:offset[1] - crop[1][1] + src_shape[1]]))
 
-
-    def synthesis(self, in_agent_locs, in_agent_vels,
-                  walkable_map: MappedArray = None,
-                  blind_spot_map: MappedArray = None,
-                  crowd_flow_map: MappedArray = None):
-        synthetic_agents = []
+    def project(self, in_agent_locs, in_agent_vels,
+                walkable_map: MappedArray = None,
+                blind_spot_map: MappedArray = None,
+                crowd_flow_map: MappedArray = None):
+        projected_agents = []
         all_agents = np.concatenate([in_agent_locs, in_agent_vels], axis=1).tolist()
 
         # plt.subplot(121)
@@ -279,29 +288,39 @@ class SocialTiePDF:
             pos_i = agent_i[0:2]
             vel_i = agent_i[2:4]
             self._aggregate_to_virtual_pdf_(pos_i, vel_i, crowd_flow_map)
-            # if ii > 1: break  # debug
+            # if ii >= 0: break  # debug
 
-        n_tries = 5  # fixme
+        n_tries = 10  # fixme
         for i in range(n_tries):
-            suggested_loc = self.social_ties_cartesian_pdf_aggregated.sample_random_pos()
             accept_suggested_loc = True
+            suggested_loc = self.social_ties_cartesian_pdf_aggregated.sample_random_pos()
+
+            dist_to_existing_agents = norm(np.stack([suggested_loc[0]-np.array(all_agents)[:, 0],
+                                                     suggested_loc[1]-np.array(all_agents)[:, 1]]), axis=0)
+            if min(dist_to_existing_agents) < 0.7 or min(dist_to_existing_agents) > 5:
+                accept_suggested_loc = False
             if accept_suggested_loc:
-                print(int(round(crowd_flow_map.get(suggested_loc))))
-                suggested_vel = FlowClassifier().preset_flow_classes[int(round(crowd_flow_map.get(suggested_loc)))].velocity
-                new_ped = Pedestrian(suggested_loc, suggested_vel, synthetic=True)
+                # print(int(round(crowd_flow_map.get(suggested_loc))))
+                suggested_vel = FlowClassifier().preset_flow_classes[
+                    int(round(crowd_flow_map.get(suggested_loc)))].velocity
+                new_ped = Pedestrian(suggested_loc, suggested_vel)
+                new_ped.projected = True
                 new_ped.color = SKY_BLUE_COLOR
-                synthetic_agents.append(new_ped)
+                projected_agents.append(new_ped)
 
-                all_agents.append(suggested_loc)  # cuz: this agent should be considered when synthesising next agent
+                all_agents.append(np.concatenate([suggested_loc, suggested_vel]))  # cuz: this agent should be considered when synthesising next agent
                 self._aggregate_to_virtual_pdf_(suggested_loc, suggested_vel, crowd_flow_map)
-        return synthetic_agents
 
+        # self.fig2.imshow(np.flipud(self.social_ties_cartesian_pdf_aggregated.data.T))
+        return projected_agents
 
     def plot(self, title=""):
 
         if not len(self.axes):  # First time initialization
-            self.fig = plt.figure(figsize=(12, 6))
-            grid_spec = gridspec.GridSpec(2, 4, height_ratios=[3, 1], width_ratios=[1, 3, 3, 1], wspace=0.15, hspace=0.2)
+            # _, self.fig2 = plt.subplots()
+            self.fig = plt.figure(figsize=(8, 4))
+            grid_spec = gridspec.GridSpec(2, 4, height_ratios=[3, 1], width_ratios=[1, 3, 3, 1], wspace=0.15,
+                                          hspace=0.2)
             self.axes = [[None, None, None, None], [None, None]]
             # self.axes[0, 0].remove()
             # self.axes[0, 0] = self.fig.add_subplot(221, projection="polar")
@@ -335,7 +354,7 @@ class SocialTiePDF:
         self.axes[0][0].set_xlim([0, max(strong_angular_pdf) * 1.1])
         self.axes[0][0].set_ylim([-151, 151])
         self.axes[0][0].set_yticks(angle_y_ticks)
-        self.axes[0][0].set_yticklabels(["$%d^\circ$" %deg for deg in angle_y_ticks])
+        self.axes[0][0].set_yticklabels(["$%d^\circ$" % deg for deg in angle_y_ticks])
         self.axes[0][0].invert_xaxis()
 
         # Marginal PDF: Tie Length
@@ -373,7 +392,8 @@ class SocialTiePDF:
 
         # Marginal PDF: Tie Length
         self.axes[1][1].clear()
-        self.axes[1][1].bar(self.rho_bin_midpoints, absent_length_pdf, width=np.diff(self.rho_edges)[0] * 0.8, color='darkred')
+        self.axes[1][1].bar(self.rho_bin_midpoints, absent_length_pdf, width=np.diff(self.rho_edges)[0] * 0.8,
+                            color='darkred')
 
         self.axes[1][1].set_title("Tie Length PDF  ", loc='right', fontsize=10, pad=-14)
         # self.axes[1][1].set_xlabel('$\it{m}$', labelpad=-5)
@@ -385,7 +405,6 @@ class SocialTiePDF:
             self.fig.suptitle(title)
 
         plt.pause(0.001)
-
 
     def save_pdf(self, fname):
         """save the distributions to file"""
@@ -402,9 +421,9 @@ class SocialTiePDF:
         npzfile = np.load(fname)
         self.num_prior_strong_ties = npzfile['num_prior_strong_ties']
         self.num_prior_absent_ties = npzfile['num_prior_absent_ties']
-        self.strong_ties_pdf_polar = npzfile['strong_ties_pdf_polar']
-        self.absent_ties_pdf_polar = npzfile['absent_ties_pdf_polar']
-
+        max_dist = len(self.rho_edges)
+        self.strong_ties_pdf_polar = npzfile['strong_ties_pdf_polar'][:max_dist - 1]
+        self.absent_ties_pdf_polar = npzfile['absent_ties_pdf_polar'][:max_dist - 1]
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ eps = sys.float_info.epsilon
 
 
 class Pedestrian:
-    def __init__(self, init_pos=[0, 0], init_vel=[0, 0], biped_mode=False, synthetic=False, color=(0, 255, 0)):
+    def __init__(self, init_pos=[0, 0], init_vel=[0, 0], biped_mode=False, color=(0, 255, 0)):
         self.id = -1  # to check if somebody is him!
         self.radius = 0.25
         self.pos = np.array(init_pos)
@@ -20,7 +20,6 @@ class Pedestrian:
         self.lateral_unitvec = lambda: (np.array([self.vel[1], -self.vel[0]]) + eps) / (np.linalg.norm(self.vel) + eps)
         self.trajectory = []
         self.biped_mode = biped_mode  # boolean
-        self.synthetic = synthetic  # boolean
 
         # FIXME: there are 2 options to represent pedestrian:
         #  1: using circular agents for simple detection
