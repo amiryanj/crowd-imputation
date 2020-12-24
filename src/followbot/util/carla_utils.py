@@ -12,14 +12,10 @@ import pygame
 import numpy as np
 import carla
 
+
 # script_path = os.path.dirname(os.path.realpath(__file__))
 # sys.path.append(glob.glob("%s/carla*.egg" % script_path)[0])
 
-
-def get_sensor_data(data):
-    output_file = "/home/cyrus/Music/lidar-data/%05d.dat" % data.frame
-    print("printing to: ", output_file)
-    data.save_to_disk(output_file)
 
 
 def make_moment_id(scene, moment_idx, x_agent_pid, dest_idx, annotator_id):
@@ -29,10 +25,10 @@ def make_moment_id(scene, moment_idx, x_agent_pid, dest_idx, annotator_id):
 
 def setup_walker_bps(world):
     # walker model that we use
-    # walker_indexes = [1, 2, 3, 4, 5, 6, 7, 8]
+    walker_indexes = [1, 2, 3, 4, 5, 6, 7, 8]
     # 9-14 are kids
     # walker_indexes = [9, 10, 11, 12, 13, 14]
-    walker_indexes = [2]
+    # walker_indexes = [2]
     # the last item is the current cycled index of the bps
     walker_bps = [["walker.pedestrian.%04d" % o for o in walker_indexes], 0]
     walker_bps_list = [
@@ -348,6 +344,67 @@ def get_scene(videoname_):
     return s[:4]
 
 
+class Camera(object):
+    """Camera object to have a surface."""
+
+    def __init__(self, camera_actor, save_path=None, camera_type="rgb",
+                 seg_save_img=False, image_type=carla.ColorConverter.Raw,
+                 width=None, height=None, fov=None, recording=False):
+        self.camera_actor = camera_actor
+        self.image_type = image_type
+
+        self.last_image_frame_num = None  # the frame num of the image
+        self.last_image_seconds = None  # the seconds since beginning of eposide?
+        self.rgb_image = None  # last RGB image
+        self.pygame_surface = None  # last RGB image made pygame surface
+
+        self.recording = recording
+        self.save_path = save_path
+
+        self.camera_type = camera_type
+        self.seg_save_img = seg_save_img  # whether to save segmentation as image
+
+        # initialize
+        camera_actor.listen(self.parse_image)
+        if self.camera_type == "rgb":
+            self.camera_actor.intrinsic = compute_intrinsic(width, height, fov)
+        self.frame_id = -1
+
+    def set_frame_id(self, frame_id):
+        self.frame_id = frame_id
+
+    # callback for sensor.listen()
+    # this is called whenever a data comes from CARLA server
+    def parse_image(self, image):
+        """Process one camera captured image."""
+        # parse the image data into a pygame surface for display or screenshot
+        # raw image is BGRA
+        # if image_type is segmentation, here will convert to the pre-defined color
+        image.convert(self.image_type)
+
+        # save rgb or seg feature to disk
+        if self.save_path is not None:
+            if self.recording:
+                if (self.camera_type == "seg") and not self.seg_save_img:
+                    array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
+                    array = np.reshape(array, (image.height, image.width, 4))
+                    # the pixel class is in the red channel
+                    array = array[:, :, 2]  # [H, W]
+                    np.save(os.path.join(self.save_path, 'camera_seg', "%08d.npy" % self.frame_id), array)
+                elif self.camera_type == "rgb":
+                    image.save_to_disk(
+                        os.path.join(self.save_path, 'camera', "%08d.jpg" % self.frame_id))
+
+        array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
+        array = np.reshape(array, (image.height, image.width, 4))
+        array = array[:, :, :3]
+        array = array[:, :, ::-1]  # BGR -> RGB
+        self.rgb_image = array
+        self.pygame_surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
+        self.last_image_seconds = image.timestamp
+        self.last_image_frame_num = image.frame
+
+
 class CollisionSensor(object):
     def __init__(self, parent_actor, actorid2info, world, verbose=False):
         self.world = world
@@ -420,134 +477,6 @@ def setup_static(world, client, scene_elements, actor_list):
         actor_list += all_actors
 
 
-lidar_sensor = None
-def run_sim_for_one_frame(frame_id, ped_controls, cur_peds, walker_bps,
-                          world,
-                          global_actor_list, actorid2info, robot_id=-1,
-                          show_traj=False, verbose=False, max_yaw_change=60,
-                          exit_if_spawn_fail=False,
-                          no_collision_detector=False,
-                          pid2actor={},
-                          excepts=[]):
-    """Given the controls and the current frame_id, run the simulation. Return
-     the batch command to execute, return None if the any spawning failed
-  """
-    stats = {}
-    batch_cmds = []
-
-    # if ped_controls.has_key(frame_id):
-    if frame_id in ped_controls:
-        this_control_data = ped_controls[frame_id]
-        for person_id, _, xyz, direction_vector, speed, time_elasped, is_static in this_control_data:
-            if person_id in excepts:
-                continue
-
-            if robot_id == person_id:
-                if robot_id not in cur_peds:
-                    kid_bp = world.get_blueprint_library().find("walker.pedestrian.0011")
-                    kid_walker = world.try_spawn_actor(kid_bp, carla.Transform(
-                        location=carla.Location(x=xyz[0], y=xyz[1], z=xyz[2]),
-                        rotation=carla.Rotation(yaw=np.rad2deg(np.arctan2(direction_vector[1], direction_vector[0])),
-                                                pitch=0, roll=0)))
-                    lidar_bp = world.get_blueprint_library().find("sensor.lidar.ray_cast")
-                    lidar_bp.set_attribute('range', '10.0')
-                    lidar_bp.set_attribute('channels', '64')
-                    lidar_bp.set_attribute('lower_fov', '-20.0')
-                    lidar_bp.set_attribute('sensor_tick', '0.2')
-                    global lidar_sensor
-                    lidar_sensor = world.try_spawn_actor(lidar_bp,
-                                                  carla.Transform(location=carla.Location(x=0.2, y=0, z=+1.4)),
-                                                  attach_to=kid_walker)
-                    lidar_sensor.listen(lambda data: get_sensor_data(data))
-                    cur_peds[person_id] = kid_walker
-                    global_actor_list.append(kid_walker)
-                    actorid2info[kid_walker.id] = ("Person", person_id)
-                    pid2actor[person_id] = kid_walker
-                    print("created robot as ped=", robot_id)
-                    continue
-
-                # ---- last location reached ----
-                if direction_vector is None:
-                    lidar_sensor.stop()
-
-            # ------ last location reached, so delete this guy ------
-            if direction_vector is None:
-                if person_id in cur_peds:
-                    batch_cmds.append(carla.command.DestroyActor(cur_peds[person_id]))
-                    del cur_peds[person_id]
-
-            else:
-                walker_control = carla.WalkerControl(direction=carla.Vector3D(x=direction_vector[0],
-                                                                              y=direction_vector[1],
-                                                                              z=direction_vector[2]),
-                                                     speed=speed, jump=False)
-                # carla.command.applyTransform()
-
-                # new person, need to spawn
-                # if not cur_peds.has_key(person_id):
-                if person_id not in cur_peds:
-                    walker_bp = get_bp(walker_bps)
-                    new_walker = world.try_spawn_actor(walker_bp, carla.Transform(
-                        location=carla.Location(x=xyz[0], y=xyz[1], z=xyz[2]),
-                        rotation=carla.Rotation(yaw=np.rad2deg(np.arctan2(direction_vector[1], direction_vector[0])),
-                                                pitch=0, roll=0)))
-                    if new_walker is None:
-                        if verbose:
-                            print("%s: person %s failed to spawn." % (frame_id, person_id))
-                        if exit_if_spawn_fail:
-                            return None, stats
-                        else:
-                            continue
-                    if verbose:
-                        print("%s: Spawned person id %s." % (
-                            frame_id, person_id))
-                    new_walker.set_simulate_physics(True)
-                    cur_peds[person_id] = new_walker
-                    global_actor_list.append(new_walker)
-
-                    # add a collision sensor
-                    actorid2info[new_walker.id] = ("Person", person_id)
-                    pid2actor[person_id] = new_walker
-
-                    # if not no_collision_detector:
-                    #     collision_sensor = CollisionSensor(new_walker, actorid2info, world, verbose=verbose)
-                    #     global_actor_list.append(collision_sensor.sensor)
-                    #     cur_ped_collisions[person_id] = collision_sensor
-                    if show_traj:
-                        # show the track Id
-                        world.debug.draw_string(carla.Location(
-                            x=xyz[0], y=xyz[1], z=xyz[2]), "# %s" % person_id,
-                            draw_shadow=False,
-                            color=carla.Color(r=255, g=0, b=0),
-                            life_time=30.0)
-
-                this_walker_actor = cur_peds[person_id]
-
-                if show_traj:
-                    delay = 0.0  # delay before removing traj
-                    p1 = carla.Location(x=xyz[0], y=xyz[1], z=xyz[2])
-                    next_xyz = [xyz[i] + direction_vector[i] * speed * time_elasped
-                                for i in range(3)]
-                    p2 = carla.Location(x=next_xyz[0], y=next_xyz[1], z=next_xyz[2])
-                    world.debug.draw_arrow(p1, p2, thickness=0.1, arrow_size=0.1,
-                                           color=carla.Color(r=255),
-                                           life_time=time_elasped + delay)
-
-                if is_static:
-                    # stop the walker
-                    batch_cmds.append(carla.command.ApplyWalkerControl(
-                        this_walker_actor, carla.WalkerControl()))
-                    continue
-                batch_cmds.append(carla.command.ApplyWalkerControl(
-                    this_walker_actor, walker_control))
-
-                sim_xyz = this_walker_actor.get_location()
-                print(
-                    "disp err (sim, real)= %3f" % np.linalg.norm(np.array(xyz[:2]) - np.array([sim_xyz.x, sim_xyz.y])))
-                # compensate the sim error
-                this_walker_actor.set_location(carla.Location(x=xyz[0], y=xyz[1], z=xyz[2]))
-
-    return batch_cmds, stats
 
 
 def cross(carla_vector3d_1, carla_vector3d_2):
