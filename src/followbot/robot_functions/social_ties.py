@@ -11,6 +11,7 @@ from scipy.ndimage import map_coordinates
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 from sklearn.metrics import euclidean_distances
+from skimage.transform import resize
 
 from followbot.crowdsim.pedestrian import Pedestrian
 from followbot.gui.visualizer import SKY_BLUE_COLOR
@@ -49,11 +50,14 @@ class SocialTiePDF:
         and will return a random sample on demand
     """
 
-    def __init__(self, max_distance=2.5, radial_resolution=4, angular_resolution=36):
+    def __init__(self, max_distance=3, radial_resolution=4, angular_resolution=36):
         self.num_prior_strong_ties = 0
         self.num_prior_absent_ties = 0
         self.strong_ties = []
         self.absent_ties = []
+
+        self.radial_resolution = radial_resolution
+        self.angular_resolution = angular_resolution
 
         # the pairwise distances in the pool are each assigned a weight that will get smaller as time goes
         # this permits the system to forget too old data
@@ -207,8 +211,8 @@ class SocialTiePDF:
         # convert polar to cartesian by interpolation
         # the resolution should be similar to the one of mapped_arrays
         resol = crowd_flow_map.resolution
-        xx = np.linspace(-self.rho_edges[-1], self.rho_edges[-1], self.rho_edges[-1] * 2 * resol)
-        yy = np.linspace(-self.rho_edges[-1], self.rho_edges[-1], self.rho_edges[-1] * 2 * resol)
+        xx = np.linspace(-self.rho_edges[-1], self.rho_edges[-1], int(round(self.rho_edges[-1] * 2 * resol)))
+        yy = np.linspace(-self.rho_edges[-1], self.rho_edges[-1], int(round(self.rho_edges[-1] * 2 * resol)))
 
         # Rotate the tie_pdf toward the face of each agent
         orien_i = np.arctan2(vel_i[1], vel_i[0])
@@ -297,7 +301,7 @@ class SocialTiePDF:
 
             dist_to_existing_agents = norm(np.stack([suggested_loc[0]-np.array(all_agents)[:, 0],
                                                      suggested_loc[1]-np.array(all_agents)[:, 1]]), axis=0)
-            if min(dist_to_existing_agents) < 0.7 or min(dist_to_existing_agents) > 5:
+            if min(dist_to_existing_agents) < 0.7 or min(dist_to_existing_agents) > 6:
                 accept_suggested_loc = False
             if accept_suggested_loc:
                 # print(int(round(crowd_flow_map.get(suggested_loc))))
@@ -412,18 +416,62 @@ class SocialTiePDF:
                  strong_ties_pdf_polar=self.strong_ties_pdf_polar,
                  absent_ties_pdf_polar=self.absent_ties_pdf_polar,
                  num_prior_strong_ties=self.num_prior_strong_ties,
-                 num_prior_absent_ties=self.num_prior_absent_ties)
+                 num_prior_absent_ties=self.num_prior_absent_ties,
+                 rho_edges=self.rho_edges,
+                 theta_edges=self.theta_edges)
 
     def load_pdf(self, fname):
         """load the distributions from file"""
         if not os.path.exists(fname):
             raise ValueError("Could not find the data file for prior social ties")
-        npzfile = np.load(fname)
-        self.num_prior_strong_ties = npzfile['num_prior_strong_ties']
-        self.num_prior_absent_ties = npzfile['num_prior_absent_ties']
-        max_dist = len(self.rho_edges)
-        self.strong_ties_pdf_polar = npzfile['strong_ties_pdf_polar'][:max_dist - 1]
-        self.absent_ties_pdf_polar = npzfile['absent_ties_pdf_polar'][:max_dist - 1]
+        npz_file = np.load(fname)
+        self.num_prior_strong_ties = npz_file['num_prior_strong_ties']
+        self.num_prior_absent_ties = npz_file['num_prior_absent_ties']
+
+        src_strong_ties_pdf_polar = npz_file['strong_ties_pdf_polar']
+        src_absent_ties_pdf_polar = npz_file['absent_ties_pdf_polar']
+        if 'rho_edges' in npz_file:
+            src_rho_edges = npz_file['rho_edges']
+        else:
+            max_distance = 5
+            radial_resolution = 4
+            src_rho_edges = np.linspace(0, max_distance, max_distance * radial_resolution + 1)
+
+        if 'theta_edges' in npz_file:
+            src_theta_edges = npz_file['theta_edges']
+        else:
+            angular_resolution = 36
+            src_theta_edges = np.linspace(-np.pi, np.pi, angular_resolution + 1)
+
+
+        if len(src_rho_edges) == len(self.rho_edges) and \
+                np.all(np.isclose(src_rho_edges, self.rho_edges)) and \
+                len(src_theta_edges) == len(self.theta_edges) and \
+                np.all(np.isclose(src_theta_edges, self.theta_edges)):
+
+            self.strong_ties_pdf_polar = src_strong_ties_pdf_polar
+            self.absent_ties_pdf_polar = src_absent_ties_pdf_polar
+
+        else:  # map the loaded histogram (src) to the histogram shape defined here (dst)
+            src_rhos = (src_rho_edges[:-1] + src_rho_edges[1:]) / 2
+            src_thetas = (src_theta_edges[:-1] + src_theta_edges[1:]) / 2
+            dst_rhos, dst_thetas = np.meshgrid(self.rho_bin_midpoints, self.theta_bin_midpoints)
+
+            interp_src_rhos = interp1d(src_rhos, np.arange(len(src_rhos)), bounds_error=False)
+            interp_src_thetas = interp1d(src_thetas, np.arange(len(src_thetas)))
+
+            new_interp_rhos = interp_src_rhos(dst_rhos.ravel())
+            new_interp_thetas = interp_src_thetas(dst_thetas.ravel())
+
+            new_interp_rhos[dst_rhos.ravel() < src_rhos.min()] = 0
+            new_interp_rhos[dst_rhos.ravel() > src_rhos.max()] = src_rhos.max()
+
+            self.strong_ties_pdf_polar = map_coordinates(src_strong_ties_pdf_polar,
+                                                         np.array([new_interp_rhos, new_interp_thetas]),
+                                                         order=2, cval=1, mode='reflect').reshape(dst_rhos.shape).T
+            self.absent_ties_pdf_polar = map_coordinates(src_absent_ties_pdf_polar,
+                                                         np.array([new_interp_rhos, new_interp_thetas]),
+                                                         order=2, cval=1, mode='reflect').reshape(dst_rhos.shape).T
 
 
 if __name__ == "__main__":
@@ -456,3 +504,4 @@ if __name__ == "__main__":
     ax = fig.add_subplot(212)
     ax.imshow(polar2cartesian(r_, t_, z_, x_, y_, order=3), interpolation='nearest')
     plt.show()
+
