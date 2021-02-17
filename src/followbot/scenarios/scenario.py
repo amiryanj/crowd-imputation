@@ -41,8 +41,9 @@ class Scenario(ABC):
             self.world.frame_id += 1
             if save:
                 home = os.path.expanduser("~")
-                self.visualizer.save_screenshot(os.path.join(home, 'Videos/followbot/'))
+                self.visualizer.save_screenshot(os.path.join(home, 'Videos/followbot/scene'), self.world.original_frame_id)
         self.update_display()
+        return True
 
 
     def update_display(self, delay_sec=0.01):

@@ -119,5 +119,5 @@ class CorridorScenario(SimulationScenario):
 
         self.world.set_time(0)
 
-    def step(self, dt, save=False):
-        super(CorridorScenario, self).step(dt, save)
+    def step(self, dt, lidar_enabled, save=False):
+        return super(CorridorScenario, self).step(dt, lidar_enabled, save)

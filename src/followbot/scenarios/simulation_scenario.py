@@ -14,6 +14,7 @@ class SimulationScenario(Scenario, ABC):
     def __init__(self, **kwargs):
         self.ped_radius = kwargs.get("pedRadius", 0.25)
         self.n_peds = kwargs.get("numPeds", 0)
+        self.fps = 10  # default fps for simulated scenarios
         self.group_ids = []
         self.grouping_behavior_handler = None
         super(SimulationScenario, self).__init__()
@@ -39,7 +40,7 @@ class SimulationScenario(Scenario, ABC):
     def step_robots(self, dt, lidar_enabled):
         super(SimulationScenario, self).step_robots(dt, lidar_enabled)
 
-    def step(self, dt, save=False):
+    def step(self, dt, lidar_enabled, save=False):
         if not self.world.pause:
             self.world.sim.doStep(dt)
 
@@ -66,6 +67,6 @@ class SimulationScenario(Scenario, ABC):
 
                 if self.world.robots[jj - self.n_peds].pos[0] > self.world.world_dim[0][1]:
                     self.world.robots[jj - self.n_peds].pos[0] = self.world.world_dim[0][0]
-            self.step_robots(dt)
+            self.step_robots(dt, lidar_enabled)
 
-        super(SimulationScenario, self).step(dt, save)
+        return super(SimulationScenario, self).step(dt, save)

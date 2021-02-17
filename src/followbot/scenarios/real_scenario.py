@@ -160,7 +160,7 @@ class RealScenario(Scenario):
 
             if save:
                 home = os.path.expanduser("~")
-                self.visualizer.save_screenshot(os.path.join(home, 'Videos/followbot/'))
+                self.visualizer.save_screenshot(os.path.join(home, 'Videos/followbot/scene'), self.world.original_frame_id)
         self.update_display()
         return not_finished
 
