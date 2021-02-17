@@ -5,7 +5,6 @@ import numpy as np
 from numpy import cos, sin, exp
 from collections import Counter
 from scipy.stats import mode
-from followbot.robot_functions.flow_classifier import FlowClassifier
 
 
 class BivariateGaussian:
@@ -129,18 +128,19 @@ class BivariateGaussianMixtureModel:
 
 
 def draw_bgmm(mm: BivariateGaussianMixtureModel, query_x, query_y):
+    from followbot.robot_functions.crowd_clustering import FlowClassifier
     import matplotlib.pyplot as plt
     predicted_class_matrix = mm.classify_kNN(query_x, query_y)
 
-    plt.figure(0, figsize=((np.max(query_x)-np.min(query_x)) * 1.5,
-                           (np.max(query_y)-np.min(query_y)) * 1.5))
+    plt.figure("bgmm", figsize=((np.max(query_x)-np.min(query_x)) * 1,
+                           (np.max(query_y)-np.min(query_y)) * 1))
     # draw contour for each gaussian component (gray)
     for ii in range(len(mm.components)):
         comp_mean = [mm.components[ii].x0, mm.components[ii].y0]
         comp_cov = np.array([[mm.components[ii].sigma_x, 0], [0, mm.components[ii].sigma_y]]) * 2
         samples = np.random.multivariate_normal(comp_mean, comp_cov, 5000)
         p_k = mm.components[ii].pdf(samples[:, 0], samples[:, 1])
-        samples = samples[p_k > 0.5]
+        samples = samples[p_k > 0.4]
         plt.scatter(samples[:, 0], samples[:, 1], c='gray', alpha=0.2)
         plt.scatter(mm.components[ii].x0, mm.components[ii].y0, c='grey')
 
