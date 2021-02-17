@@ -33,7 +33,7 @@ def trapezoidal_motion_profile(loc, goal, pref_speed, deceleration_dist=1.0):
 
 
 class MyRobot:
-    def __init__(self, worldPtr, prefSpeed, sensor_fps, numHypothesisWorlds=1):
+    def __init__(self, worldPtr, prefSpeed, sensorFps, numHypothesisWorlds=1, mapResolution=4):
         self.real_world = worldPtr  # pointer to world
 
         # robot dynamic properties
@@ -45,19 +45,19 @@ class MyRobot:
         # robot static properties
         self.radius = 0.3
         self.pref_speed = prefSpeed
-        self.max_speed = 1.0
+        self.max_speed = 1.3
 
         # child objects that do some function
         self.lidar = LiDAR2D(robot_ptr=self)
         self.ped_detector = PedestrianDetection(self.lidar.range_max, np.deg2rad(1 / self.lidar.resolution))
-        self.tracker = MultiObjectTracking(sensor_fps)
+        self.tracker = MultiObjectTracking(sensorFps)
 
         # Robot Goal: can be static/dynamic object: e.g. fixed point / leader person
         self.goal = [0, 0]
 
         # the sensory data + processed variables
         # ====================================
-        self.mapped_array_resolution = 4  # per meters
+        self.mapped_array_resolution = mapResolution  # per meters
         self.occupancy_map = MappedArray(min_x=self.real_world.world_dim[0][0], max_x=self.real_world.world_dim[0][1],
                                          min_y=self.real_world.world_dim[1][0], max_y=self.real_world.world_dim[1][1],
                                          resolution=self.mapped_array_resolution,  # per meter

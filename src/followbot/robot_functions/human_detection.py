@@ -16,7 +16,7 @@ class PedestrianDetection:
         self.clustering_threshold = 0.1  # meter
         self.lidar_resolution = lidar_resolution
         self.min_n_pixel = 5
-        self.debug_viz = visdom.Visdom()
+        # self.debug_viz = visdom.Visdom()
 
 
     def cluster_points_daniel(self, scan, angles):
