@@ -15,12 +15,12 @@ from followbot.scenarios.real_scenario import RealScenario
 from toolkit.core.trajdataset import merge_datasets
 
 from followbot.run import followbot_sim
-from followbot.run.followbot_sim import biped_mode, lidar_enabled, visualizer_enabled
+from followbot.run.followbot_sim import BIPED_MODE, LIDAR_ENABLED, VISUALIZER_ENABLED
 
 
 matplotlib.use('TkAgg')
 
-from followbot.robot_functions.pairwise_distribution import PairwiseDistribution
+from followbot.robot_functions.social_ties import SocialTiePDF
 from toolkit.loaders.loader_hermes import load_bottleneck
 from toolkit.loaders.loader_metafile import load_eth, load_crowds
 from toolkit.loaders.loader_sdd import load_sdd, load_sdd_dir
@@ -29,16 +29,16 @@ datasets = []
 opentraj_root = '/home/cyrus/workspace2/OpenTraj'
 output_dir = "/home/cyrus/Dropbox/FollowBot/exp/occlusion"
 # ======== load dataset =========
-# annot_file = os.path.join(opentraj_root, 'datasets/ETH/seq_eth/obsmat.txt')
-# datasets.append(load_eth(annot_file, title="ETH-Univ"))
+annot_file = os.path.join(opentraj_root, 'datasets/ETH/seq_eth/obsmat.txt')
+datasets.append(load_eth(annot_file, title="ETH-Univ"))
 #
 # annot_file = os.path.join(opentraj_root, 'datasets/ETH/seq_hotel/obsmat.txt')
 # datasets.append(load_eth(annot_file, title="ETH-Hotel"))
 #
-# annot_file = os.path.join(opentraj_root, 'datasets/UCY/zara01/annotation.vsp')
-# zara01 = load_crowds(annot_file, homog_file=os.path.join(opentraj_root, "datasets/UCY/zara01/H.txt"), title="Zara01",
-#                      use_kalman=False)
-# datasets.append(zara01)
+annot_file = os.path.join(opentraj_root, 'datasets/UCY/zara01/annotation.vsp')
+zara01 = load_crowds(annot_file, homog_file=os.path.join(opentraj_root, "datasets/UCY/zara01/H.txt"), title="Zara01",
+                     use_kalman=False)
+datasets.append(zara01)
 
 # annot_file = os.path.join(opentraj_root, 'datasets/UCY/zara02/annotation.vsp')
 # zara02 = load_crowds(annot_file, homog_file=os.path.join(opentraj_root, "datasets/UCY/zara02/H.txt"), title="Zara02")
@@ -59,16 +59,16 @@ output_dir = "/home/cyrus/Dropbox/FollowBot/exp/occlusion"
 
 
 # 1d HERMES
-annot_file = os.path.join(opentraj_root, 'datasets/HERMES/Corridor-1D/uo-180-180-180.txt')
+# annot_file = os.path.join(opentraj_root, 'datasets/HERMES/Corridor-1D/uo-180-180-180.txt')
 # annot_file = os.path.join(opentraj_root, 'datasets/HERMES/Corridor-1D/uo-300-300-300.txt')
-datasets.append(load_bottleneck(annot_file, title="HERMES-" + os.path.basename(annot_file)[:-4]))
+# datasets.append(load_bottleneck(annot_file, title="HERMES-" + os.path.basename(annot_file)[:-4]))
 
 # 2d HERMES
-annot_file = os.path.join(opentraj_root, 'datasets/HERMES/Corridor-2D/bo-360-050-050.txt')
+# annot_file = os.path.join(opentraj_root, 'datasets/HERMES/Corridor-2D/bo-360-050-050.txt')
 # annot_file = os.path.join(opentraj_root, 'datasets/HERMES/Corridor-2D/bo-360-160-160.txt')
 # annot_file = os.path.join(opentraj_root, 'datasets/HERMES/Corridor-2D/bo-360-075-075.txt')
 # annot_file = os.path.join(opentraj_root, 'datasets/HERMES/Corridor-2D/bot-360-250-250.txt')
-datasets.append(load_bottleneck(annot_file, title="HERMES-" + os.path.basename(annot_file)[:-4]))
+# datasets.append(load_bottleneck(annot_file, title="HERMES-" + os.path.basename(annot_file)[:-4]))
 # -------------------------------
 
 scenarios = []
@@ -82,10 +82,10 @@ for dataset in datasets:
         # try:
             if "HERMES" in dataset.title:
                 scenario = HermesScenario()
-                scenario.setup(dataset=dataset, robot_id=agent_id, biped=biped_mode)
+                scenario.setup(dataset=dataset, robot_id=agent_id, biped_mode=BIPED_MODE)
             else:
                 scenario = RealScenario()
-                scenario.setup(dataset=dataset, fps=dataset.fps, robot_id=agent_id, biped=biped_mode)
+                scenario.setup(dataset=dataset, fps=dataset.fps, robot_id=agent_id, biped_mode=BIPED_MODE)
             # scenarios.append(scenario)
 
             visualizer_enabled = False

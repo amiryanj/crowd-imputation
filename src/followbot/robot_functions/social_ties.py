@@ -15,12 +15,12 @@ from skimage.transform import resize
 
 from followbot.crowdsim.pedestrian import Pedestrian
 from followbot.gui.visualizer import SKY_BLUE_COLOR
-from followbot.robot_functions.flow_classifier import FlowClassifier
+from followbot.robot_functions.crowd_clustering import FlowClassifier
 from followbot.util.mapped_array import MappedArray
 
 
 def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
+    return 2 / (1 + np.exp(-x)) - 1
 
 
 def polar2cartesian(r, t, grid, x, y, cval, order=3):
@@ -29,8 +29,8 @@ def polar2cartesian(r, t, grid, x, y, cval, order=3):
     new_r = np.sqrt(X * X + Y * Y)
     new_t = np.arctan2(Y, X)
 
-    ir = interp1d(r, np.arange(len(r)), bounds_error=False)
-    it = interp1d(t, np.arange(len(t)))
+    ir = interp1d(r, np.arange(len(r)), bounds_error=False, fill_value="extrapolate")
+    it = interp1d(t, np.arange(len(t)), fill_value="extrapolate")
 
     new_ir = ir(new_r.ravel())
     new_it = it(new_t.ravel())
@@ -38,7 +38,7 @@ def polar2cartesian(r, t, grid, x, y, cval, order=3):
     new_ir[new_r.ravel() > r.max()] = len(r) - 1
     new_ir[new_r.ravel() < r.min()] = 0
 
-    map2cart = map_coordinates(grid, np.array([new_ir, new_it]), order=order, cval=cval, mode='reflect').reshape(
+    map2cart = map_coordinates(grid, np.array([new_ir, new_it]), order=order, cval=cval, mode='nearest').reshape(
         new_r.shape).T
     return map2cart
 
@@ -50,9 +50,10 @@ class SocialTiePDF:
         and will return a random sample on demand
     """
 
-    def __init__(self, max_distance=3, radial_resolution=4, angular_resolution=36):
+    def __init__(self, max_distance=4, radial_resolution=4, angular_resolution=36):
         self.num_prior_strong_ties = 0
         self.num_prior_absent_ties = 0
+        self.padding_prob_val = 1.0
         self.strong_ties = []
         self.absent_ties = []
 
@@ -221,17 +222,39 @@ class SocialTiePDF:
         n_shifts = int(round(orien_i / np.diff(self.theta_edges[:2])[0]))
         if n_shifts != 0:
             # rotate the polar tie distribution it toward agent face
-            rotated_strong_ties_pdf_polar = np.roll(self.strong_ties_pdf_polar, -n_shifts, axis=1)
-            rotated_absent_ties_pdf_polar = np.roll(self.absent_ties_pdf_polar, -n_shifts, axis=1)
+            rotated_strong_ties_pdf_polar = np.roll(self.strong_ties_pdf_polar, n_shifts, axis=1)
+            rotated_absent_ties_pdf_polar = np.roll(self.absent_ties_pdf_polar, n_shifts, axis=1)
         else:
             rotated_strong_ties_pdf_polar = self.strong_ties_pdf_polar.copy()
             rotated_absent_ties_pdf_polar = self.absent_ties_pdf_polar.copy()
 
-        rotated_strong_ties_pdf_polar = sigmoid(rotated_strong_ties_pdf_polar)
-        rotated_absent_ties_pdf_polar = sigmoid(rotated_absent_ties_pdf_polar)
+        # print("n_shifts = ", n_shifts)
+        # =======================================
+        # if n_shifts == 2:
+        #     plt.figure()
+        #     ax_1 = plt.subplot(2, 2, 1)
+        #     ax_2 = plt.subplot(2, 2, 2)
+        #     ax_1.imshow(self.strong_ties_pdf_polar)
+        #     ax_2.imshow(rotated_strong_ties_pdf_polar)
+        #     # ax_1 = plt.subplot(2, 2, 1, projection='polar')
+        #     # ax_2 = plt.subplot(2, 2, 2, projection='polar')
+        #     # ax_1.pcolormesh(self.theta_edges, self.rho_edges, self.strong_ties_pdf_polar, vmin=0, cmap='YlGnBu')
+        #     # ax_2.pcolormesh(self.theta_edges, self.rho_edges, rotated_strong_ties_pdf_polar, vmin=0, cmap='YlGnBu')
+        #
+        #     cartesian_1 = polar2cartesian(self.rho_bin_midpoints, self.theta_bin_midpoints,
+        #                                                  self.strong_ties_pdf_polar, xx, yy, cval=1, order=2)
+        #     cartesian_2 = polar2cartesian(self.rho_bin_midpoints, self.theta_bin_midpoints,
+        #                                                 rotated_strong_ties_pdf_polar, xx, yy, cval=1, order=2)
+        #     ax_3 = plt.subplot(2, 2, 3)
+        #     ax_3.imshow(np.flipud(cartesian_1.T))
+        #     ax_4 = plt.subplot(2, 2, 4)
+        #     ax_4.imshow(np.flipud(cartesian_2.T))
+        #     plt.show()
+        #  # =======================================
 
-        rotated_strong_ties_pdf_polar /= np.nanmedian(rotated_strong_ties_pdf_polar)
-        rotated_absent_ties_pdf_polar /= np.nanmedian(rotated_absent_ties_pdf_polar)
+
+        # rotated_strong_ties_pdf_polar /= np.nanmedian(rotated_strong_ties_pdf_polar)
+        # rotated_absent_ties_pdf_polar /= np.nanmedian(rotated_absent_ties_pdf_polar)
 
         # convert polar to cartesian by interpolation
         strong_ties_pdf_cartesian = polar2cartesian(self.rho_edges, self.theta_edges,
@@ -241,6 +264,9 @@ class SocialTiePDF:
         # after conversion there are some negative values => clip them to zero!
         strong_ties_pdf_cartesian = np.clip(strong_ties_pdf_cartesian, a_min=0, a_max=1000)
         absent_ties_pdf_cartesian = np.clip(absent_ties_pdf_cartesian, a_min=0, a_max=1000)
+
+        strong_ties_pdf_cartesian = strong_ties_pdf_cartesian ** (1/4)
+        absent_ties_pdf_cartesian = absent_ties_pdf_cartesian ** (1/4)
 
         agent_flow_class_id = crowd_flow_map.get(pos_i)
         # this agent can have a strong tie to a (virtual) agent in the areas with the same flow_class
@@ -277,24 +303,20 @@ class SocialTiePDF:
         projected_agents = []
         all_agents = np.concatenate([in_agent_locs, in_agent_vels], axis=1).tolist()
 
-        # plt.subplot(121)
-        # plt.imshow(self.p_link_polar.T, interpolation='nearest')
-        # plt.subplot(122)
-        # plt.imshow(p_link_cartesian, interpolation='nearest')
-        # plt.pause()
-
         # accumulate all the
         self.social_ties_cartesian_pdf_aggregated = blind_spot_map.copy_constructor()
-        self.social_ties_cartesian_pdf_aggregated.fill(1)
+        self.social_ties_cartesian_pdf_aggregated.fill(self.padding_prob_val)
         self.social_ties_cartesian_pdf_aggregated.data *= blind_spot_map.data
+
+        # Todo: smooth crowd_flow_map
 
         for ii, agent_i in enumerate(all_agents):
             pos_i = agent_i[0:2]
             vel_i = agent_i[2:4]
             self._aggregate_to_virtual_pdf_(pos_i, vel_i, crowd_flow_map)
-            # if ii >= 0: break  # debug
+            if ii >= 3: break  # debug
 
-        n_tries = 10  # fixme
+        n_tries = 0  # fixme
         for i in range(n_tries):
             accept_suggested_loc = True
             suggested_loc = self.social_ties_cartesian_pdf_aggregated.sample_random_pos()
@@ -472,6 +494,25 @@ class SocialTiePDF:
             self.absent_ties_pdf_polar = map_coordinates(src_absent_ties_pdf_polar,
                                                          np.array([new_interp_rhos, new_interp_thetas]),
                                                          order=2, cval=1, mode='reflect').reshape(dst_rhos.shape).T
+
+
+        self.strong_ties_pdf_polar = 5 * sigmoid(self.strong_ties_pdf_polar)
+        self.absent_ties_pdf_polar = 5 * sigmoid(self.absent_ties_pdf_polar)
+
+        # fade out the histograms (linear interpolation)
+        fading_radius = 2.5
+        p_val = self.padding_prob_val  # padding value
+        if np.any(self.rho_edges > fading_radius):
+            first_fading_index = (self.rho_bin_midpoints > fading_radius).nonzero()[0][0]
+            last_index = len(self.rho_bin_midpoints) - 1
+            intp_alpha = np.linspace(1, 0, last_index-first_fading_index + 1)
+            for ii in range(len(intp_alpha)):
+                self.strong_ties_pdf_polar[ii+first_fading_index:, :] = (1-intp_alpha[ii]) * p_val + \
+                                                     intp_alpha[ii] * self.strong_ties_pdf_polar[first_fading_index - 1,:]
+                self.absent_ties_pdf_polar[ii+first_fading_index:, :] = (1-intp_alpha[ii]) * p_val + \
+                                                     intp_alpha[ii] * self.absent_ties_pdf_polar[first_fading_index - 1,:]
+
+
 
 
 if __name__ == "__main__":
