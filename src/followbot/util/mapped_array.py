@@ -36,6 +36,11 @@ class MappedArray:
     def copy_constructor(self):
         return copy.deepcopy(self)
 
+    def meshgrid(self):
+        xx, yy = np.meshgrid(np.arange(self.min_x, self.max_x, 1 / self.resolution),
+                             np.arange(self.min_y, self.max_y, 1 / self.resolution))
+        return xx, yy
+
     def set(self, pos, val):
         u, v = self.map(pos[0], pos[1])
         if 0 <= u < self.data.shape[0] and 0 <= v < self.data.shape[1]:
