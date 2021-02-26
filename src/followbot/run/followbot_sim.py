@@ -1,42 +1,68 @@
+import sys
 import random
 from datetime import datetime
 from scipy.spatial.transform import Rotation
 from numpy.linalg import norm as norm
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
+import matplotlib
+import visdom
+import logging
 
+from sklearn.metrics import euclidean_distances
+import scipy.optimize as op
+
+from followbot.scenarios.corridor_scenario import CorridorScenario
 from followbot.crowdsim.pedestrian import Pedestrian
 from followbot.gui.visualizer import *
-from followbot.robot_functions.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian
+from followbot.robot_functions.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian, draw_bgmm
 from followbot.robot_functions.dr_spaam_detector import DrSpaamDetector
-from followbot.robot_functions.flow_classifier import FlowClassifier
+from followbot.robot_functions.crowd_communities import CommunityHandler, CommunityDetector
 from followbot.robot_functions.social_ties import SocialTiePDF
 from followbot.robot_functions.human_detection import PedestrianDetection
 from followbot.robot_functions.robot import MyRobot
 from followbot.robot_functions.robot_replace_human import RobotReplaceHuman
+from followbot.util.eval import Evaluation
+from followbot.util.mapped_array import MappedArray
 from followbot.util.video_player import DatasetVideoPlayer
 from followbot.scenarios.hermes_scenario import HermesScenario
 from followbot.scenarios.real_scenario import RealScenario
 from followbot.util.transform import Transform
+from followbot.util.read_lidar_data import read_lidar_data
 # from followbot.crowd_synthesis.crowd_synthesis import CrowdSynthesizer
 
-import matplotlib
-matplotlib.use('TkAgg')
+# from rich import print
+from rich.console import Console
+
+console = Console()
+console.print("FollowBot Simulator", style="bold red")
+matplotlib.use('TkAgg')  # sudo apt-get install python3.7-tk
 
 # Config
-BIPED_MODE = False
+BIPED_MODE = True
 LIDAR_ENABLED = True
-write_trajectories = False
+LOG_TRAJECTORIES = False
 VISUALIZER_ENABLED = True
+RECORD_MAIN_SCENE = False
 VIDEO_ENABLED = False
+OVERRIDE_TRACKS = True  # Use ground-truth loc-vel of the agents
 TRACKING_ENABLED = True
-SYNTHESIS_ENABLED = True
+PROJECTION_ENABLED = True
+READ_LIDAR_FROM_CARLA = False
+DEBUG_VISDOM = True
 NUM_HYPOTHESES = 2
+MAP_RESOLUTION = 8  # per meter
+# FRAME_RANGE = range(443, sys.maxsize)
+FRAME_RANGE = range(0, sys.maxsize)
 EXP_DATA_PATH = os.path.abspath(__file__ + "../../../../../data/prior-social-ties")
 
+# Fix Random Seed
 RAND_SEED = 4
 np.random.seed(RAND_SEED)
 random.seed(RAND_SEED)
 
 
+# -----------------------------
 def exec_scenario(scenario):
     if VISUALIZER_ENABLED:
         scenario.visualizer = Visualizer(scenario.world, scenario.world.world_dim,
@@ -46,8 +72,8 @@ def exec_scenario(scenario):
 
     # Choose the robot type
     if isinstance(scenario, RealScenario):
-        robot = RobotReplaceHuman(scenario.fps, scenario.robot_poss, scenario.robot_vels, scenario.world,
-                                  NUM_HYPOTHESES)
+        robot = RobotReplaceHuman(scenario.robot_poss, scenario.robot_vels, scenario.world,
+                                  scenario.fps, NUM_HYPOTHESES, MAP_RESOLUTION)
         scenario.world.add_robot(robot)
         robot.init()
         dt = 1 / scenario.fps
@@ -55,13 +81,14 @@ def exec_scenario(scenario):
         # robot.set_leader_ped(scenario.world.crowds[0])
 
     else:  # use Std Robot
-        robot = MyRobot(scenario.world, prefSpeed=0.8, numHypothesisWorlds=NUM_HYPOTHESES, sensor_fps=scenario.fps)
+        robot = MyRobot(scenario.world, prefSpeed=1.2, sensorFps=scenario.fps,
+                        numHypothesisWorlds=NUM_HYPOTHESES, mapResolution=MAP_RESOLUTION)
         scenario.world.add_robot(robot)
-        dt = 0.1
+        dt = 1 / scenario.fps
         # Robot: starting in up side of the corridor, facing toward right end of the corridor
         robot.init([-25, 1.5])
         scenario.world.set_robot_goal(0, [1000, 0])
-    global robot
+    # global robot
     # =======================================
 
     # Todo:
@@ -72,17 +99,15 @@ def exec_scenario(scenario):
 
     # crowd_syn = CrowdSynthesizer()
     # crowd_syn.extract_features(scenario.dataset)
-
     if BIPED_MODE:  # use dr-spaam
         detector = DrSpaamDetector(robot.lidar.num_pts(),
-                                   np.degrees(robot.lidar.angle_increment_radian()),
-                                   gpu=True)
+                                   np.degrees(robot.lidar.angle_increment_radian()), gpu=True)
     else:
         detector = PedestrianDetection(robot.lidar.range_max, np.deg2rad(1 / robot.lidar.resolution))
 
     # FixMe: Write robot observations to file
     # Todo: At the moment it only records the ground truth locations
-    #  It can be the output of tracking module or even after using RWTH's DROW tracker
+    #  It can be the output of tracking module or even after using RWTH's DR-SPAAM tracker
     # =======================================
     # output_dir = "/home/cyrus/workspace2/ros-catkin/src/followbot/src/followbot/temp/robot_obsvs"
     # output_filename = os.path.join(output_dir, type(scenario).__name__ + ".txt")
@@ -90,24 +115,37 @@ def exec_scenario(scenario):
     # =======================================
 
     frame_id = -1
-    robot.blind_spot_projector = SocialTiePDF()
+    # Read social-ties from file
+    robot.occlusion_predictor = SocialTiePDF(radial_resolution=MAP_RESOLUTION)
     try:
-        robot.blind_spot_projector.load_pdf(os.path.join(EXP_DATA_PATH, scenario.title + '.npz'), smooth=True)
+        robot.occlusion_predictor.load_pdf(os.path.join(EXP_DATA_PATH, scenario.title + '.npz'))
+        robot.occlusion_predictor.smooth_pdf()
+        robot.occlusion_predictor.plot(scenario.title)
     except ValueError:
-        print("WARNING")
+        print("WARNING: Could not read social-tie files ...")
+    community_detector = CommunityDetector(scenario_fps=scenario.fps)
+    community_handler = CommunityHandler()
+    evaluator = Evaluation()
+    if DEBUG_VISDOM:
+        viz_dbg = visdom.Visdom()
+        viz_win = viz_dbg.scatter(X=np.zeros((1, 2)), opts=dict(markersize=10,
+                                                                markercolor=np.array([0, 0, 200]).reshape(-1, 3)))
 
     # ****************** Program Loop *******************
     while True:
-        not_finished = scenario.step(dt, LIDAR_ENABLED)
-        if not not_finished:
+        # run the scenario (+ world) for 1 step
+        scenario_ret = scenario.step(dt, LIDAR_ENABLED, save=RECORD_MAIN_SCENE)
+        if not scenario_ret:
             break
         if scenario.world.pause:
             continue
         frame_id = scenario.world.original_frame_id
+        if frame_id not in FRAME_RANGE:
+            continue
 
         # Write detected pedestrians to the output file
         # =======================================
-        if write_trajectories:
+        if LOG_TRAJECTORIES:
             time_stamp = int(datetime.now().timestamp() * 1000) / 1000.  # Unix Time - in millisecond
             for pid in range(scenario.n_peds):
                 ped_i = scenario.world.crowds[pid]
@@ -121,12 +159,12 @@ def exec_scenario(scenario):
         # ***************************************************
         if TRACKING_ENABLED:
             # Detection (Base method / DR-SPAAM)
-            if BIPED_MODE:
+            if BIPED_MODE:  # Dr-SPAAM (RWTH)
                 detections, dets_cls = detector.detect(robot.lidar.data.last_range_data)
             else:
-                angles = np.arange(robot.lidar.angle_min_radian(), robot.lidar.angle_max_radian() - 1E-10,
-                                   robot.lidar.angle_increment_radian())
-                clusters = detector.cluster_range_data(robot.lidar.data.last_range_data, angles)
+                ray_angles = np.arange(robot.lidar.angle_min_radian(), robot.lidar.angle_max_radian() - 1E-10,
+                                       robot.lidar.angle_increment_radian())
+                clusters = detector.cluster_range_data(robot.lidar.data.last_range_data, ray_angles)
                 detections, _ = detector.detect(clusters, [0, 0])
                 robot.lidar_clusters = clusters
             # ====================================
@@ -145,97 +183,130 @@ def exec_scenario(scenario):
             # ====================================
             robot.tracks = robot.tracker.track(robot.detected_peds, scenario.world.time)
             # robot should be added to the list of tracks, bcuz it is impacting the flow
-            tracks_idx = [tr.id for tr in robot.tracks if not tr.coasted] + [0]
-            tracks_loc = np.array([tr.kf.x[:2] for tr in robot.tracks if not tr.coasted] + [robot.pos])
-            tracks_vel = np.array([tr.kf.x[2:4] for tr in robot.tracks if not tr.coasted] + [robot.vel])
+            tracks_idx = [0] + [tr.id for tr in robot.tracks if not tr.coasted]
+            tracks_loc = np.array([robot.pos] + [tr.kf.x[:2] for tr in robot.tracks if not tr.coasted])
+            tracks_vel = np.array([robot.vel] + [tr.kf.x[2:4] for tr in robot.tracks if not tr.coasted])
             n_tracked_agents = len(tracks_loc)
             # ====================================
+
+            # fixme: override detections with ground-truth locations?
+            # ===================================
+            if OVERRIDE_TRACKS:
+                gt_locs = scenario.ped_poss[scenario.world.frame_id + 1]
+                gt_vels = scenario.ped_vels[scenario.world.frame_id + 1]
+                # gt_ids =  scenario.ped_valid
+                D = euclidean_distances(tracks_loc, gt_locs)
+                row_ids, col_ids = op.linear_sum_assignment(D)
+                tracks_loc = np.array([gt_locs[i] for i in col_ids])
+                tracks_vel = np.array([gt_vels[i] for i in col_ids])
+                for ii in range(len(tracks_idx)):
+                    for tr in robot.tracks:  # a little stupid but it's Ok.
+                        if tr.id == tracks_idx[ii]:  # and tr.id != 0:
+                            # tr.kf.x[:2] = tracks_loc[ii]
+                            tr.kf.x[2:4] = tracks_vel[ii]
+                            break
+            # ===================================
 
         # calc the occupancy map and crowd flow map
         # ====================================
         # robot.occupancy_map.fill(0)
-        # robot.crowd_flow_map.fill(0)
-        # for tr in robot._tracks:
+        # robot.crowd_territory_map.fill(0)
+        # for tr in robot.tracks:
         #     robot.occupancy_map.set(tr.kf.x[:2], 1)
         #     v_ped = tr.kf.x[2:4]
         #     angle_between_robot_motion_and_ped = np.dot(robot.vel, v_ped) / (norm(robot.vel) * norm(v_ped) + 1E-6)
-        #     robot.crowd_flow_map.set(tr.kf.x[:2], [norm(v_ped), angle_between_robot_motion_and_ped])
-
-        # classify the flow type of each agent
-        # ================================
+        #     robot.crowd_territory_map.set(tr.kf.x[:2], [norm(v_ped), angle_between_robot_motion_and_ped])
+        # ====================================
 
         # ***************************************************
-        # ***************************************************
-        if SYNTHESIS_ENABLED:
+        if LIDAR_ENABLED:
             # calc Blind Spots
             # ================================
-            robot.blind_spot_map.fill(1)  # everywhere is in blind_spot_map if it's not!
+            robot.blind_spot_map.fill(1)  # every pixel is occluded if not otherwise inferred!
             rays = robot.lidar.data.last_rotated_rays
             for ii in range(len(rays)):
                 ray_i = rays[ii]
                 scan_i = robot.lidar.data.last_points[ii]
                 white_line = [robot.pos, scan_i]
                 line_len = np.linalg.norm(white_line[1] - white_line[0])
-
-                for z in np.arange(0, line_len / robot.lidar.range_max, 0.01):
-                    px, py = z * ray_i[1] + (1 - z) * ray_i[0]
-                    robot.blind_spot_map.set([px, py], 0)
+                Zs = np.arange(0, line_len / robot.lidar.range_max, 0.01)  # step: fixme
+                Pxy = Zs.reshape(-1, 1) * ray_i[1].reshape(1, 2) + (1 - Zs.reshape(-1, 1)) * ray_i[0].reshape(1, 2)
+                for pxy in Pxy:
+                    robot.blind_spot_map.set(pxy, 0)
             # =================================
 
+        # ***************************************************
+        if PROJECTION_ENABLED:
             # Classify Ties
             # =================================
-            strong_ties_t, absent_ties_t, agents_flow_class = \
-                robot.blind_spot_projector.classify_ties(tracks_loc, tracks_vel)
-            robot.blind_spot_projector.add_strong_ties(strong_ties_t)
-            robot.blind_spot_projector.add_absent_ties(absent_ties_t)
-            robot.blind_spot_projector.update_pdf(smooth=True)
+            # strong_ties_t, absent_ties_t, agents_flow_class = \
+            #     robot.blind_spot_projector.classify_ties(tracks_loc, tracks_vel)
+            #
+            # fixme: in this version, the new ties will not be used to update the tie distributions
+            # robot.blind_spot_projector.add_strong_ties(strong_ties_t)
+            # robot.blind_spot_projector.add_absent_ties(absent_ties_t)
+            # robot.blind_spot_projector.update_pdf()
 
             # agents_flow_class = FlowClassifier().classify(tracks_loc, tracks_vel)   # => fixme: @deprecated
+            strong_ties, absent_ties, strong_ties_idx, absent_ties_idx, communities = \
+                community_detector.cluster_communities(tracks_idx, tracks_loc, tracks_vel)
 
-            # flow estimation: by `multiple gaussian`
+            community_handler.ped_ids = tracks_idx
+            community_handler.communities = communities
+            community_handler.calc_velocities(tracks_vel)
+
             # ================================
-            agents_vel_polar = np.array([[np.linalg.norm(v), np.arctan2(v[1], v[0])] for v in tracks_vel])
-            bgm = BivariateGaussianMixtureModel()
-            for i in range(n_tracked_agents):
-                if norm(tracks_vel[i]) < 0.1:  # filter still agents
-                    continue
-                bgm.add_component(BivariateGaussian(tracks_loc[i][0], tracks_loc[i][1],
-                                                    sigma_x=agents_vel_polar[i][0] / 5 + 0.1, sigma_y=0.1,
-                                                    theta=agents_vel_polar[i][1]), weight=1,
-                                  # target=agents_flow_class[i].id)
-                                  target=agents_flow_class[i])
-
-                x_min, x_max = scenario.world.world_dim[0][0], scenario.world.world_dim[0][1]
-            y_min, y_max = scenario.world.world_dim[1][0], scenario.world.world_dim[1][1]
-            xx, yy = np.meshgrid(np.arange(x_min, x_max, 1 / robot.mapped_array_resolution),
-                                 np.arange(y_min, y_max, 1 / robot.mapped_array_resolution))
-            robot.crowd_flow_map.data = bgm.classify_kNN(xx, yy).T
-            # draw_bgmm(bgm, xx, yy)  # => for paper
+            xx, yy = robot.crowd_territory_map.meshgrid()
+            # the map will hold id of corr community @ each pixel  / using `multiple Gaussian`
+            robot.crowd_territory_map.data, velocity_map_data = \
+                community_handler.find_territories(tracks_loc, tracks_vel, xx, yy)
+            velocity_map = MappedArray(robot.crowd_territory_map.min_x, robot.crowd_territory_map.max_x,
+                                       robot.crowd_territory_map.min_y, robot.crowd_territory_map.max_y,
+                                       robot.crowd_territory_map.resolution, n_channels=2, dtype=np.float)
+            velocity_map.data = velocity_map_data.reshape(xx.shape[::-1] + (2,))
             # =================================
 
-            # Crowd Synthesis: Using Social Ties
+            # Crowd Projection: Using Social Ties
             # =================================
-            robot.blind_spot_projector.add_frame(tracks_loc, tracks_vel, agents_flow_class, dt)
-            robot.blind_spot_projector.update_pdf(smooth=True)
-            robot.blind_spot_projector.plot(scenario.title)
-            for robot_hypo in robot.hypothesis_worlds:
+            # robot.blind_spot_projector.add_frame(tracks_loc, tracks_vel, agents_flow_class, dt)
+            # robot.blind_spot_projector.update_pdf()
+            # robot.blind_spot_projector.plot(scenario.title)
+
+            for hh, robot_hypo in enumerate(robot.hypothesis_worlds):
                 # initialize once
-                if scenario.world.time > 0.5:  # and len(robot_hypo.crowds) == 0
-                    synthetic_agents = robot.blind_spot_projector.synthesis(tracks_loc, tracks_vel,
-                                                                            walkable_map=robot_hypo.walkable_map,
-                                                                            blind_spot_map=robot.blind_spot_map,
-                                                                            crowd_flow_map=robot.crowd_flow_map)
-                    robot_hypo.crowds = [Pedestrian(tracks_loc[i], tracks_vel[i], False, synthetic=False,
-                                                    color=GREEN_COLOR)
-                                         for i in range(n_tracked_agents)] + synthetic_agents
-                # evolve (ToDo: use TrajPredictor)
-                else:
-                    for ped in robot_hypo.crowds:
-                        if ped.synthetic:
-                            ped.pos = np.array(ped.pos) + np.array(ped.vel) * dt
-                            if robot.blind_spot_map.get(ped.pos) < 0.1:
-                                del ped
-                                # print("delete the synthetic agent")
+                if scenario.world.time >= 0.1:  # and len(robot_hypo.crowds) == 0
+                    projected_agents = robot.occlusion_predictor.project(tracks_loc, tracks_vel,
+                                                                         walkable_map=robot_hypo.walkable_map,
+                                                                         blind_spot_map=robot.blind_spot_map,
+                                                                         crowd_territory_map=robot.crowd_territory_map,
+                                                                         community_velocity_map=velocity_map)
+                    robot_hypo.crowds = [Pedestrian(tracks_loc[i], tracks_vel[i], False, color=GREEN_COLOR)
+                                         for i in range(n_tracked_agents)] + projected_agents
+
+                    mse, bce = evaluator.calc_error(scenario.world.crowds + [Pedestrian(robot.pos, robot.vel, False)],
+                                                    robot_hypo.crowds + [Pedestrian(robot.pos, robot.vel, False)],
+                                                    robot.occlusion_predictor.social_ties_cartesian_pdf_aggregated,
+                                                    deubg=True, frame_id=frame_id)
+                    density = evaluator.local_density([robot.pos] +
+                                                      [p.pos for p in scenario.world.crowds if p.pos[0] != -100]
+                                                      )
+                    if DEBUG_VISDOM:
+                        viz_dbg.scatter(np.array([[density[0], mse]]),
+                                        opts=dict(markersize=10, markercolor=np.array([200,0,0]).reshape(-1, 3)),
+                                        name='MSE', update='append', win=viz_win)
+                    print(mse, bce)
+                    if hh == 0:
+                        break
+
+                ## evolve (ToDo: use TrajPredictor)
+                # else:
+                #     for ped in robot_hypo.crowds:
+                #         if ped.synthetic:
+                #             ped.pos = np.array(ped.pos) + np.array(ped.vel) * dt
+                #             if robot.blind_spot_map.get(ped.pos) < 0.1:
+                #                 del ped
+                # print("delete the synthetic agent")
+
             # # pcf(peds_t)
             # =================================
 
@@ -274,17 +345,22 @@ if __name__ == '__main__':
 
     _scenario = HermesScenario()
     _scenario.setup_with_config_file(os.path.abspath(os.path.join(__file__, "../../../..",
-                                                     "config/followbot_sim/real_scenario_config.yaml")),
+                                                                  "config/followbot_sim/real_scenario_config.yaml")),
                                      title="HERMES-bo-360-075-075", biped_mode=BIPED_MODE)
     _scenario.title = _scenario.dataset.title
+
+    if READ_LIDAR_FROM_CARLA:  # FixMe: make sure the robotId has been the same
+        lidar_data = read_lidar_data()
+        fig, ax = plt.subplots()
+        ax.set_aspect('equal')
 
     # =======================================
     if VIDEO_ENABLED:
         video_player = DatasetVideoPlayer(_scenario.video_files)
         video_player.set_frame_id(_scenario.world.original_frame_id)
     print(type(_scenario).__name__)
-    for exec_frame, robot in exec_scenario(_scenario):
-        print(exec_frame)
+    for exec_frame_id, robot in exec_scenario(_scenario):
+        print(exec_frame_id)
 
         if VIDEO_ENABLED:
             # if exec_frame != 0:
@@ -295,3 +371,24 @@ if __name__ == '__main__':
             else:
                 print("problem with video")
             cv2.waitKey(2)
+
+        if READ_LIDAR_FROM_CARLA and exec_frame_id in lidar_data:
+            lidar_data[exec_frame_id][:, 1] *= -1
+            lidar_data[exec_frame_id][:, 2] = 1
+            robot_rot = Rotation.from_euler('z', robot.orien, degrees=False).as_matrix()
+            robot_tf = np.hstack([robot_rot[:2, :2], robot.pos.reshape(2, 1)])  # 2 x 3
+            lidar_data[exec_frame_id][:, :2] = np.matmul(lidar_data[exec_frame_id][:, :3], robot_tf.T)
+
+            plt.cla()
+            ax.set_xlim([-7, 7])
+            ax.set_ylim([-0, 4])
+            # ax.set_zlim([0, 5])
+            ax.scatter(lidar_data[exec_frame_id][:, 0],  # x
+                       lidar_data[exec_frame_id][:, 1],  # y
+                       # scan[data_range, 2],  # z
+                       c=lidar_data[exec_frame_id][:, 3],  # reflectance
+                       s=2, cmap='viridis')
+            ax.plot(robot.pos[0], robot.pos[1], 'ro')
+            ax.set_title('Lidar scan %s' % exec_frame_id)
+            plt.grid()
+            plt.pause(0.01)

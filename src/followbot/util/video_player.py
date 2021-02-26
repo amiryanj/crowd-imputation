@@ -38,7 +38,7 @@ class DatasetVideoPlayer:
                 im_i = cv2.cvtColor(frames[0], cv2.COLOR_RGB2GRAY)
                 im_r = cv2.cvtColor(frames[1], cv2.COLOR_RGB2GRAY)
 
-                overlap_px = 120
+                overlap_px = 2
                 h = im_i.shape[0]
                 w_r = np.tile(np.linspace(0, 1, overlap_px), [h, 1])
                 w_l = 1 - w_r
@@ -71,13 +71,16 @@ if __name__ == "__main__":
         # dataset = load_bottleneck(annotation_file)
 
     # FixMe: set frame_id to sync
-    frame_id = 10
     player = DatasetVideoPlayer(video_files)
-    player.set_frame_id(frame_id)
+    frame_id = -1
+    # player.set_frame_id(frame_id)
 
     pause = False
     for frame in player.get_frame():
         cv2.imshow("frame", frame)
+        frame_id += 1
+        print(frame_id)
+
         k = cv2.waitKey(100 * (1 - pause)) & 0xFF
         if k == 27:
             break

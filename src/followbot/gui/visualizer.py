@@ -4,7 +4,7 @@ import pygame
 import pygame.gfxdraw
 import numpy as np
 from sklearn.externals._pilutil import imresize
-
+import matplotlib.pyplot as plt
 from followbot.robot_functions.follower_bot import FollowerBot
 from followbot.util.basic_geometry import Line, Circle
 from followbot.util.cv_importer import *
@@ -84,7 +84,6 @@ class Visualizer:
         self.world = world
         self.win.fill([255, 255, 255])
         pygame.display.set_caption(caption)
-        self.grid_map = []
 
     def transform(self, x, view_index=(0, 0)):
         return self.trans[view_index[0]][view_index[1]] + np.matmul(x, self.scale[view_index[0]][view_index[1]])
@@ -204,14 +203,14 @@ class Visualizer:
 
             if self.world.crowds[ii].biped_mode:  # if we use the biped model for pedestrians
                 ped_geo = self.world.crowds[ii].geometry()
-                self.draw_circle(ped_geo.center1, 4, SKY_BLUE_COLOR)
-                self.draw_circle(ped_geo.center2, 4, MAGENTA_COLOR)
+                # self.draw_circle(ped_geo.center1, 4, SKY_BLUE_COLOR)
+                # self.draw_circle(ped_geo.center2, 4, MAGENTA_COLOR)
 
         # -----------------------------
 
         # Draw robot(s)
         for robot in self.world.robots:
-            self.draw_circle(robot.pos, 9, BLACK_COLOR)
+            self.draw_circle(robot.pos, 9, MAGENTA_COLOR)
             if isinstance(robot, FollowerBot):
                 self.draw_circle(robot.leader_ped.pos, 10, PINK_COLOR, 5, gfx=False)
             # draw a vector showing orientation of the robot
@@ -230,62 +229,74 @@ class Visualizer:
             # Robot Hypotheses
             # ====================================
             for ii, hypothesis in enumerate(robot.hypothesis_worlds):
-                # show Blind-Spot-Map as a background image
-                bs_map = np.clip(np.fliplr(robot.blind_spot_map.data), a_min=0, a_max=255)
-                bs_map = imresize(bs_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
-                bs_map = np.stack([255 - bs_map, 255 - bs_map, 255 - bs_map], axis=2)
-                self.draw_image(bs_map, 40, view_index=(ii + 1, 0))
+                if ii == 0 or ii == 1:  # Never
+                    # show Blind-Spot-Map as a background image
+                    blindspot_map = np.clip(np.fliplr(robot.blind_spot_map.data), a_min=0, a_max=255)
+                    blindspot_map = imresize(blindspot_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
+                    blindspot_map = np.stack([255 - blindspot_map, 255 - blindspot_map, 255 - blindspot_map], axis=2)
+                    self.draw_image(blindspot_map, 80, view_index=(ii + 1, 0))
 
                 # show Crowd-Flow-Map as a background image
-                if ii == 0:
-                    cf_map = np.clip(np.fliplr(robot.crowd_flow_map.data[:, :]), a_min=0, a_max=255)
-                    cf_map = imresize(cf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
-                    cf_map = np.stack([255 - cf_map, np.zeros_like(cf_map), cf_map], axis=2)
-                    self.draw_image(cf_map, 60, view_index=(ii + 1, 0))
+                if ii == 1:
+                    crowdflow_map = np.clip(np.fliplr(robot.crowd_territory_map.data[:, :]), a_min=0, a_max=255)
+                    crowdflow_map = imresize(crowdflow_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
+                    crowdflow_map = np.stack([255 - crowdflow_map, np.zeros_like(crowdflow_map), crowdflow_map], axis=2)
+                    self.draw_image(crowdflow_map, 60, view_index=(ii + 1, 0))
 
                 # show Link-Pdf-Map as a background image
-                if ii == 1:
+                if ii == -1:
                     link_pdf_map = np.clip(np.fliplr(robot.blind_spot_projector.social_ties_cartesian_pdf_aggregated.data), a_min=0, a_max=255)
                     link_pdf_map = imresize(link_pdf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
                     link_pdf_map = np.stack([link_pdf_map, link_pdf_map, np.zeros_like(link_pdf_map)], axis=2)
                     self.draw_image(link_pdf_map, 100, view_index=(ii + 1, 0))
 
                 # Draw robot
-                self.draw_circle(robot.pos, 8, BLACK_COLOR, view_index=(ii + 1, 0))
+                self.draw_circle(robot.pos, 9, MAGENTA_COLOR, view_index=(ii + 1, 0))
                 self.draw_trigon(robot.pos, np.arctan2(v, u), 7, CYAN_COLOR, view_index=(ii + 1, 0))
                 if isinstance(robot, FollowerBot):
                     self.draw_circle(robot.leader_ped.pos, 11, PINK_COLOR, 5, view_index=(ii + 1, 0))
-                u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
-                self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 5, view_index=(ii + 1, 0))
-
-                # Draw lidar points
-                for jj, pnt in enumerate(robot.lidar.data.last_points):
-                    if robot.lidar.data.last_range_data[jj] < robot.lidar.range_max - 0.01:
-                        self.draw_circle(pnt, 1, YELLOW_COLOR, view_index=(ii + 1, 0), gfx=False)
+                # u, v = math.cos(robot.orien) * 0.5, math.sin(robot.orien) * 0.5
+                # self.draw_line(robot.pos, robot.pos + [u, v], ORANGE_COLOR, 5, view_index=(ii + 1, 0))
 
                 # draw tracks
                 for track in robot.tracks:
                     if track.coasted: continue
-                    self.draw_circle(track.get_position(), 8, GREEN_COLOR, view_index=(ii + 1, 0))
-                    if len(track.recent_detections) >= 2:
-                        self.draw_lines(track.recent_detections, WHITE_COLOR, 1, view_index=(ii + 1, 0))
 
-                    self.draw_line(track.get_position(), track.get_position() + track.get_velocity() * 0.5,
-                                   MAGENTA_COLOR, 2, view_index=(ii + 1, 0))
+                    if ii == 0 or ii == 1:
+                        self.draw_circle(track.get_position(), 8, GREEN_COLOR, view_index=(ii + 1, 0))
+                        self.draw_line(track.get_position(), track.get_position() + track.get_velocity() * 0.5,
+                                       MAGENTA_COLOR, 2, view_index=(ii + 1, 0))
+                        # if len(track.recent_detections) >= 2:
+                        #     self.draw_lines(track.recent_detections, WHITE_COLOR, 1, view_index=(ii + 1, 0))
+
 
                 # Draw detected agents
                 for det in robot.detected_peds:
                     self.draw_circle(det, 4, BLACK_COLOR, view_index=(ii + 1, 0))
 
                 for jj in range(len(hypothesis.crowds)):
-                    if hypothesis.crowds[jj].synthetic:
-                        self.draw_circle(hypothesis.crowds[jj].pos, 5, SKY_BLUE_COLOR, view_index=(ii + 1, 0))
+                    if hasattr(hypothesis.crowds[jj], 'projected'):
+                        self.draw_circle(hypothesis.crowds[jj].pos, 9, SKY_BLUE_COLOR, view_index=(ii + 1, 0))
                         self.draw_line(hypothesis.crowds[jj].pos, hypothesis.crowds[jj].pos + hypothesis.crowds[jj].vel * 0.5,
                                        MAGENTA_COLOR, view_index=(ii + 1, 0))
 
+                for jj in range(len(self.world.crowds)):
+                    self.draw_circle(self.world.crowds[jj].pos, 8, self.world.crowds[jj].color + (60,),
+                                     width=1, view_index=(ii + 1, 0))
+                    if ii == 0:
+                        self.draw_line(self.world.crowds[jj].pos,
+                                       self.world.crowds[jj].pos + self.world.crowds[jj].vel * 0.5,
+                                       MAGENTA_COLOR, 2, view_index=(ii + 1, 0))
+
+                # Draw lidar points
+                for jj, pnt in enumerate(robot.lidar.data.last_points):
+                    if robot.lidar.data.last_range_data[jj] < robot.lidar.range_max - 0.01:
+                        self.draw_circle(pnt, 1, YELLOW_COLOR, view_index=(ii + 1, 0), gfx=False)
+
         # pygame.display.flip()
         pygame.display.update()
-        pygame.time.delay(10)
+        pygame.time.delay(5)
+        plt.pause(0.001)
 
         events = pygame.event.get()
         for event in events:
@@ -312,7 +323,5 @@ class Visualizer:
                 return event.key
         return None
 
-    def save_screenshot(self, out_dir):
-        pygame.image.save(self.win, os.path.join(out_dir, 'win-%05d.jpg' % self.local_time))
-        if len(self.grid_map) > 1:
-            cv2.imwrite(os.path.join(out_dir, 'grid-%05d.png' % self.local_time), self.grid_map * 255)
+    def save_screenshot(self, save_path, frame_id):
+        pygame.image.save(self.win, os.path.join(save_path, 'win-%05d.jpg' % frame_id))

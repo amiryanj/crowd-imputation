@@ -31,14 +31,14 @@ VISUALIZE = True
 # ======== load dataset =========
 # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/ETH/seq_eth/obsmat.txt')
 # datasets.append(load_eth(annot_file, title="ETH-Univ"))
-#
+
 # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/ETH/seq_hotel/obsmat.txt')
 # datasets.append(load_eth(annot_file, title="ETH-Hotel"))
-#
-annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/UCY/zara01/annotation.vsp')
-zara01 = load_crowds(annot_file, homog_file=os.path.join(OPENTRAJ_ROOT, "datasets/UCY/zara01/H.txt"), title="Zara01")
-datasets.append(zara01)
-#
+
+# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/UCY/zara01/annotation.vsp')
+# zara01 = load_crowds(annot_file, homog_file=os.path.join(OPENTRAJ_ROOT, "datasets/UCY/zara01/H.txt"), title="Zara01")
+# datasets.append(zara01)
+
 # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/UCY/zara02/annotation.vsp')
 # zara02 = load_crowds(annot_file, homog_file=os.path.join(OPENTRAJ_ROOT, "datasets/UCY/zara02/H.txt"), title="Zara02")
 # datasets.append(zara02)
@@ -65,7 +65,8 @@ datasets.append(zara01)
 # 2d HERMES
 # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-050-050.txt')
 # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-160-160.txt')
-annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-075-075.txt')
+# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-075-075.txt')
+annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-090-090.txt')
 # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bot-360-250-250.txt')
 datasets.append(load_bottleneck(annot_file, title="HERMES-" + os.path.basename(annot_file)[:-4]))
 # -------------------------------
