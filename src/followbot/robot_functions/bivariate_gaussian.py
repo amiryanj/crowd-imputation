@@ -128,7 +128,7 @@ class BivariateGaussianMixtureModel:
 
 
 def draw_bgmm(mm: BivariateGaussianMixtureModel, query_x, query_y):
-    from followbot.robot_functions.crowd_clustering import FlowClassifier
+    from followbot.robot_functions.crowd_communities import CommunityHandler
     import matplotlib.pyplot as plt
     predicted_class_matrix = mm.classify_kNN(query_x, query_y)
 
@@ -145,7 +145,7 @@ def draw_bgmm(mm: BivariateGaussianMixtureModel, query_x, query_y):
         plt.scatter(mm.components[ii].x0, mm.components[ii].y0, c='grey')
 
     plt.scatter(query_x.reshape(-1), query_y.reshape(-1), alpha=0.4,
-                c=FlowClassifier().id2color(predicted_class_matrix).reshape(-1))
+                c=CommunityHandler().id2color(predicted_class_matrix).reshape(-1))
 
     plt.xlim([np.min(query_x), np.max(query_x)])
     plt.ylim([np.min(query_y), np.max(query_y)])

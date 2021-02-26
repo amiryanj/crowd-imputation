@@ -1,9 +1,10 @@
 # Author: Javad Amirian
 # Email: amiryan.j@gmail.com
 
+
+import visdom
 import numpy as np
 import lidar_clustering
-import visdom
 
 
 def norm(x):
@@ -20,7 +21,7 @@ class PedestrianDetection:
 
 
     def cluster_points_daniel(self, scan, angles):
-        scan[scan > self.range_max - 0.1] = np.nan
+        scan[scan > self.range_max - 0.05] = np.nan
         clusters, a, b = lidar_clustering.euclidean_clustering(scan, angles, self.clustering_threshold)
         cluster_sizes = lidar_clustering.cluster_sizes(len(scan), clusters)
         return clusters
@@ -48,7 +49,7 @@ class PedestrianDetection:
         scan_pnts_rel = np.stack([xs, ys]).T
         clusters = self.cluster_points_daniel(range.astype(np.float32), angles.astype(np.float32))
         return [scan_pnts_rel[c] for c in clusters]
-        return self.cluster_points(scan_pnts_rel)
+        # return self.cluster_points(scan_pnts_rel)
 
     def detect(self, clusters, sensor_pos):
         detections = []
@@ -76,3 +77,4 @@ class PedestrianDetection:
 
             detections.append(seg_cntr + seg_prepend * (1/(np.linalg.norm(seg_prepend)+1e-7) * 0.1))
         return detections, walls
+

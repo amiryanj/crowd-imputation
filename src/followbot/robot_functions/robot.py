@@ -63,7 +63,7 @@ class MyRobot:
                                          resolution=self.mapped_array_resolution,  # per meter
                                          n_channels=1, dtype=np.float)
         # at each location, it shows a categorical/cont. value that represent a different type of flow
-        self.crowd_flow_map = MappedArray(min_x=self.real_world.world_dim[0][0], max_x=self.real_world.world_dim[0][1],
+        self.crowd_territory_map = MappedArray(min_x=self.real_world.world_dim[0][0], max_x=self.real_world.world_dim[0][1],
                                           min_y=self.real_world.world_dim[1][0], max_y=self.real_world.world_dim[1][1],
                                           resolution=self.mapped_array_resolution,  # per meter
                                           n_channels=1, dtype=np.float)
