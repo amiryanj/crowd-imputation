@@ -20,59 +20,10 @@ from followbot.robot_functions.social_ties import SocialTiePDF
 from toolkit.loaders.loader_hermes import load_bottleneck
 from toolkit.loaders.loader_metafile import load_eth, load_crowds
 from toolkit.loaders.loader_sdd import load_sdd, load_sdd_dir
-from followbot.run.followbot_sim import EXP_DATA_PATH
-
-datasets = []
-OPENTRAJ_ROOT = "/home/cyrus/workspace2/OpenTraj"
-output_dir = "/home/cyrus/Dropbox/FollowBot/exp/pdf"
-save_links_dir = "/home/cyrus/Dropbox/FollowBot/exp/links"
-VISUALIZE = True
-
-# ======== load dataset =========
-# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/ETH/seq_eth/obsmat.txt')
-# datasets.append(load_eth(annot_file, title="ETH-Univ"))
-
-# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/ETH/seq_hotel/obsmat.txt')
-# datasets.append(load_eth(annot_file, title="ETH-Hotel"))
-
-# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/UCY/zara01/annotation.vsp')
-# zara01 = load_crowds(annot_file, homog_file=os.path.join(OPENTRAJ_ROOT, "datasets/UCY/zara01/H.txt"), title="Zara01")
-# datasets.append(zara01)
-
-# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/UCY/zara02/annotation.vsp')
-# zara02 = load_crowds(annot_file, homog_file=os.path.join(OPENTRAJ_ROOT, "datasets/UCY/zara02/H.txt"), title="Zara02")
-# datasets.append(zara02)
-# datasets.append(merge_datasets([zara01, zara02], new_title="Zara"))
-
-# SDD datasets
-# scenes = [['bookstore', 'video0'], ['bookstore', 'video1'], ['coupa', 'video0']]
-# sdd_scales_yaml_file = os.path.join(OPENTRAJ_ROOT, 'datasets/SDD', 'estimated_scales.yaml')
-# with open(sdd_scales_yaml_file, 'r') as f:
-#     scales_yaml_content = yaml.load(f, Loader=yaml.FullLoader)
-# for scene_i in scenes:
-#     scale = scales_yaml_content[scene_i[0]][scene_i[1]]['scale']
-#     sdd_dataset_i = load_sdd(os.path.join(OPENTRAJ_ROOT, "datasets/SDD", scene_i[0], scene_i[1], "annotations.txt"),
-#                              scene_id="SDD-"+scene_i[0]+scene_i[1], title="SDD-"+scene_i[0]+"-"+scene_i[1][-1], # use_kalman=True,
-#                              scale=scale, drop_lost_frames=False, sampling_rate=6)  # original fps=30
-#     datasets.append(sdd_dataset_i)
+from followbot.run.followbot_sim import SAVE_SIM_DATA_DIR
 
 
-# 1d HERMES
-# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-1D/uo-180-180-180.txt')
-# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-1D/uo-300-300-300.txt')
-# datasets.append(load_bottleneck(annot_file, title="HERMES-" + os.path.basename(annot_file)[:-4]))
-
-# 2d HERMES
-# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-050-050.txt')
-# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-160-160.txt')
-# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-075-075.txt')
-annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-090-090.txt')
-# annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bot-360-250-250.txt')
-datasets.append(load_bottleneck(annot_file, title="HERMES-" + os.path.basename(annot_file)[:-4]))
-# -------------------------------
-
-
-for dataset in datasets:
+def analyze(dataset, verbose=True):
     min_x, max_x = min(dataset.data["pos_x"]), max(dataset.data["pos_x"])
     min_y, max_y = min(dataset.data["pos_y"]), max(dataset.data["pos_y"])
     # -------------------------------
@@ -95,7 +46,7 @@ for dataset in datasets:
     prev_t = fps//2
 
     # visualize stuff
-    if VISUALIZE:
+    if verbose:
         _, ax = plt.subplots()
         ax.set_aspect(aspect='equal')
 
@@ -112,7 +63,7 @@ for dataset in datasets:
         rot_matrices_t = np.zeros((N, 2, 2))
         oriens_t = np.arctan2(vels_t[:, 1], vels_t[:, 0])
 
-        if VISUALIZE:
+        if verbose:
             plt.cla()
             plt.xlim([min_x, max_x])
             plt.ylim([min_y, max_y])
@@ -143,20 +94,20 @@ for dataset in datasets:
 
                     if abs(d_tie_len) < thre_length and abs(d_tie_angle) < thre_angle and abs(d_orien) < np.pi / 4:
                         strong_ties.append(all_ties[IJ_idx][-1])
-                        if VISUALIZE:
+                        if verbose:
                             plt.plot([poss_t[ii, 0], poss_t[jj, 0]], [poss_t[ii, 1], poss_t[jj, 1]], 'g')
                     else:
                         absent_ties.append(all_ties[IJ_idx][-1])
-                        if VISUALIZE:
+                        if verbose:
                             plt.plot([poss_t[ii, 0], poss_t[jj, 0]], [poss_t[ii, 1], poss_t[jj, 1]], 'r--', alpha=0.2)
 
-        if VISUALIZE:
+        if verbose:
             plt.plot([poss_t[:, 0], poss_t[:, 0] + vels_t[:, 0] * 0.5],
                      [poss_t[:, 1], poss_t[:, 1] + vels_t[:, 1] * 0.5],
                      '-b', alpha=0.7)
 
         frame_id = frame_data["frame_id"].unique()
-        if VISUALIZE:
+        if verbose:
             plt.pause(0.01)
             plt.savefig(os.path.join(save_links_dir, dataset.title + '-%04d.png' % frame_id))
         # print("frame_id:", frame_id)
@@ -196,13 +147,69 @@ for dataset in datasets:
     print("*******************************")
 
     p.smooth_pdf()
-    p.save_pdf(os.path.join(EXP_DATA_PATH, dataset.title))
+    p.save_pdf(os.path.join(SAVE_SIM_DATA_DIR, dataset.title))
     # p.load_pdf(os.path.join(EXP_DATA_PATH, dataset.title))
 
     # print(p.polar_link_pdf)
-    plt.close()
-    p.plot(dataset.title)
-    plt.savefig(os.path.join(output_dir, '%s-link-pdf.pdf' % dataset.title), dpi=300, bbox_inches='tight')
-    plt.savefig(os.path.join(output_dir, '%s-link-pdf.png' % dataset.title), dpi=300, bbox_inches='tight')
+    if verbose:
+        plt.close()
+        p.plot(dataset.title)
+        plt.savefig(os.path.join(output_dir, '%s-link-pdf.pdf' % dataset.title), dpi=300, bbox_inches='tight')
+        plt.savefig(os.path.join(output_dir, '%s-link-pdf.png' % dataset.title), dpi=300, bbox_inches='tight')
 
-plt.show()
+    return abs_entropy_strong_p / H_p_max, abs_entropy_absent_p / H_p_max
+
+
+
+if __name__ == "__main__":
+    datasets = []
+    OPENTRAJ_ROOT = "/home/cyrus/workspace2/OpenTraj"
+    output_dir = "/home/cyrus/Dropbox/FollowBot/exp/pdf"
+    save_links_dir = "/home/cyrus/Dropbox/FollowBot/exp/links"
+    VERBOSE = True
+
+    # ======== load dataset =========
+    # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/ETH/seq_eth/obsmat.txt')
+    # datasets.append(load_eth(annot_file, title="ETH-Univ"))
+
+    # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/ETH/seq_hotel/obsmat.txt')
+    # datasets.append(load_eth(annot_file, title="ETH-Hotel"))
+
+    # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/UCY/zara01/annotation.vsp')
+    # zara01 = load_crowds(annot_file, homog_file=os.path.join(OPENTRAJ_ROOT, "datasets/UCY/zara01/H.txt"), title="Zara01")
+    # datasets.append(zara01)
+
+    # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/UCY/zara02/annotation.vsp')
+    # zara02 = load_crowds(annot_file, homog_file=os.path.join(OPENTRAJ_ROOT, "datasets/UCY/zara02/H.txt"), title="Zara02")
+    # datasets.append(zara02)
+    # datasets.append(merge_datasets([zara01, zara02], new_title="Zara"))
+
+    # SDD datasets
+    # scenes = [['bookstore', 'video0'], ['bookstore', 'video1'], ['coupa', 'video0']]
+    # sdd_scales_yaml_file = os.path.join(OPENTRAJ_ROOT, 'datasets/SDD', 'estimated_scales.yaml')
+    # with open(sdd_scales_yaml_file, 'r') as f:
+    #     scales_yaml_content = yaml.load(f, Loader=yaml.FullLoader)
+    # for scene_i in scenes:
+    #     scale = scales_yaml_content[scene_i[0]][scene_i[1]]['scale']
+    #     sdd_dataset_i = load_sdd(os.path.join(OPENTRAJ_ROOT, "datasets/SDD", scene_i[0], scene_i[1], "annotations.txt"),
+    #                              scene_id="SDD-"+scene_i[0]+scene_i[1], title="SDD-"+scene_i[0]+"-"+scene_i[1][-1], # use_kalman=True,
+    #                              scale=scale, drop_lost_frames=False, sampling_rate=6)  # original fps=30
+    #     datasets.append(sdd_dataset_i)
+
+    # 1d HERMES
+    # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-1D/uo-180-180-180.txt')
+    # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-1D/uo-300-300-300.txt')
+    # datasets.append(load_bottleneck(annot_file, title="HERMES-" + os.path.basename(annot_file)[:-4]))
+
+    # 2d HERMES
+    # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-050-050.txt')
+    # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-160-160.txt')
+    # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-075-075.txt')
+    annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bo-360-090-090.txt')
+    # annot_file = os.path.join(OPENTRAJ_ROOT, 'datasets/HERMES/Corridor-2D/bot-360-250-250.txt')
+    datasets.append(load_bottleneck(annot_file, title="HERMES-" + os.path.basename(annot_file)[:-4]))
+    # -------------------------------
+
+    for ds in datasets:
+        analyze(ds, verbose=VERBOSE)
+    plt.show()

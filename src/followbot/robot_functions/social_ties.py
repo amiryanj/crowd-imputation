@@ -1,22 +1,18 @@
 # Author: Javad Amirian
 # Email: amiryan.j@gmail.com
-import os
-import cv2
-import numpy as np
-from matplotlib import gridspec
-from numpy.linalg import norm
-from scipy.stats import rv_histogram
-from scipy.ndimage import gaussian_filter, gaussian_filter1d
-from scipy.ndimage import map_coordinates
-from scipy.interpolate import interp1d
-import matplotlib.pyplot as plt
-from sklearn.metrics import euclidean_distances
-from skimage.transform import resize
 
-from followbot.crowdsim.pedestrian import Pedestrian
-from followbot.gui.visualizer import SKY_BLUE_COLOR
-from followbot.robot_functions.crowd_clustering import FlowClassifier
+import os
+import numpy as np
+from numpy.linalg import norm
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
+from scipy.interpolate import interp1d
+from scipy.ndimage import gaussian_filter
+from scipy.ndimage import map_coordinates
+
 from followbot.util.mapped_array import MappedArray
+from followbot.gui.visualizer import SKY_BLUE_COLOR
+from followbot.crowdsim.pedestrian import Pedestrian
 
 
 def sigmoid(x):
@@ -80,6 +76,8 @@ class SocialTiePDF:
         # debug/visualization
         self.fig = None
         self.axes = []
+        self.fig_cur_p = None
+        self.plt_cur_p = None
 
     def load_prior_pdfs_from_file(self, fname):
         raise Exception('Todo: Implement here!')
@@ -208,10 +206,10 @@ class SocialTiePDF:
         self.strong_ties_pdf_polar[:m, :] = 0
         self.absent_ties_pdf_polar[:m, :] = 0
 
-    def _aggregate_to_virtual_pdf_(self, pos_i, vel_i, crowd_flow_map: MappedArray):
+    def _aggregate_to_virtual_pdf_(self, pos_i, vel_i, crowd_territory_map: MappedArray):
         # convert polar to cartesian by interpolation
         # the resolution should be similar to the one of mapped_arrays
-        resol = crowd_flow_map.resolution
+        resol = crowd_territory_map.resolution
         xx = np.linspace(-self.rho_edges[-1], self.rho_edges[-1], int(round(self.rho_edges[-1] * 2 * resol)))
         yy = np.linspace(-self.rho_edges[-1], self.rho_edges[-1], int(round(self.rho_edges[-1] * 2 * resol)))
 
@@ -268,17 +266,20 @@ class SocialTiePDF:
         strong_ties_pdf_cartesian = strong_ties_pdf_cartesian ** (1/4)
         absent_ties_pdf_cartesian = absent_ties_pdf_cartesian ** (1/4)
 
-        agent_flow_class_id = crowd_flow_map.get(pos_i)
+        strong_ties_pdf_cartesian = np.clip(strong_ties_pdf_cartesian, a_min=0, a_max=1.05)
+        absent_ties_pdf_cartesian = np.clip(absent_ties_pdf_cartesian, a_min=0, a_max=1.05)
+
+        agent_flow_class_id = crowd_territory_map.get(pos_i)
         # this agent can have a strong tie to a (virtual) agent in the areas with the same flow_class
         # and can have absent tie to a (virtual) agent in the areas with a different flow_class
-        flow_mate_area = np.zeros(crowd_flow_map.data.shape, np.uint8)
-        flow_mate_area[crowd_flow_map.data == agent_flow_class_id] = 1
+        flow_mate_area = np.zeros(crowd_territory_map.data.shape, np.uint8)
+        flow_mate_area[crowd_territory_map.data == agent_flow_class_id] = 1
 
         # to multiply the current pdf (which is centered on agent[i]):
         # we need to translate and (maybe) crop the pdf
         src_shape = strong_ties_pdf_cartesian.shape
         dst_shape = self.social_ties_cartesian_pdf_aggregated.data.shape
-        agent_origin_u, agent_origin_v = crowd_flow_map.map(pos_i[0], pos_i[1])
+        agent_origin_u, agent_origin_v = crowd_territory_map.map(pos_i[0], pos_i[1])
         offset = [agent_origin_u - src_shape[0] // 2, agent_origin_v - src_shape[1] // 2]
         crop = [[max(0, -offset[0]), max(0, offset[0] + src_shape[0] - dst_shape[0])],
                 [max(0, -offset[1]), max(0, offset[1] + src_shape[1] - dst_shape[1])]]
@@ -296,46 +297,61 @@ class SocialTiePDF:
                  * (1 - flow_mate_area[offset[0] + crop[0][0]:offset[0] - crop[0][1] + src_shape[0],
                         offset[1] + crop[1][0]:offset[1] - crop[1][1] + src_shape[1]]))
 
-    def project(self, in_agent_locs, in_agent_vels,
+    def project(self, real_agent_locs, real_agent_vels,
                 walkable_map: MappedArray = None,
                 blind_spot_map: MappedArray = None,
-                crowd_flow_map: MappedArray = None):
+                crowd_territory_map: MappedArray = None,
+                community_velocity_map: MappedArray = None,
+                verbose=False):
         projected_agents = []
-        all_agents = np.concatenate([in_agent_locs, in_agent_vels], axis=1).tolist()
+        all_agents = np.concatenate([real_agent_locs, real_agent_vels], axis=1).tolist()
 
         # accumulate all the
         self.social_ties_cartesian_pdf_aggregated = blind_spot_map.copy_constructor()
         self.social_ties_cartesian_pdf_aggregated.fill(self.padding_prob_val)
         self.social_ties_cartesian_pdf_aggregated.data *= blind_spot_map.data
 
-        # Todo: smooth crowd_flow_map
-
+        # Todo: smooth crowd_territory_map
         for ii, agent_i in enumerate(all_agents):
             pos_i = agent_i[0:2]
             vel_i = agent_i[2:4]
-            self._aggregate_to_virtual_pdf_(pos_i, vel_i, crowd_flow_map)
-            if ii >= 3: break  # debug
+            self._aggregate_to_virtual_pdf_(pos_i, vel_i, crowd_territory_map)
+            # if ii >= 3: break  # debug
 
-        n_tries = 0  # fixme
+        n_tries = 20  # fixme
         for i in range(n_tries):
             accept_suggested_loc = True
+            if verbose:
+                self.plt_cur_p.cla()
+                self.plt_cur_p.imshow(self.social_ties_cartesian_pdf_aggregated.data.T)
             suggested_loc = self.social_ties_cartesian_pdf_aggregated.sample_random_pos()
 
             dist_to_existing_agents = norm(np.stack([suggested_loc[0]-np.array(all_agents)[:, 0],
                                                      suggested_loc[1]-np.array(all_agents)[:, 1]]), axis=0)
-            if min(dist_to_existing_agents) < 0.7 or min(dist_to_existing_agents) > 6:
+            if min(dist_to_existing_agents) < 0.7 or min(dist_to_existing_agents) > 4:
                 accept_suggested_loc = False
             if accept_suggested_loc:
-                # print(int(round(crowd_flow_map.get(suggested_loc))))
-                suggested_vel = FlowClassifier().preset_flow_classes[
-                    int(round(crowd_flow_map.get(suggested_loc)))].velocity
+                # print(int(round(crowd_territory_map.get(suggested_loc))))
+                suggested_vel = community_velocity_map.get(suggested_loc)
+                # suggested_vel = CommunityHandler().preset_flow_classes[
+                #     int(round(crowd_territory_map.get(suggested_loc)))].velocity
                 new_ped = Pedestrian(suggested_loc, suggested_vel)
                 new_ped.projected = True
                 new_ped.color = SKY_BLUE_COLOR
                 projected_agents.append(new_ped)
 
-                all_agents.append(np.concatenate([suggested_loc, suggested_vel]))  # cuz: this agent should be considered when synthesising next agent
-                self._aggregate_to_virtual_pdf_(suggested_loc, suggested_vel, crowd_flow_map)
+                # reason: this agent should be considered when projecting next agent
+                all_agents.append(np.concatenate([suggested_loc, suggested_vel]))
+                self._aggregate_to_virtual_pdf_(suggested_loc, suggested_vel, crowd_territory_map)
+
+            if verbose:
+                if len(projected_agents):
+                    projected_locs_uv = np.stack([crowd_territory_map.map(pi.pos[0], pi.pos[1]) for pi in projected_agents])
+                    self.plt_cur_p.scatter(projected_locs_uv[:, 0], projected_locs_uv[:, 1], c='r')
+                real_locs_uv = np.stack([crowd_territory_map.map(pos[0], pos[1]) for pos in real_agent_locs])
+                self.plt_cur_p.scatter(real_locs_uv[:, 0], real_locs_uv[:, 1], c='g')
+                self.fig_cur_p.gca().invert_yaxis()
+                plt.pause(0.1)
 
         # self.fig2.imshow(np.flipud(self.social_ties_cartesian_pdf_aggregated.data.T))
         return projected_agents
@@ -344,6 +360,7 @@ class SocialTiePDF:
 
         if not len(self.axes):  # First time initialization
             # _, self.fig2 = plt.subplots()
+            self.fig_cur_p, self.plt_cur_p = plt.subplots()
             self.fig = plt.figure(figsize=(8, 4))
             grid_spec = gridspec.GridSpec(2, 4, height_ratios=[3, 1], width_ratios=[1, 3, 3, 1], wspace=0.15,
                                           hspace=0.2)
@@ -378,7 +395,7 @@ class SocialTiePDF:
         strong_angle_plot = self.axes[0][0].plot(strong_angular_pdf, np.rad2deg(self.theta_bin_midpoints), 'r')
         self.axes[0][0].fill_betweenx(np.rad2deg(self.theta_bin_midpoints), 0, strong_angular_pdf)
         self.axes[0][0].set_xlim([0, max(strong_angular_pdf) * 1.1])
-        self.axes[0][0].set_ylim([-151, 151])
+        self.axes[0][0].set_ylim([-179, 179])
         self.axes[0][0].set_yticks(angle_y_ticks)
         self.axes[0][0].set_yticklabels(["$%d^\circ$" % deg for deg in angle_y_ticks])
         self.axes[0][0].invert_xaxis()
@@ -411,7 +428,7 @@ class SocialTiePDF:
         absent_angle_plot = self.axes[0][3].plot(absent_angular_pdf, np.rad2deg(self.theta_bin_midpoints), 'b')
         self.axes[0][3].fill_betweenx(np.rad2deg(self.theta_bin_midpoints), 0, absent_angular_pdf, color='darkred')
         self.axes[0][3].set_xlim([0, max(absent_angular_pdf) * 1.1])
-        self.axes[0][3].set_ylim([-151, 151])
+        self.axes[0][3].set_ylim([-179, 179])
         self.axes[0][3].set_yticks(angle_y_ticks)
         self.axes[0][3].set_yticklabels(["$%d^\circ$" % deg for deg in angle_y_ticks])
         self.axes[0][3].yaxis.tick_right()

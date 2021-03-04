@@ -229,7 +229,7 @@ class Visualizer:
             # Robot Hypotheses
             # ====================================
             for ii, hypothesis in enumerate(robot.hypothesis_worlds):
-                if ii == 0 or ii == 1:  # Never
+                if ii == 0 or ii == 1:
                     # show Blind-Spot-Map as a background image
                     blindspot_map = np.clip(np.fliplr(robot.blind_spot_map.data), a_min=0, a_max=255)
                     blindspot_map = imresize(blindspot_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
@@ -237,14 +237,14 @@ class Visualizer:
                     self.draw_image(blindspot_map, 80, view_index=(ii + 1, 0))
 
                 # show Crowd-Flow-Map as a background image
-                if ii == 1:
+                if ii == 0:
                     crowdflow_map = np.clip(np.fliplr(robot.crowd_territory_map.data[:, :]), a_min=0, a_max=255)
                     crowdflow_map = imresize(crowdflow_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
                     crowdflow_map = np.stack([255 - crowdflow_map, np.zeros_like(crowdflow_map), crowdflow_map], axis=2)
                     self.draw_image(crowdflow_map, 60, view_index=(ii + 1, 0))
 
                 # show Link-Pdf-Map as a background image
-                if ii == -1:
+                if ii == -1:  # Never
                     link_pdf_map = np.clip(np.fliplr(robot.blind_spot_projector.social_ties_cartesian_pdf_aggregated.data), a_min=0, a_max=255)
                     link_pdf_map = imresize(link_pdf_map, self.scale[0, 0, 0, 0] / robot.mapped_array_resolution)
                     link_pdf_map = np.stack([link_pdf_map, link_pdf_map, np.zeros_like(link_pdf_map)], axis=2)
@@ -276,7 +276,7 @@ class Visualizer:
 
                 for jj in range(len(hypothesis.crowds)):
                     if hasattr(hypothesis.crowds[jj], 'projected'):
-                        self.draw_circle(hypothesis.crowds[jj].pos, 9, SKY_BLUE_COLOR, view_index=(ii + 1, 0))
+                        self.draw_circle(hypothesis.crowds[jj].pos, 6, RED_COLOR, view_index=(ii + 1, 0))
                         self.draw_line(hypothesis.crowds[jj].pos, hypothesis.crowds[jj].pos + hypothesis.crowds[jj].vel * 0.5,
                                        MAGENTA_COLOR, view_index=(ii + 1, 0))
 

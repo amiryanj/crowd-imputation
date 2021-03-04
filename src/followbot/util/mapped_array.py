@@ -28,8 +28,11 @@ class MappedArray:
         self.y_edges = np.linspace(min_y, max_y, int(ceil(y_range * resolution)))
 
         # Warning: map/inv_map dont check if the given values are in range or not
+
+        # takes location in world-coord and returns the pixel coord
         self.map = lambda x, y: (int(round((x - min_x) / x_range * self.data.shape[0])),
                                  int(round((y - min_y) / y_range * self.data.shape[1])))
+        # takes location in pixel-coord and returns the world-coord
         self.inv_map = lambda u, v: (u / self.data.shape[0] * x_range + min_x,
                                      v / self.data.shape[1] * y_range + min_y)
 

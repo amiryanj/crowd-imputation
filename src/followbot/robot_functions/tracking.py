@@ -70,9 +70,9 @@ class KalmanBasedTrack(TrackBase):
 
     def update_recent_assignments(self, assigned_det: np.ndarray):
         self.recent_assigned_detections.append(assigned_det)
-        if len(self.recent_assigned_detections) > 15:
+        if len(self.recent_assigned_detections) > 6:
             self.recent_assigned_detections.pop(0)
-            if sum([not np.isnan(det[0]) for det in self.recent_assigned_detections]) < 5:
+            if sum([not np.isnan(det[0]) for det in self.recent_assigned_detections]) < 3:
                 self.coasted = True
 
     def predict(self, t):
@@ -115,14 +115,16 @@ class MultiObjectTracking:
 
         # How long a track is maintained before deletion.
         # a reasonable value is about 0.75 seconds (7.5 frames).
-        self.deletionThreshold = 0.75
+        # TODO
+        # self.deletionThreshold = 0.75
 
         # The parameters controlling track confirmation.
         # A track is initialized with every unassigned detection. Some of these detections might be false, so initially,
         # all tracks are 'Tentative'. To confirm a track, it has to be detected at least M out of N frames.
         # The choice of M and N depends on the visibility of the objects. By default, we assume a visibility
         # of 6 out of 10 frames.
-        self.confirmationThreshold = [6, 10]
+        # TODO
+        # self.confirmationThreshold = [6, 10]
         # -----------------------------------------
 
     def _get_new_track_id_(self):

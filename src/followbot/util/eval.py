@@ -12,58 +12,54 @@ from followbot.util.mapped_array import MappedArray
 
 
 class Evaluation:
-    def __init__(self):
+    def __init__(self, show_heatmap=False):
         self.sigma = 0.5
 
-        self.occ_map_fig = plt.figure(figsize=(7, 5))
-        self.grid_spec = gridspec.GridSpec(2, 1)
-        self.occ_map = [plt.subplot(self.grid_spec[0, 0]),
-                        plt.subplot(self.grid_spec[1, 0])]
+        if show_heatmap:
+            self.occ_map_fig = plt.figure(figsize=(7, 5))
+            self.grid_spec = gridspec.GridSpec(2, 1)
+            self.occ_map = [plt.subplot(self.grid_spec[0, 0]),
+                            plt.subplot(self.grid_spec[1, 0])]
+        else:
+            self.occ_map_fig = None
 
-    def calc_error(self, gt_peds, proj_peds, predicted_pom: MappedArray, deubg=False, frame_id=-1):
+    def calc_error(self, meshgrid, dst_peds, src_peds, plot_text=""):
         """
         :param predicted_pom:
-        :param proj_peds: Projected (predicted) agents
-        :param gt_peds: Ground truth agents
+        :param dst_peds: Ground truth agents
+        :param src_peds: Projected (predicted) agents
         :param frame_id: frame Number
         :return:
         """
+        xx, yy = meshgrid
+        gt_pom, predicted_pom = np.zeros_like(xx).T, np.zeros_like(xx).T
 
-        predicted_pom = predicted_pom.copy_constructor()  # to not change the original data
-        # predicted_pom.data /= 2
-        predicted_pom.fill(0)
-
-        gt_pom = predicted_pom.copy_constructor()
-        gt_pom.fill(0)
-        xx, yy = gt_pom.meshgrid()
-
-        # POM = sum of Gaussians, centered on gt pedestrians
-        fill_radius = 0.2
+        # POM = sum of Gaussians, centered on agents
         normalizer = np.sqrt(2 * np.pi) * self.sigma
-        for agent in gt_peds:
-            gt_pom.data += np.exp(-((xx - agent.pos[0]) ** 2 +
-                                    (yy - agent.pos[1]) ** 2) / (2 * self.sigma ** 2)).T / normalizer
+        for agent_pos in dst_peds:
+            gt_pom += np.exp(-((xx - agent_pos[0]) ** 2 +
+                               (yy - agent_pos[1]) ** 2) / (2 * self.sigma ** 2)).T / normalizer
 
-        for agent in proj_peds:
-            predicted_pom.data += np.exp(-((xx - agent.pos[0]) ** 2 +
-                                           (yy - agent.pos[1]) ** 2) / (2 * self.sigma ** 2)).T / normalizer
+        for agent_pos in src_peds:
+            predicted_pom += np.exp(-((xx - agent_pos[0]) ** 2 +
+                                      (yy - agent_pos[1]) ** 2) / (2 * self.sigma ** 2)).T / normalizer
 
-        if deubg:
+        if self.occ_map_fig:
             self.occ_map[0].axis("off")
             self.occ_map[0].set_title("Projections")
-            self.occ_map[0].imshow(np.flipud(predicted_pom.data.T))
+            self.occ_map[0].imshow(np.flipud(predicted_pom.T))
             self.occ_map[1].axis("off")
             self.occ_map[1].set_title("Ground Truth")
-            self.occ_map[1].imshow(np.flipud(gt_pom.data.T))
+            self.occ_map[1].imshow(np.flipud(gt_pom.T))
             plt.pause(0.001)
-            plt.savefig(os.path.join("/home/cyrus/Videos/followbot/projections", "%5d.jpg" % frame_id))
+            if len(plot_text):
+                plt.savefig(os.path.join("/home/cyrus/Music/followbot-projections", "%s.jpg" % plot_text))
 
         # Binary Cross Entropy (BCE)
-        MSE = np.mean((predicted_pom.data - gt_pom.data) ** 2)
-        dim = predicted_pom.data.size
-        BCE = -np.nansum(gt_pom.data.flatten() * np.log(predicted_pom.data.flatten())) / dim
-        # print("BCE =", BCE, "MSE =", MSE)
-        return MSE, BCE
+        MSE = np.mean((predicted_pom - gt_pom) ** 2)
+        dim = predicted_pom.size
+        BCE = -np.nansum(gt_pom.flatten() * np.log(predicted_pom.flatten())) / dim
+        return MSE, BCE, gt_pom, predicted_pom
 
     def local_density(self, locs):
         # for all pedestrians find its distance to NN
@@ -88,11 +84,11 @@ class Evaluation:
                 dens_t_i = 1 / (2 * np.pi) \
                            * np.sum(1 / ((LAMBDA * np.array(distNN)) ** 2)
                                     * np.exp(
-                                             -np.divide(
-                                                (pair_dist[pj] ** 2),
-                                                (2 * (LAMBDA * np.array(distNN)) ** 2)
-                                                        )
-                                             )
+                    -np.divide(
+                        (pair_dist[pj] ** 2),
+                        (2 * (LAMBDA * np.array(distNN)) ** 2)
+                    )
+                )
                                     )
 
                 density.append(dens_t_i)
