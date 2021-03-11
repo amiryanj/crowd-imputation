@@ -10,7 +10,7 @@ from scipy.stats import entropy
 import matplotlib
 from tqdm import tqdm
 
-from followbot.scenarios.hermes_scenario import HermesScenario
+from followbot.scenarios.human_traj_scenario import HumanTrajectoryScenario
 from followbot.scenarios.real_scenario import RealScenario
 from toolkit.core.trajdataset import merge_datasets
 
@@ -81,7 +81,7 @@ for dataset in datasets:
     for agent_id in sorted(agent_ids):
         # try:
             if "HERMES" in dataset.title:
-                scenario = HermesScenario()
+                scenario = HumanTrajectoryScenario()
                 scenario.setup(dataset=dataset, robot_id=agent_id, biped_mode=BIPED_MODE)
             else:
                 scenario = RealScenario()

@@ -10,14 +10,15 @@ from followbot.util.basic_geometry import Line
 from followbot.scenarios.real_scenario import RealScenario
 from toolkit.core.trajdataset import TrajDataset
 from toolkit.loaders.loader_hermes import load_bottleneck
+from toolkit.loaders.loader_eth import load_eth
 
 
-class HermesScenario(RealScenario):
+class HumanTrajectoryScenario(RealScenario):
     """
     Class for replaying Hermes (Bottleneck) Crowd Experiments
     """
     def __init__(self):
-        super(HermesScenario, self).__init__()
+        super(HumanTrajectoryScenario, self).__init__()
 
     def setup_with_config_file(self, config_file, **kwargs):
         """
@@ -34,12 +35,20 @@ class HermesScenario(RealScenario):
             fps = config['Dataset']['fps']
             annotation_file = config['Dataset']['Annotation']
             title = config['Dataset']['Title'] if 'Title' in config['Dataset'] else ''
-            dataset = load_bottleneck(annotation_file, title=title)
+            parser_type = config['Dataset']['Parser']
+            if parser_type == "ParserETH":
+                dataset = load_eth(annotation_file, title=title, use_kalman=False)
+                dataset.interpolate_frames(inplace=True)
+            elif parser_type == "ParserHermes":
+                dataset = load_bottleneck(annotation_file, title=title)
             self.video_files = config['Dataset']['Video']
-            world_x_min = config['Dataset']['WorldBoundary']['x_min']
-            world_x_max = config['Dataset']['WorldBoundary']['x_max']
-            world_y_min = config['Dataset']['WorldBoundary']['y_min']
-            world_y_max = config['Dataset']['WorldBoundary']['y_max']
+            world_boundary = []
+            if 'WorldBoundary' in config['Dataset']:
+                world_x_min = config['Dataset']['WorldBoundary']['x_min']
+                world_x_max = config['Dataset']['WorldBoundary']['x_max']
+                world_y_min = config['Dataset']['WorldBoundary']['y_min']
+                world_y_max = config['Dataset']['WorldBoundary']['y_max']
+                world_boundary = [[world_x_min, world_x_max], [world_y_min, world_y_max]]
 
         # override parameters by direct arguments
         self.title = kwargs.get("title", title)
@@ -49,7 +58,7 @@ class HermesScenario(RealScenario):
         biped_mode = kwargs.get("biped_mode", biped_mode)
 
         self.setup(dataset=dataset, fps=fps, robot_id=robot_replacement_id, biped_mode=biped_mode,
-                   obstacles=obstacles, world_boundary=[[world_x_min, world_x_max], [world_y_min, world_y_max]])
+                   obstacles=obstacles, world_boundary=world_boundary)
 
     def setup(self, **kwargs):
         self.dataset = kwargs.get("dataset", None)
@@ -82,7 +91,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     matplotlib.use('TkAgg')
 
-    scenario = HermesScenario()
+    scenario = HumanTrajectoryScenario()
     conf_file = os.path.abspath(os.path.join(__file__, "../../../..", "config/followbot_sim/real_scenario_config.yaml"))
     scenario.setup_with_config_file(conf_file)
     [xdim, ydim] = scenario.world.world_dim
