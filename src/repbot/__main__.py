@@ -7,8 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
 
-from repbot.config import *
-from repbot.run.repbot import exec_scenario
+from repbot.__config__ import *
+from repbot.exe.repbot import exec_scenario
 from repbot.crowd_imputation.crowd_synthesis import CrowdSynthesizer
 from repbot.scenarios.human_traj_scenario import HumanTrajectoryScenario
 from repbot.util.read_lidar_data import read_lidar_data

@@ -1,7 +1,7 @@
 # Author: Javad Amirian
 # Email: amiryan.j@gmail.com
 
-import repbot.crowdsim.umans as umans
+import repbot.crowd_sim.umans as umans
 import xml.etree.ElementTree as ET
 import random
 import os

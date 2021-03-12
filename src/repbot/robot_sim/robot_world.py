@@ -1,7 +1,7 @@
 # Author: Javad Amirian
 # Email: amiryan.j@gmail.com
 
-from repbot.crowdsim.pedestrian import Pedestrian
+from repbot.crowd_sim.pedestrian import Pedestrian
 
 
 class RobotWorld:

@@ -2,10 +2,10 @@ import time
 
 import numpy as np
 
-from repbot.robot_functions.robot_world import RobotWorld
-from repbot.robot_functions.human_detection import PedestrianDetection
-from repbot.robot_functions.tracking import MultiObjectTracking
-from repbot.robot_functions.lidar2d import LiDAR2D
+from repbot.robot_sim.robot_world import RobotWorld
+from repbot.crowd_tracking.human_detection import PedestrianDetection
+from repbot.crowd_tracking.multi_obj_tracking import MultiObjectTracking
+from repbot.crowd_tracking.lidar2d import LiDAR2D
 # from repbot.basics_geometry import Circle
 from repbot.util.mapped_array import MappedArray
 

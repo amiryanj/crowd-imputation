@@ -2,28 +2,20 @@
 # Email: amiryan.j@gmail.com
 
 import os
-import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-import yaml
-from scipy.stats import entropy
 import matplotlib
 from tqdm import tqdm
 
 from repbot.scenarios.human_traj_scenario import HumanTrajectoryScenario
 from repbot.scenarios.real_scenario import RealScenario
-from toolkit.core.trajdataset import merge_datasets
 
 from repbot.run import repbot
-from repbot.run.repbot import BIPED_MODE, LIDAR_ENABLED, VISUALIZER_ENABLED
-
+from repbot.run.repbot import BIPED_MODE
 
 matplotlib.use('TkAgg')
 
-from repbot.robot_functions.social_ties import SocialTiePDF
-from toolkit.loaders.loader_hermes import load_bottleneck
 from toolkit.loaders.loader_metafile import load_eth, load_crowds
-from toolkit.loaders.loader_sdd import load_sdd, load_sdd_dir
 
 datasets = []
 opentraj_root = '/home/cyrus/workspace2/OpenTraj'

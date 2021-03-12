@@ -12,7 +12,7 @@ from scipy.ndimage import map_coordinates
 
 from repbot.util.mapped_array import MappedArray
 from repbot.gui.visualizer import SKY_BLUE_COLOR
-from repbot.crowdsim.pedestrian import Pedestrian
+from repbot.crowd_sim.pedestrian import Pedestrian
 
 
 def sigmoid(x):

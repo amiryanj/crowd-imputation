@@ -138,7 +138,7 @@ class CarlaManager:
     def run_sim_for_one_frame(self, frame_id, show_traj=False, verbose=False,
                               exit_if_spawn_fail=False, no_collision_detector=False,
                               pid2actor={}):
-        """Given the controls and the current frame_id, run the simulation. Return
+        """Given the controls and the current frame_id, exe the simulation. Return
          the batch command to execute, return None if the any spawning failed
         """
         stats = {}

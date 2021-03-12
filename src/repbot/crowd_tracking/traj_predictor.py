@@ -5,8 +5,8 @@ import warnings
 import collections
 import numpy as np
 import pandas as pd
-import repbot.crowdsim.crowdsim as crowdsim
-import repbot.crowdsim.umans_api as umans_api
+import repbot.crowd_sim.crowdsim as crowdsim
+import repbot.crowd_sim.umans_api as umans_api
 from toolkit.loaders.loader_eth import load_eth
 
 INDEFINITE_LOC = (-1000, -1000)

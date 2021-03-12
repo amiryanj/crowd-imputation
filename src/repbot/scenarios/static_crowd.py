@@ -9,7 +9,7 @@ from poisson_distribution import PoissonDistribution
 
 from repbot.scenarios.corridor_scenario import CorridorScenario, Visualizer
 from repbot.scenarios.world import World
-import repbot.crowdsim.crowdsim as crowdsim
+import repbot.crowd_sim.crowdsim as crowdsim
 
 
 class StaticCorridorScenario(CorridorScenario):

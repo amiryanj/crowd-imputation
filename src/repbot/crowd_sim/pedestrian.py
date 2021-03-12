@@ -3,7 +3,7 @@ from math import cos, sin, atan2
 import numpy as np
 import scipy
 
-from repbot.crowdsim.gait_sim import MocapGaitSimulator
+from repbot.crowd_sim.gait_sim import MocapGaitSimulator
 from repbot.util.basic_geometry import Circle, DoubleCircle
 
 eps = sys.float_info.epsilon

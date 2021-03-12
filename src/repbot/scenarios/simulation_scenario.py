@@ -3,7 +3,7 @@
 
 from abc import ABC, abstractmethod
 
-from repbot.crowdsim.grouping_behavior import GroupingBehavior
+from repbot.crowd_sim.grouping_behavior import GroupingBehavior
 from repbot.scenarios.scenario import Scenario
 import numpy as np
 

@@ -1,9 +1,0 @@
-<launch>
-
-  <node pkg="detection_fusion" type="node.py" name="detection_fusion" output="screen">
-    <rosparam command="load" file="$(find followbot)/config/fusion_params.yaml"/>
-    <rosparam command="load" file="$(find followbot)/config/fusion_topics.yaml"/>
-  </node>
-
-</launch>
-

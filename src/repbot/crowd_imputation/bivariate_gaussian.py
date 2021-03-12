@@ -4,7 +4,6 @@
 import numpy as np
 from numpy import cos, sin, exp
 from collections import Counter
-from scipy.stats import mode
 
 
 class BivariateGaussian:
@@ -128,7 +127,7 @@ class BivariateGaussianMixtureModel:
 
 
 def draw_bgmm(mm: BivariateGaussianMixtureModel, query_x, query_y):
-    from repbot.robot_functions.crowd_communities import CommunityHandler
+    from repbot.crowd_imputation.crowd_communities import CommunityHandler
     import matplotlib.pyplot as plt
     predicted_class_matrix = mm.classify_kNN(query_x, query_y)
 

@@ -6,20 +6,14 @@ import os
 import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-import yaml
-from scipy.stats import entropy
 import matplotlib
 import warnings
-
-from toolkit.core.trajdataset import merge_datasets
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 matplotlib.use('TkAgg')
 
-from repbot.robot_functions.social_ties import SocialTiePDF
+from repbot.crowd_imputation.social_ties import SocialTiePDF
 from toolkit.loaders.loader_hermes import load_bottleneck
-from toolkit.loaders.loader_metafile import load_eth, load_crowds
-from toolkit.loaders.loader_sdd import load_sdd, load_sdd_dir
 from repbot.run.repbot import SAVE_SIM_DATA_DIR
 
 

@@ -1,12 +1,11 @@
 # Author: Javad Amirian
 # Email: amiryan.j@gmail.com
 
-import time
 import numpy as np
 from numpy.linalg import norm
 from scipy.sparse import csgraph, csr_matrix
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder
-from repbot.robot_functions.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian
+from sklearn.preprocessing import OneHotEncoder
+from repbot.crowd_imputation.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian
 
 
 def connected_components(vertices, edges):
@@ -156,7 +155,6 @@ class CommunityDetector:
 
 if __name__ == "__main__":
     import os
-    from tqdm import trange
     import matplotlib.pyplot as plt
     import matplotlib
     import warnings
@@ -164,9 +162,7 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=RuntimeWarning)
     matplotlib.use('TkAgg')
 
-    from toolkit.loaders.loader_hermes import load_bottleneck
-    from toolkit.loaders.loader_metafile import load_eth, load_crowds
-    from toolkit.loaders.loader_sdd import load_sdd, load_sdd_dir
+    from toolkit.loaders.loader_metafile import load_crowds
 
     datasets = []
     OPENTRAJ_ROOT = "/home/cyrus/workspace2/OpenTraj"

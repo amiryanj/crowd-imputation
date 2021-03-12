@@ -5,9 +5,8 @@ import pygame.gfxdraw
 import numpy as np
 from sklearn.externals._pilutil import imresize
 import matplotlib.pyplot as plt
-from repbot.robot_functions.follower_bot import FollowerBot
+from repbot.robot_sim.follower_bot import FollowerBot
 from repbot.util.basic_geometry import Line, Circle
-from repbot.util.cv_importer import *
 
 BLACK_COLOR = (0, 0, 0)
 GREY_COLOR = (100, 100, 100)

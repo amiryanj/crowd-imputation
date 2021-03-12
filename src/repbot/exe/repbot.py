@@ -1,31 +1,23 @@
-import sys
 import random
 from datetime import datetime
 from scipy.spatial.transform import Rotation
 from numpy.linalg import norm as norm
 from operator import itemgetter
-import matplotlib.pyplot as plt
-from matplotlib import gridspec
 import matplotlib
 import visdom
-import logging
-
 
 import scipy.optimize as op
 from sklearn.metrics import euclidean_distances
 
 from repbot.crowd_imputation.crowd_synthesis import CrowdSynthesizer
-from repbot.crowdsim.pedestrian import Pedestrian
-from repbot.robot_functions.bivariate_gaussian import BivariateGaussianMixtureModel, BivariateGaussian, draw_bgmm
-from repbot.robot_functions.dr_spaam_detector import DrSpaamDetector
-from repbot.robot_functions.crowd_communities import CommunityHandler, CommunityDetector
-from repbot.robot_functions.social_ties import SocialTiePDF
-from repbot.robot_functions.human_detection import PedestrianDetection
-from repbot.robot_functions.robot import MyRobot
-from repbot.robot_functions.robot_replace_human import RobotReplaceHuman
+from repbot.crowd_tracking.dr_spaam_detector import DrSpaamDetector
+from repbot.crowd_imputation.crowd_communities import CommunityHandler, CommunityDetector
+from repbot.crowd_imputation.social_ties import SocialTiePDF
+from repbot.crowd_tracking.human_detection import PedestrianDetection
+from repbot.robot_sim.robot import MyRobot
+from repbot.robot_sim.robot_replace_human import RobotReplaceHuman
 from repbot.scenarios.real_scenario import RealScenario
 from repbot.scenarios.human_traj_scenario import HumanTrajectoryScenario
-from repbot.scenarios.corridor_scenario import CorridorScenario
 from repbot.util.csv_logger import CsvLogger
 from repbot.util.eval import Evaluation
 from repbot.util.mapped_array import MappedArray
@@ -34,7 +26,7 @@ from repbot.util.transform import Transform
 from repbot.util.read_lidar_data import read_lidar_data
 from repbot.gui.visualizer import *
 
-from repbot.config import *
+from repbot.__config__ import *
 matplotlib.use('TkAgg')  # sudo apt-get install python3.7-tk
 
 
@@ -117,7 +109,7 @@ def exec_scenario(scenario):
 
     # ****************** Program Loop *******************
     while True:
-        # run the scenario (and the world) for One step
+        # exe the scenario (and the world) for One step
         scenario_ret = scenario.step(dt, LIDAR_ENABLED, save=RECORD_MAIN_SCENE)
         if not scenario_ret:
             break

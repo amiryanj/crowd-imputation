@@ -1,8 +1,8 @@
 import numpy as np
 
-import repbot.crowdsim.crowdsim as crowdsim
-import repbot.crowdsim.umans_api as umans_api
-from repbot.crowdsim.pedestrian import Pedestrian
+import repbot.crowd_sim.crowdsim as crowdsim
+import repbot.crowd_sim.umans_api as umans_api
+from repbot.crowd_sim.pedestrian import Pedestrian
 
 
 class World:
@@ -19,7 +19,7 @@ class World:
 
         if sim_model:
             self.sim = umans_api.CrowdSimUMANS(sim_model)
-            # self.sim = crowdsim.CrowdSim(sim_model) # Deprecated! -> use UMANS
+            # self.sim = crowd_sim.CrowdSim(sim_model) # Deprecated! -> use UMANS
         else:
             self.sim = None
 
@@ -53,7 +53,7 @@ class World:
         if self.sim:
             if hasattr(obj, 'line'):
                 try:
-                    # this functionality is only for crowdsim and doesn't work with UMANS
+                    # this functionality is only for crowd_sim and doesn't work with UMANS
                     self.sim.addObstacleCoords(obj.draw_line[0][0], obj.draw_line[0][1], obj.draw_line[1][0], obj.draw_line[1][1])
                 except Exception:
                     raise ValueError('obstacles should be defined in config file')

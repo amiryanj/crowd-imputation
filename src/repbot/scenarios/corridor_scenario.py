@@ -9,9 +9,9 @@ import numpy as np
 from math import cos, sin, sqrt
 from repbot.crowd_imputation.poisson_distribution import PoissonDistribution
 
-import repbot.crowdsim.crowdsim as crowdsim
+import repbot.crowd_sim.crowdsim as crowdsim
 
-from repbot.crowdsim.grouping_behavior import GroupingBehavior
+from repbot.crowd_sim.grouping_behavior import GroupingBehavior
 from repbot.gui.visualizer import *
 from repbot.scenarios.scenario import Scenario
 from repbot.scenarios.simulation_scenario import SimulationScenario
@@ -35,7 +35,7 @@ class CorridorScenario(SimulationScenario):
         self.group_size_choices = group_size_choices
 
     def setup_crowd_sim(self):
-        # self.world.sim = crowdsim.CrowdSim("powerlaw")
+        # self.world.sim = crowd_sim.CrowdSim("powerlaw")
         self.world.sim.initSimulation(0)
         self.world.inertia_coeff = 0.1  # larger, more inertia, zero means no inertia
 

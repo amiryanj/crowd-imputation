@@ -4,7 +4,7 @@
 import numpy as np
 from numpy.linalg import norm
 
-from repbot.robot_functions.robot import MyRobot
+from repbot.robot_sim.robot import MyRobot
 
 
 class FollowerBot(MyRobot):

@@ -3,7 +3,7 @@
 
 import os
 import numpy as np
-from repbot.crowdsim.drow_utils import load_scan, laserFoV, load_dets
+from repbot.crowd_sim.drow_utils import load_scan, laserFoV, load_dets
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('TkAgg')
