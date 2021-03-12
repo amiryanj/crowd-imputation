@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>followbot</name>
+  <name>repbot</name>
   <version>0.0.0</version>
-  <description>The followbot package</description>
+  <description>The Repbot package</description>
 
  <maintainer email="amiryan.j@gmail.com">Javad Amirian</maintainer>
-  <url type="website">https://github.com/amiryanj/socialways</url>
+  <url type="website">https://github.com/amiryanj</url>
   <license>TODO</license>
 
 

@@ -33,9 +33,9 @@ class RobotNode:
         return
 
         try:
-            # TODO: call crowd_synthesis()
-            rospy.wait_for_service('crowd_synthesis')
-            crowd_synthesis_srv = rospy.ServiceProxy('crowd_synthesis', GetSynthesizedCrowd)
+            # TODO: call crowd_imputation()
+            rospy.wait_for_service('crowd_imputation')
+            crowd_synthesis_srv = rospy.ServiceProxy('crowd_imputation', GetSynthesizedCrowd)
             all_peds = crowd_synthesis_srv(track_msg)
 
             # TODO: call trajec_prediction()

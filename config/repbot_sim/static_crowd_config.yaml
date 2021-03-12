@@ -1,0 +1,87 @@
+crowd:
+   - ped:
+      pos_x: 0.6075
+      pos_y: 0.6975
+      orien: 0
+   - ped:
+      pos_x: 1.89
+      pos_y: 0.6525
+      orien: 0
+   - ped:
+      pos_x: 1.305
+      pos_y: 1.575
+      orien: 0
+
+   - ped:
+      pos_x: 16.750
+      pos_y: 4.590
+      orien: 0
+   - ped:
+      pos_x: 17.550
+      pos_y: 3.848
+      orien: 0
+   - ped:
+      pos_x: 16.740
+      pos_y: 3.173
+      orien: 0
+   - ped:
+      pos_x: 15.975
+      pos_y: 3.850
+      orien: 0
+
+   - ped:
+      pos_x: 15.00
+      pos_y: 1.370
+      orien: 0
+   - ped:
+      pos_x: 14.450
+      pos_y: 0.830
+      orien: 0
+   - ped:
+      pos_x: 13.927
+      pos_y: 1.463
+      orien: 0
+   - ped:
+      pos_x: 7.700
+      pos_y: 1.440
+      orien: 0
+   - ped:
+      pos_x: 7.080
+      pos_y: 2.160
+      orien: 0
+   - ped:
+      pos_x: 6.390
+      pos_y: 1.485
+      orien: 0
+   - ped:
+      pos_x: 7.020
+      pos_y: 0.608
+      orien: 0
+
+   - ped:
+      pos_x: 4.035
+      pos_y: 4.500
+      orien: 0
+   - ped:
+      pos_x: 4.080
+      pos_y: 3.465
+      orien: 0
+
+   - ped:
+      pos_x: 10.170
+      pos_y: 4.253
+      orien: 0
+   - ped:
+      pos_x: 11.00
+      pos_y: 3.800
+      orien: 0
+
+   - ped:
+      pos_x: 11.070
+      pos_y: 1.260
+      orien: 0
+   - ped:
+      pos_x: 10.642
+      pos_y: 0.360
+      orien: 0
+

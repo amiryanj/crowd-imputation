@@ -1,0 +1,83 @@
+General:
+   resolution_dpm: 100
+   biped_mode: True
+
+## ETH Univ
+#Dataset:
+#   OpenTrajRoot: '/home/cyrus/workspace2/OpenTraj/datasets'
+#   Annotation: '/home/cyrus/workspace2/OpenTraj/datasets/ETH/seq_eth/obsmat.txt'
+#   Map: '/home/cyrus/workspace2/OpenTraj/datasets/ETH/seq_eth/map.xml'
+#   Title: 'ETH-Univ'
+#   HumanId: 80
+#   Parser: ParserETH
+#   RobotId: 1
+#   Video: []
+#   Obstacles: []
+#   fps: 15
+
+## ETH Hotel
+#Dataset:
+#   Annotation: '/home/cyrus/workspace2/OpenTraj/ETH/seq_hotel/obsmat.txt'
+#   Map: '/home/cyrus/workspace2/OpenTraj/ETH/seq_hotel/map.xml'
+#   HumanId: 11
+#   Parser: ParserETH
+
+## ZARA 01
+#Dataset:
+#   Annotation: '/home/cyrus/workspace2/OpenTraj/UCY/data_zara01/obsmat.txt'
+#   Map: '/home/cyrus/workspace2/OpenTraj/UCY/data_zara01/map.xml'
+#   HumanId: 1
+#   Parser: ParserETH
+
+## ZARA 02
+#Dataset:
+#   Annotation: '/home/cyrus/workspace2/OpenTraj/UCY/data_zara02/obsmat.txt'
+#   Map: '/home/cyrus/workspace2/OpenTraj/UCY/data_zara02/map.xml'
+#   HumanId: 1
+#   Parser: ParserETH
+
+## GC
+#Dataset:
+#   Annotation: '/home/cyrus/workspace2/OpenTraj/GC/Annotation'
+#   Map: '/home/cyrus/workspace2/OpenTraj/GC/map.xml'
+#   HumanId: 1
+#   Parser: ParserGC
+
+## Hermes
+Dataset:
+#   OpenTrajRoot: '/home/cyrus/workspace2/OpenTraj'
+   # UniD
+   # Annotation: '/home/cyrus/workspace2/OpenTraj/datasets/HERMES/Corridor-1D/uo-300-300-200.txt'
+
+   # BiD
+   Annotation: '/home/cyrus/workspace2/OpenTraj/datasets/HERMES/Corridor-2D/bo-360-075-075.txt'
+   Title: 'HERMES-bo-360-075-075'
+   Video:
+      - /media/cyrus/workspace/Seyfried/bo-videos/bo-360-075-075_cam1_iv5.wmv
+      - /media/cyrus/workspace/Seyfried/bo-videos/bo-360-075-075_cam2_iv5.wmv
+
+#   Annotation: '/home/cyrus/workspace2/OpenTraj/datasets/HERMES/Corridor-2D/bo-360-090-090.txt'
+#   Title: 'HERMES-bo-360-090-090'
+#   Video:
+#      - /media/cyrus/workspace/Seyfried/bo-videos/bo-360-090-090_cam1_iv5.wmv
+#      - /media/cyrus/workspace/Seyfried/bo-videos/bo-360-090-090_cam2_iv5.wmv
+
+   #   Annotation: '/home/cyrus/workspace2/OpenTraj/datasets/HERMES/Corridor-2D/bo-360-090-090.txt'
+   #   Annotation: '/home/cyrus/workspace2/OpenTraj/datasets/HERMES/Corridor-2D/bo-360-120-120.txt'
+   #   Annotation: '/home/cyrus/workspace2/OpenTraj/datasets/HERMES/Corridor-2D/boa-300-050-070.txt'
+
+   #   Map: ''
+   fps: 16.0
+   # **********************
+   # obstacles: line segments
+   Obstacles:
+      - [-4.5, 0, 4.5, 0]
+      - [-4.5, 3.6, 4.5, 3.6]
+   WorldBoundary:
+      x_min: -7
+      x_max: 7
+      y_min: 0
+      y_max: 3.6
+
+   RobotId: 1
+   Parser: ParserHermes
