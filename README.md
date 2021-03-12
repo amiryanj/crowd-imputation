@@ -8,6 +8,6 @@
 1. update the path to the crowd trajectory dataset in `config/repbot_sim/real_scenario_config.yaml` 
 2. run the following script:
 
-  ```python 
-  python src/crowdrep_bot/__main__.py 
+  ```bash 
+  $ python src/crowdrep_bot/__main__.py 
   ```

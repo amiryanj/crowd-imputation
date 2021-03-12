@@ -4,14 +4,6 @@
 # coding=utf-8
 """Given the trajectory file, reconstruct person walking."""
 
-import argparse
-import glob
-import pygame
-import os
-import sys
-
-script_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(glob.glob("%s/carla*.egg" % script_path)[0])
 
 import carla
 import numpy as np
@@ -22,13 +14,16 @@ from crowdrep_bot.util.carla_utils import setup_static
 from crowdrep_bot.util.carla_utils import get_scene
 from crowdrep_bot.util.carla_utils import get_controls_from_traj_data
 from crowdrep_bot.util.carla_settings import static_scenes
-from toolkit.loaders.loader_hermes import load_bottleneck
 from crowdrep_bot.util.carla_utils import Camera, get_bp
+from toolkit.loaders.loader_hermes import load_bottleneck
+import argparse
+import glob
+import pygame
+import os
+import sys
 
-
-
-def xx(data):
-    print("HERERS")
+script_path = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(glob.glob("%s/carla*.egg" % script_path)[0])
 
 
 class CarlaManager:
@@ -357,8 +352,6 @@ if __name__ == "__main__":
                                                 [0, 1, -98.],
                                                 [0, 0, 1]]), inplace=True)
 
-    # traj_dataset.data["pos_x"] += 30  # x offset
-    # traj_dataset.data["pos_y"] += 5   # y offset
 
     carla_manager = CarlaManager(args.robot_id)
     carla_manager.static_scene = static_scene
