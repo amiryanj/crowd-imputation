@@ -15,7 +15,7 @@ subscriber:
         queue_size: 1
 
     transform:
-        topic: /repbot/robot_tf
+        topic: /crowdrep_bot/robot_tf
         queue_size: 1
 
 #    detections1:

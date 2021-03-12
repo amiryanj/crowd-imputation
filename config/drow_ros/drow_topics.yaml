@@ -11,5 +11,5 @@ publisher:
 
 subscriber:
     scan:
-        topic: /repbot/scan_front
+        topic: /crowdrep_bot/scan_front
         queue_size: 1

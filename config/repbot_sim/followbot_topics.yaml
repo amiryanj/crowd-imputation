@@ -1,11 +1,11 @@
 publisher:
     scan:
-        topic: /repbot/scan_front
+        topic: /crowdrep_bot/scan_front
         queue_size: 1
         latch: false
 
     robot_tf:
-        topic: /repbot/robot_tf
+        topic: /crowdrep_bot/robot_tf
         queue_size: 1
         latch: false
 

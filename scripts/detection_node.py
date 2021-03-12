@@ -2,7 +2,7 @@
 import rospy
 from sensor_msgs.msg import LaserScan
 from frame_msgs.msg import DetectedPerson, DetectedPersons
-from repbot.tracking.tracking import PedestrianDetection
+from crowdrep_bot.tracking.tracking import PedestrianDetection
 
 import numpy as np
 

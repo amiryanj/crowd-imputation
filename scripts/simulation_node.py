@@ -9,8 +9,8 @@ from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import Point
 
 from scipy.spatial.transform import Rotation
-from repbot.scenarios.real_scenario import RealScenario
-from repbot.gui.visualizer import *
+from crowdrep_bot.scenarios.real_scenario import RealScenario
+from crowdrep_bot.gui.visualizer import *
 
 
 class SimulationNode:
@@ -161,7 +161,7 @@ class SimulationNode:
 
 if __name__ == '__main__':
     rospy.init_node('repbot_sim')
-    print('repbot simulator node is running ...')
+    print('crowdrep_bot simulator node is running ...')
     try:
         SimulationNode()
     except rospy.ROSInterruptException:
