@@ -1,6 +1,6 @@
 # Crowd Imputation
 
-1. *Simulating a Robot Replacing a pedestrian in a crowd*
+1. *Simulating a Robot to Replace a Pedestrian in a Crowd*
 2. *Imputing Occluded Crowd Structures from Robot Sensing*
 
 ## How to Run
